@@ -32,7 +32,6 @@ import {
   performLogout,
   resolveLogoutRedirect,
 } from "@/lib/auth/logout";
-import { isAdminProfile } from "@/lib/auth/isAdmin";
 
 const AuthContext = createContext({
   supabase: null,
@@ -1255,13 +1254,7 @@ export function AuthProvider({
     if (!pathname) return;
     if (!pathname.startsWith("/business-auth")) return;
 
-    const target = isAdminProfile(
-      {
-        role: authState.profile?.role ?? authState.role ?? null,
-        is_internal: authState.profile?.is_internal === true,
-      },
-      []
-    )
+    const target = (authState.profile?.role ?? authState.role) === "admin"
       ? "/admin"
       : authState.role === "business"
         ? PATHS.business.dashboard

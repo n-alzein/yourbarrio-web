@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getSafeRedirectPath } from "@/lib/auth/redirects";
 
 export default async function SignInPage({
   searchParams,
@@ -6,7 +7,8 @@ export default async function SignInPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = (await searchParams) || {};
-  const nextParam = typeof params.next === "string" ? params.next : "/admin";
+  const nextParamRaw = typeof params.next === "string" ? params.next : "/";
+  const nextParam = getSafeRedirectPath(nextParamRaw) || "/";
 
   return (
     <section className="mx-auto max-w-2xl px-6 py-16 text-center text-white">

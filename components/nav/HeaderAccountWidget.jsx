@@ -77,11 +77,7 @@ export default function HeaderAccountWidget({
   const accountUser = forcedAuth?.user || user;
   const accountProfile = forcedAuth?.profile || profile;
   const effectiveRole = forcedAuth?.role || role;
-  const isCustomer =
-    !effectiveRole ||
-    effectiveRole === "customer" ||
-    effectiveRole === "admin" ||
-    effectiveRole === "internal";
+  const isCustomer = effectiveRole === "customer";
   const isBusiness = effectiveRole === "business";
   const sidebarFeatureEnabled = process.env.NEXT_PUBLIC_ACCOUNT_SIDEBAR !== "0";
   const [useSidebarDesktop, setUseSidebarDesktop] = useState(() => {

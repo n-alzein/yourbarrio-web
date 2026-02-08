@@ -1,13 +1,16 @@
 import { Suspense } from "react";
 import { headers, cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import GlobalHeader from "@/components/nav/GlobalHeader";
 import InactivityLogout from "@/components/auth/InactivityLogout";
 import AuthSeed from "@/components/auth/AuthSeed";
 import AuthRedirectGuard from "@/components/auth/AuthRedirectGuard";
 import { requireEffectiveRole } from "@/lib/auth/requireEffectiveRole";
+import { getCurrentUserRole } from "@/lib/auth/getCurrentUserRole";
 import { PATHS } from "@/lib/auth/paths";
 import CustomerRealtimeProvider from "@/app/(customer)/customer/CustomerRealtimeProvider";
 import { getAdminDataClient } from "@/lib/supabase/admin";
+import { getRequestPath } from "@/lib/url/getRequestPath";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,6 +29,17 @@ function CustomerRouteShell({ children = null, className = "" }) {
 }
 
 export default async function CustomerLayout({ children }) {
+  const requestPath = await getRequestPath(PATHS.customer.home);
+  const { role } = await getCurrentUserRole();
+  if (role === "anon") {
+    redirect(`/signin?modal=signin&next=${encodeURIComponent(requestPath)}`);
+  }
+  if (role !== "customer") {
+    if (role === "business") redirect(PATHS.business.dashboard);
+    if (role === "admin") redirect("/admin");
+    redirect("/not-authorized");
+  }
+
   const headerList = await headers();
   const userAgent = headerList.get("user-agent") || "";
   const isSafari =

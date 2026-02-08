@@ -1,13 +1,19 @@
 import type { ReactNode } from "react";
+import { notFound } from "next/navigation";
 import AdminNav from "@/app/admin/_components/AdminNav";
 import ImpersonationBanner from "@/app/admin/_components/ImpersonationBanner";
 import AdminNavbar from "@/components/nav/AdminNavbar";
 import { getEffectiveUserId } from "@/lib/admin/impersonation";
 import { isAdminDevAllowlistConfigured, requireAdmin } from "@/lib/admin/permissions";
+import { getCurrentUserRole } from "@/lib/auth/getCurrentUserRole";
 import { getRequestPath } from "@/lib/url/getRequestPath";
 import { isAdminBypassRlsEnabled } from "@/lib/supabase/admin";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
+  const { role } = await getCurrentUserRole();
+  // Deny by default and hide admin surface existence from non-admin users.
+  if (role !== "admin") notFound();
+
   const guardDiagEnabled =
     String(process.env.AUTH_GUARD_DIAG || "") === "1" ||
     String(process.env.NEXT_PUBLIC_AUTH_DIAG || "") === "1";

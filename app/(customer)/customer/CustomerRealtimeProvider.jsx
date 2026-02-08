@@ -8,7 +8,7 @@ const UNREAD_REFRESH_EVENT = "yb-unread-refresh";
 
 export default function CustomerRealtimeProvider({ children }) {
   const { supabase, user, profile, role, authStatus } = useAuth();
-  const isCustomer = !role || role === "customer" || role === "admin" || role === "internal";
+  const isCustomer = role === "customer";
   const unreadUserId = user?.id || profile?.id || null;
 
   const shouldEnable =

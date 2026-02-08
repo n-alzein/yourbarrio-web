@@ -1,177 +1,120 @@
-// middleware.js
-// Debug: check Network -> response headers `x-mw-hit` and `x-mw-path`.
-// Visit `/health` and `/categories/test` to verify routing.
-// If `/health` 404s, routes may not be registering or an upstream rewrite is interfering.
-// If headers are missing, the request bypassed middleware or another middleware is active.
 import { NextResponse } from "next/server";
-import { clearSupabaseCookies, getSbCookieNamesFromRequest } from "@/lib/authCookies";
-import { updateSession } from "@/lib/supabase/middleware";
+import { createServerClient } from "@supabase/ssr";
+import { getCookieBaseOptions } from "@/lib/authCookies";
+import { resolveCurrentUserRoleFromClient } from "@/lib/auth/getCurrentUserRole";
 
 export async function middleware(request) {
-  const mwStart = performance.now();
-  const diagEnabled =
-    process.env.AUTH_GUARD_DIAG === "1" ||
-    process.env.NEXT_PUBLIC_AUTH_DIAG === "1";
   const pathname = request.nextUrl.pathname;
-  const perfEnabled =
-    request.nextUrl.searchParams?.get("perf") === "1" ||
-    process.env.NEXT_PUBLIC_PERF_DEBUG === "1";
-  const requestHeaders = new Headers(request.headers);
-  if (perfEnabled) {
-    requestHeaders.set("x-perf", "1");
-    requestHeaders.set("x-perf-path", pathname);
-  }
-  const timing = [];
-  const markTiming = (name, startAt) => {
-    if (!perfEnabled) return;
-    const dur = performance.now() - startAt;
-    timing.push(`${name};dur=${Math.round(dur)}`);
-  };
-  const wrapPerfHeaders = (res) => {
-    if (perfEnabled) {
-      if (timing.length) {
-        res.headers.set("Server-Timing", timing.join(", "));
-      } else {
-        res.headers.set("Server-Timing", `middleware;dur=${Math.round(performance.now() - mwStart)}`);
-      }
-      res.headers.set("x-perf", "1");
-      res.headers.set("x-perf-path", pathname);
-      try {
-        res.cookies.set("yb-perf", "1", { path: "/", maxAge: 600 });
-      } catch {
-        // best effort
-      }
-    }
-    return res;
-  };
-  const wrapNext = () => {
-    const t0 = performance.now();
-    const res = NextResponse.next({ request: { headers: requestHeaders } });
-    res.headers.set("x-mw-hit", "1");
-    res.headers.set("x-mw-path", pathname);
-    markTiming("mw_next", t0);
-    return wrapPerfHeaders(res);
-  };
-  const wrapRedirect = (url) => {
-    const t0 = performance.now();
-    const res = NextResponse.redirect(url);
-    res.headers.set("x-mw-hit", "1");
-    res.headers.set("x-mw-path", pathname);
-    markTiming("mw_redirect", t0);
-    return wrapPerfHeaders(res);
-  };
-  const wrapJson = (data, init) => {
-    const t0 = performance.now();
-    const res = NextResponse.json(data, init);
-    res.headers.set("x-mw-hit", "1");
-    res.headers.set("x-mw-path", pathname);
-    markTiming("mw_json", t0);
-    return wrapPerfHeaders(res);
-  };
-  const wrapResponse = (res) => {
-    res.headers.set("x-mw-hit", "1");
-    res.headers.set("x-mw-path", pathname);
-    return wrapPerfHeaders(res);
-  };
-  const cookieStart = performance.now();
-  const hasAuthCookie = getSbCookieNamesFromRequest(request).length > 0;
-  markTiming("mw_cookies", cookieStart);
-  if (diagEnabled) {
-    console.warn("[AUTH_DIAG] mw:hit", { pathname, hasAuthCookie });
-  }
-  const isApiRoute = pathname.startsWith("/api/");
-  if (
-    pathname.startsWith("/_next/") ||
-    pathname === "/favicon.ico" ||
-    pathname.startsWith("/images/") ||
-    pathname.startsWith("/public/")
-  ) {
-    return wrapNext();
-  }
+  const response = NextResponse.next();
   const isPublicBusinessRoute =
     pathname === "/business" ||
     pathname === "/business/" ||
     pathname.startsWith("/business/about") ||
+    pathname.startsWith("/business/pricing") ||
+    pathname.startsWith("/business/faq") ||
+    pathname.startsWith("/business/how-it-works") ||
+    pathname.startsWith("/business/retailers") ||
     pathname.startsWith("/business/login");
-  if (isPublicBusinessRoute) {
-    return wrapNext();
-  }
-  const isPublicCategoryRoute =
-    pathname === "/categories" ||
-    pathname === "/categories/" ||
-    pathname.startsWith("/categories/");
-  if (isPublicCategoryRoute) {
-    if (diagEnabled) {
-      console.warn("[AUTH_DIAG] public_route:allow", {
-        pathname,
-        type: "categories",
-      });
+  const isProd = process.env.NODE_ENV === "production";
+  const cookieBaseOptions = getCookieBaseOptions({
+    host: request.headers.get("host"),
+    isProd,
+  });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, {
+              ...options,
+              ...cookieBaseOptions,
+            });
+          });
+        },
+      },
     }
-    return wrapNext();
-  }
+  );
 
-  if (!isApiRoute && !hasAuthCookie) {
-    const redirectUrl = new URL("/?redirected=1", request.url);
-    if (diagEnabled) {
-      console.warn("[AUTH_DIAG] route_guard:redirect", {
-        from: pathname,
-        to: redirectUrl.pathname + redirectUrl.search,
-        reason: "missing_auth_cookie",
-      });
-    }
-    return wrapRedirect(redirectUrl);
-  }
-
-  if (pathname.startsWith("/api/auth/") || pathname === "/api/logout") {
-    return wrapNext();
-  }
-
-  const sessionStart = performance.now();
-  const response = await updateSession(request, requestHeaders);
-  markTiming("mw_session", sessionStart);
-  const refreshError = response.headers.get("x-supabase-refresh-error");
-  if (refreshError === "refresh_token_already_used") {
-    if (isApiRoute) {
-      const apiResponse = wrapJson(
-        { error: "session_refresh_failed" },
-        { status: 401 }
-      );
-      clearSupabaseCookies(apiResponse, request, {
-        isProd: process.env.NODE_ENV === "production",
-      });
-      return wrapResponse(apiResponse);
-    }
-
-    const redirectUrl = new URL("/?redirected=1", request.url);
-    const redirectResponse = wrapRedirect(redirectUrl);
-    clearSupabaseCookies(redirectResponse, request, {
-      isProd: process.env.NODE_ENV === "production",
+  const shouldLogRole =
+    process.env.NODE_ENV !== "production" &&
+    (process.env.AUTH_GUARD_DIAG === "1" || process.env.NEXT_PUBLIC_AUTH_DIAG === "1");
+  const { user, role } = await resolveCurrentUserRoleFromClient(supabase, {
+    log: shouldLogRole,
+  });
+  const withSupabaseCookies = (targetResponse = response) => {
+    const cookies = response.cookies.getAll();
+    cookies.forEach(({ name, value }) => {
+      targetResponse.cookies.set(name, value);
     });
-    return wrapResponse(redirectResponse);
+    return targetResponse;
+  };
+
+  if (pathname.startsWith("/admin")) {
+    // Deny by default and return 404 to avoid leaking admin route existence.
+    if (!user || role !== "admin") {
+      return withSupabaseCookies(new NextResponse("Not Found", { status: 404 }));
+    }
+    return response;
   }
 
-  if (diagEnabled) {
-    const hasRsc =
-      request.headers.get("RSC") === "1" ||
-      request.headers.has("next-router-state-tree");
-    if (hasRsc) {
-      console.warn("[AUTH_DIAG] rsc:request", {
-        pathname,
-        search: request.nextUrl.search,
-        method: request.method,
-      });
+  if (pathname.startsWith("/customer")) {
+    if (!user) {
+      const signinUrl = new URL("/signin", request.url);
+      signinUrl.searchParams.set("modal", "signin");
+      signinUrl.searchParams.set("next", pathname);
+      return withSupabaseCookies(NextResponse.redirect(signinUrl));
     }
+    if (role !== "customer") {
+      if (role === "business") {
+        return withSupabaseCookies(
+          NextResponse.redirect(new URL("/business/dashboard", request.url))
+        );
+      }
+      if (role === "admin") {
+        return withSupabaseCookies(NextResponse.redirect(new URL("/admin", request.url)));
+      }
+      return withSupabaseCookies(new NextResponse("Forbidden", { status: 403 }));
+    }
+    return response;
   }
-  return wrapResponse(response);
+
+  if (pathname.startsWith("/business")) {
+    if (isPublicBusinessRoute) {
+      return withSupabaseCookies(response);
+    }
+    if (!user) {
+      const signinUrl = new URL("/signin", request.url);
+      signinUrl.searchParams.set("modal", "signin");
+      signinUrl.searchParams.set("next", pathname);
+      return withSupabaseCookies(NextResponse.redirect(signinUrl));
+    }
+    if (role !== "business") {
+      if (role === "customer") {
+        return withSupabaseCookies(
+          NextResponse.redirect(new URL("/customer/home", request.url))
+        );
+      }
+      if (role === "admin") {
+        return withSupabaseCookies(NextResponse.redirect(new URL("/admin", request.url)));
+      }
+      return withSupabaseCookies(new NextResponse("Forbidden", { status: 403 }));
+    }
+    return response;
+  }
+
+  return response;
 }
 
 export const config = {
   matcher: [
-    "/api/:path*",
+    "/admin/:path*",
     "/customer/:path*",
     "/business/:path*",
-    "/categories/:path*",
-    "/health",
-    "/categories/test",
   ],
 };

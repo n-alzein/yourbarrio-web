@@ -1,10 +1,13 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import BusinessNavbar from "@/components/navbars/BusinessNavbar";
 import InactivityLogout from "@/components/auth/InactivityLogout";
 import AuthSeed from "@/components/auth/AuthSeed";
 import AuthRedirectGuard from "@/components/auth/AuthRedirectGuard";
 import { requireEffectiveRole } from "@/lib/auth/requireEffectiveRole";
+import { getCurrentUserRole } from "@/lib/auth/getCurrentUserRole";
 import { PATHS } from "@/lib/auth/paths";
+import { getRequestPath } from "@/lib/url/getRequestPath";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,6 +22,17 @@ function BusinessRouteShell({ children = null }) {
 }
 
 export default async function BusinessLayout({ children }) {
+  const requestPath = await getRequestPath(PATHS.business.dashboard);
+  const { role } = await getCurrentUserRole();
+  if (role === "anon") {
+    redirect(`/signin?modal=signin&next=${encodeURIComponent(requestPath)}`);
+  }
+  if (role !== "business") {
+    if (role === "customer") redirect(PATHS.customer.home);
+    if (role === "admin") redirect("/admin");
+    redirect("/not-authorized");
+  }
+
   const {
     user,
     authUser,
