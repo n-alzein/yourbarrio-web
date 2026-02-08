@@ -1,5 +1,6 @@
-import Link from "next/link";
 import AdminFlash from "@/app/admin/_components/AdminFlash";
+import AdminUserSignupsChart from "@/app/admin/_components/AdminUserSignupsChart";
+import RecentAuditActivity from "@/app/admin/_components/RecentAuditActivity";
 import { requireAdminRole } from "@/lib/admin/permissions";
 import { getAdminDataClient } from "@/lib/supabase/admin";
 
@@ -10,6 +11,18 @@ async function getCount(client: any, table: string, apply?: (query: any) => any)
   return count || 0;
 }
 
+const AUDIT_PAGE_SIZE = 10;
+
+function formatBucketLabel(bucketStart: string) {
+  const [year, month, day] = bucketStart.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export default async function AdminDashboardPage({
   searchParams,
 }: {
@@ -17,9 +30,18 @@ export default async function AdminDashboardPage({
 }) {
   await requireAdminRole("admin_readonly");
   const { client } = await getAdminDataClient();
-  const { data: newUsers7dCount } = await client.rpc("count_new_users_last_days", { p_days: 7 });
+  const [newUsers7dResult, totalUsersCountResult, signupsSeriesResult] = await Promise.all([
+    client.rpc("count_new_users_last_days", { p_days: 7 }),
+    client.rpc("admin_total_users_count"),
+    client.rpc("admin_user_signups_timeseries", {
+      p_days: 30,
+    }),
+  ]);
+  const newUsers7dCount = newUsers7dResult.data;
+  const totalUsersCount = totalUsersCountResult.data;
+  const signupsSeriesData = signupsSeriesResult.data;
 
-  const [totalUsers, totalBusinesses, newUsers7d, openModeration, openSupport, recentAudit] =
+  const [totalUsersFallback, totalBusinesses, newUsers7d, openModeration, openSupport, recentAudit] =
     await Promise.all([
       getCount(client, "users"),
       getCount(client, "users", (q) => q.eq("role", "business")),
@@ -30,10 +52,22 @@ export default async function AdminDashboardPage({
         .from("admin_audit_log")
         .select("id, action, target_type, target_id, actor_user_id, created_at")
         .order("created_at", { ascending: false })
-        .limit(20),
-    ]);
+        .order("id", { ascending: false })
+        .limit(AUDIT_PAGE_SIZE + 1),
+  ]);
 
-  const auditRows = recentAudit.data || [];
+  // Count from auth.users so users with NULL/empty city (or missing profile rows) are still included.
+  const totalUsers = Number(totalUsersCount ?? totalUsersFallback ?? 0);
+  const allAuditRows = recentAudit.data || [];
+  const initialAuditRows = allAuditRows.slice(0, AUDIT_PAGE_SIZE);
+  const initialAuditHasMore = allAuditRows.length > AUDIT_PAGE_SIZE;
+  const signupRows = Array.isArray(signupsSeriesData) ? signupsSeriesData : [];
+  const signupChartData = signupRows.map((row: any) => ({
+    bucketStart: String(row.bucket_start),
+    label: formatBucketLabel(String(row.bucket_start)),
+    customerCount: Number(row.customer_count || 0),
+    businessCount: Number(row.business_count || 0),
+  }));
 
   return (
     <section className="space-y-4">
@@ -51,43 +85,13 @@ export default async function AdminDashboardPage({
         <StatCard label="Open support tickets" value={openSupport} />
       </div>
 
-      <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-medium">Recent audit activity</h3>
-          <Link href="/admin/audit" className="text-sm text-sky-300 hover:text-sky-200">
-            View all
-          </Link>
-        </div>
-        <div className="overflow-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left text-neutral-400">
-                <th className="py-2 pr-3">Time</th>
-                <th className="py-2 pr-3">Action</th>
-                <th className="py-2 pr-3">Target</th>
-                <th className="py-2 pr-3">Actor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {auditRows.map((row: any) => (
-                <tr key={row.id} className="border-t border-neutral-800">
-                  <td className="py-2 pr-3">{new Date(row.created_at).toLocaleString()}</td>
-                  <td className="py-2 pr-3">{row.action}</td>
-                  <td className="py-2 pr-3">{row.target_type || "-"}:{row.target_id || "-"}</td>
-                  <td className="py-2 pr-3 font-mono text-xs">{row.actor_user_id || "system"}</td>
-                </tr>
-              ))}
-              {!auditRows.length ? (
-                <tr>
-                  <td className="py-3 text-neutral-400" colSpan={4}>
-                    No audit records yet.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <AdminUserSignupsChart data={signupChartData} />
+
+      <RecentAuditActivity
+        initialRows={initialAuditRows}
+        initialHasMore={initialAuditHasMore}
+        pageSize={AUDIT_PAGE_SIZE}
+      />
     </section>
   );
 }

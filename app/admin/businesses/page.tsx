@@ -17,7 +17,9 @@ export default async function AdminBusinessesPage({
   await requireAdminRole("admin_readonly");
   const params = (await searchParams) || {};
   const q = asString(params.q).trim();
-  const city = asString(params.city).trim();
+  // Admin views are global by default.
+  // Do NOT apply implicit location filters (e.g. inherited `city` query params).
+  const city = asString(params.admin_city).trim();
   const page = Math.max(1, Number(asString(params.page, "1")) || 1);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
@@ -43,7 +45,7 @@ export default async function AdminBusinessesPage({
 
   const pageParams = new URLSearchParams();
   if (q) pageParams.set("q", q);
-  if (city) pageParams.set("city", city);
+  if (city) pageParams.set("admin_city", city);
 
   return (
     <section className="space-y-4">
@@ -61,7 +63,7 @@ export default async function AdminBusinessesPage({
           placeholder="Search business, owner, email, phone"
           className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
         />
-        <input name="city" defaultValue={city} placeholder="city" className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
+        <input name="admin_city" defaultValue={city} placeholder="city" className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
         <button type="submit" className="rounded bg-sky-600 px-3 py-2 text-sm font-medium hover:bg-sky-500">
           Apply filters
         </button>

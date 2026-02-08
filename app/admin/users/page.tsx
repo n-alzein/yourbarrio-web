@@ -25,7 +25,9 @@ export default async function AdminUsersPage({
   const params = (await searchParams) || {};
   const q = asString(params.q).trim();
   const role = asString(params.role).trim();
-  const city = asString(params.city).trim();
+  // Admin views are global by default.
+  // Do NOT apply implicit location filters (e.g. inherited `city` query params).
+  const city = asString(params.admin_city).trim();
   const isInternal = asString(params.is_internal).trim();
   const createdFrom = asString(params.from).trim();
   const createdTo = asString(params.to).trim();
@@ -71,7 +73,7 @@ export default async function AdminUsersPage({
   const pageParams = new URLSearchParams();
   if (q) pageParams.set("q", q);
   if (role) pageParams.set("role", role);
-  if (city) pageParams.set("city", city);
+  if (city) pageParams.set("admin_city", city);
   if (isInternal) pageParams.set("is_internal", isInternal);
   if (createdFrom) pageParams.set("from", createdFrom);
   if (createdTo) pageParams.set("to", createdTo);
@@ -104,7 +106,7 @@ export default async function AdminUsersPage({
           className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm md:col-span-2"
         />
         <input name="role" defaultValue={role} placeholder="role" className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
-        <input name="city" defaultValue={city} placeholder="city" className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
+        <input name="admin_city" defaultValue={city} placeholder="city" className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
         <select name="is_internal" defaultValue={isInternal} className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm">
           <option value="">is_internal: any</option>
           <option value="true">internal true</option>

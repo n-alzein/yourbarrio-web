@@ -3,6 +3,7 @@ import "./globals.css";
 import "./safari-layer-budget.css";
 import GlobalSupportModeBanner from "@/components/admin/GlobalSupportModeBanner";
 import AppShell from "@/components/AppShell";
+import { Analytics } from "@vercel/analytics/react";
 
 export const metadata = {
   title: "YourBarrio – Find What You Need Nearby",
@@ -41,6 +42,8 @@ export default function RootLayout({ children }) {
       <body className="min-h-screen w-full overflow-x-hidden antialiased text-white">
         <GlobalSupportModeBanner />
         <AppShell>{children}</AppShell>
+        {/* Vercel Web Analytics: global passive tracking; keep at root and avoid page-level duplicates. */}
+        <Analytics />
       </body>
     </html>
   );
