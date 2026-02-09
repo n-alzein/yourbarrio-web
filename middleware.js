@@ -3,6 +3,94 @@ import { createServerClient } from "@supabase/ssr";
 import { getCookieBaseOptions } from "@/lib/authCookies";
 import { resolveCurrentUserRoleFromClient } from "@/lib/auth/getCurrentUserRole";
 
+const IMPERSONATE_USER_COOKIE = "yb_impersonate_user_id";
+const IMPERSONATE_SESSION_COOKIE = "yb_impersonate_session_id";
+const IMPERSONATE_TARGET_ROLE_COOKIE = "yb_impersonate_target_role";
+
+function isUuid(value) {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value
+    )
+  );
+}
+
+async function resolveSupportModeState({ supabase, request, shouldLogRole, pathname }) {
+  const sessionId = (request.cookies.get(IMPERSONATE_SESSION_COOKIE)?.value || "").trim();
+  const targetUserId = (request.cookies.get(IMPERSONATE_USER_COOKIE)?.value || "").trim();
+  const cookieTargetRole = (
+    request.cookies.get(IMPERSONATE_TARGET_ROLE_COOKIE)?.value || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  if (!isUuid(sessionId) || !isUuid(targetUserId)) {
+    return {
+      supportModeActive: false,
+      targetRole: null,
+      targetUserId: null,
+      reason: "missing_or_invalid_cookies",
+    };
+  }
+
+  const { data, error } = await supabase.rpc("get_impersonation_session", {
+    p_session_id: sessionId,
+  });
+  if (error) {
+    if (shouldLogRole) {
+      console.warn("[AUTH_GUARD_DIAG] middleware:support_mode:rpc_error", {
+        pathname,
+        code: error.code || null,
+        message: error.message || null,
+      });
+    }
+    return {
+      supportModeActive: false,
+      targetRole: null,
+      targetUserId: null,
+      reason: "rpc_error",
+    };
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  const sessionTargetUserId = String(row?.target_user_id || "").trim();
+  const sessionTargetRole = String(row?.target_role || "").trim().toLowerCase();
+  const sessionActive = row?.is_active === true;
+
+  if (!row || !sessionActive || sessionTargetUserId !== targetUserId) {
+    return {
+      supportModeActive: false,
+      targetRole: null,
+      targetUserId: null,
+      reason: "session_invalid_or_mismatch",
+    };
+  }
+
+  const targetRole =
+    sessionTargetRole === "customer" || sessionTargetRole === "business"
+      ? sessionTargetRole
+      : cookieTargetRole === "customer" || cookieTargetRole === "business"
+        ? cookieTargetRole
+        : null;
+
+  if (!targetRole) {
+    return {
+      supportModeActive: false,
+      targetRole: null,
+      targetUserId: null,
+      reason: "missing_target_role",
+    };
+  }
+
+  return {
+    supportModeActive: true,
+    targetRole,
+    targetUserId,
+    reason: "ok",
+  };
+}
+
 export async function middleware(request) {
   const pathname = request.nextUrl.pathname;
   const response = NextResponse.next();
@@ -47,6 +135,33 @@ export async function middleware(request) {
   const { user, role } = await resolveCurrentUserRoleFromClient(supabase, {
     log: shouldLogRole,
   });
+  const supportMode = user?.id
+    ? await resolveSupportModeState({
+        supabase,
+        request,
+        shouldLogRole,
+        pathname,
+      })
+    : {
+        supportModeActive: false,
+        targetRole: null,
+        targetUserId: null,
+        reason: "no_user",
+      };
+
+  if (shouldLogRole) {
+    console.warn("[AUTH_GUARD_DIAG] middleware:effective_identity", {
+      pathname,
+      actorUserId: user?.id || null,
+      actorRole: role,
+      supportModeActive: supportMode.supportModeActive,
+      targetUserId: supportMode.targetUserId,
+      effectiveRole: supportMode.supportModeActive
+        ? supportMode.targetRole
+        : role,
+      supportReason: supportMode.reason,
+    });
+  }
   const withSupabaseCookies = (targetResponse = response) => {
     const cookies = response.cookies.getAll();
     cookies.forEach(({ name, value }) => {
@@ -77,6 +192,12 @@ export async function middleware(request) {
         );
       }
       if (role === "admin") {
+        if (
+          supportMode.supportModeActive &&
+          supportMode.targetRole === "customer"
+        ) {
+          return withSupabaseCookies(response);
+        }
         return withSupabaseCookies(NextResponse.redirect(new URL("/admin", request.url)));
       }
       return withSupabaseCookies(new NextResponse("Forbidden", { status: 403 }));
@@ -101,6 +222,12 @@ export async function middleware(request) {
         );
       }
       if (role === "admin") {
+        if (
+          supportMode.supportModeActive &&
+          supportMode.targetRole === "business"
+        ) {
+          return withSupabaseCookies(response);
+        }
         return withSupabaseCookies(NextResponse.redirect(new URL("/admin", request.url)));
       }
       return withSupabaseCookies(new NextResponse("Forbidden", { status: 403 }));
