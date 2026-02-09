@@ -4,6 +4,7 @@ import "server-only";
  * Admin accounts data source notes:
  * - Role source of truth is `users.role`, with admin membership from `admin_role_members.role_key`.
  * - `is_internal` source of truth is `users.is_internal` (or false when missing in legacy envs).
+ * - Internal users are NOT admins by role semantics; internal is a separate operational flag.
  * - Root cause of silent "No accounts found": errors from data queries were previously ignored by the UI,
  *   so schema/RLS failures looked like empty data.
  */
@@ -91,7 +92,7 @@ function normalizeRows(
       : [];
     const roleKeys = adminRoleKeysByUserId.get(id) || roleKeysFromRow;
     const isInternal = row?.is_internal === true;
-    const hasAdminAccess = role === "admin" || isInternal || roleKeys.length > 0;
+    const hasAdminAccess = role === "admin" || roleKeys.length > 0;
     return {
       id,
       email: row?.email ?? null,
@@ -135,7 +136,6 @@ async function getAdminRoleMembers(client: any) {
 function applyRoleFilter(query: any, role: AdminUserRoleFilter, adminIds: string[]) {
   if (role === "business") {
     query = query.eq("role", "business");
-    query = query.not("is_internal", "is", true);
     if (adminIds.length) {
       query = query.not("id", "in", `(${adminIds.join(",")})`);
     }
@@ -143,14 +143,13 @@ function applyRoleFilter(query: any, role: AdminUserRoleFilter, adminIds: string
   }
   if (role === "customer") {
     query = query.or("role.eq.customer,role.eq.user,role.is.null");
-    query = query.not("is_internal", "is", true);
     if (adminIds.length) {
       query = query.not("id", "in", `(${adminIds.join(",")})`);
     }
     return query;
   }
   if (role === "admin") {
-    const adminClauses = ["role.eq.admin", "is_internal.eq.true"];
+    const adminClauses = ["role.eq.admin"];
     if (adminIds.length) {
       adminClauses.push(`id.in.(${adminIds.join(",")})`);
     }

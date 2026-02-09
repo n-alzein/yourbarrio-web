@@ -149,6 +149,11 @@ export default async function AccountsList({
           <p className="mt-1 text-xs">details={String(error.details || "-")}</p>
         </div>
       ) : null}
+      {!error && rows.length > 0 && count < rows.length ? (
+        <div className="rounded-md border border-amber-700 bg-amber-950/70 px-3 py-2 text-xs text-amber-100">
+          Accounts count anomaly detected: `rows.length` exceeds `total_count`. Check admin list query diagnostics.
+        </div>
+      ) : null}
 
       <AccountsFiltersClient
         presetRole={presetRole}
