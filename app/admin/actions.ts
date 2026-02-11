@@ -16,15 +16,36 @@ import {
 } from "@/lib/admin/supportMode";
 import { clearAllAuthCookies } from "@/lib/auth/clearAuthCookies";
 import { getSafeRedirectPath } from "@/lib/auth/redirects";
-import { requireAdmin, requireAdminRole } from "@/lib/admin/permissions";
+import {
+  ADMIN_ROLES,
+  canAdmin,
+  requireAdmin,
+  requireAdminAnyRole,
+  requireAdminRole,
+  type AdminCapability,
+  type AdminRole,
+} from "@/lib/admin/permissions";
 import { shouldUseSecureCookies } from "@/lib/http/cookiesSecurity";
 import { getSupabaseServerAuthedClient, getSupabaseServerClient } from "@/lib/supabaseServer";
-import { getAdminDataClient } from "@/lib/supabase/admin";
+import { getAdminDataClient, getAdminServiceRoleClient } from "@/lib/supabase/admin";
 
 function withMessage(pathname: string, type: "success" | "error", message: string) {
   const params = new URLSearchParams();
   params.set(type, message);
   return `${pathname}?${params.toString()}`;
+}
+
+const SAFE_APP_ROLES = ["customer", "business", "user"] as const;
+const SUPER_ONLY_APP_ROLES = ["admin"] as const;
+
+function requireCapabilityOrRedirect(
+  admin: Awaited<ReturnType<typeof requireAdmin>>,
+  capability: AdminCapability,
+  redirectPath: string
+) {
+  if (!admin.strictPermissionBypassUsed && !canAdmin(admin.roles, capability)) {
+    redirect(withMessage(redirectPath, "error", "Unauthorized"));
+  }
 }
 
 const updateUserRoleSchema = z.object({
@@ -33,7 +54,7 @@ const updateUserRoleSchema = z.object({
 });
 
 export async function updateUserRoleAction(formData: FormData) {
-  const admin = await requireAdminRole("admin_super");
+  const admin = await requireAdmin();
   const parsed = updateUserRoleSchema.safeParse({
     userId: formData.get("userId"),
     role: formData.get("role"),
@@ -43,14 +64,30 @@ export async function updateUserRoleAction(formData: FormData) {
     redirect(withMessage("/admin/accounts", "error", "Invalid role update payload"));
   }
 
-  const { client } = await getAdminDataClient();
+  const targetPath = `/admin/users/${parsed.data.userId}`;
+  requireCapabilityOrRedirect(admin, "update_app_role", targetPath);
+
+  const nextRole = String(parsed.data.role || "").trim().toLowerCase();
+  const safeRoles = new Set<string>(SAFE_APP_ROLES);
+  const superOnlyRoles = new Set<string>(SUPER_ONLY_APP_ROLES);
+  const canManageAdmins = admin.strictPermissionBypassUsed || canAdmin(admin.roles, "manage_admins");
+  if (!safeRoles.has(nextRole) && !(canManageAdmins && superOnlyRoles.has(nextRole))) {
+    redirect(withMessage(targetPath, "error", "Unauthorized role update"));
+  }
+
+  const { client } = await getAdminDataClient({ mode: "service" });
+  const { data: existingUser } = await client
+    .from("users")
+    .select("role")
+    .eq("id", parsed.data.userId)
+    .maybeSingle();
   const { error } = await client
     .from("users")
-    .update({ role: parsed.data.role, updated_at: new Date().toISOString() })
+    .update({ role: nextRole, updated_at: new Date().toISOString() })
     .eq("id", parsed.data.userId);
 
   if (error) {
-    redirect(withMessage(`/admin/users/${parsed.data.userId}`, "error", error.message));
+    redirect(withMessage(targetPath, "error", error.message));
   }
 
   await audit({
@@ -58,11 +95,11 @@ export async function updateUserRoleAction(formData: FormData) {
     targetType: "user",
     targetId: parsed.data.userId,
     actorUserId: admin.user.id,
-    meta: { new_role: parsed.data.role },
+    meta: { previous_role: existingUser?.role || null, new_role: nextRole },
   });
 
-  revalidatePath(`/admin/users/${parsed.data.userId}`);
-  redirect(withMessage(`/admin/users/${parsed.data.userId}`, "success", "Role updated"));
+  revalidatePath(targetPath);
+  redirect(withMessage(targetPath, "success", "Role updated"));
 }
 
 const toggleInternalSchema = z.object({
@@ -71,7 +108,7 @@ const toggleInternalSchema = z.object({
 });
 
 export async function toggleUserInternalAction(formData: FormData) {
-  const admin = await requireAdminRole("admin_ops");
+  const admin = await requireAdmin();
   const parsed = toggleInternalSchema.safeParse({
     userId: formData.get("userId"),
     isInternal: formData.get("isInternal"),
@@ -81,15 +118,23 @@ export async function toggleUserInternalAction(formData: FormData) {
     redirect(withMessage("/admin/accounts", "error", "Invalid internal toggle payload"));
   }
 
+  const targetPath = `/admin/users/${parsed.data.userId}`;
+  requireCapabilityOrRedirect(admin, "toggle_internal_user", targetPath);
+
   const nextValue = parsed.data.isInternal === "true";
-  const { client } = await getAdminDataClient();
+  const { client } = await getAdminDataClient({ mode: "service" });
+  const { data: existingUser } = await client
+    .from("users")
+    .select("is_internal")
+    .eq("id", parsed.data.userId)
+    .maybeSingle();
   const { error } = await client
     .from("users")
     .update({ is_internal: nextValue, updated_at: new Date().toISOString() })
     .eq("id", parsed.data.userId);
 
   if (error) {
-    redirect(withMessage(`/admin/users/${parsed.data.userId}`, "error", error.message));
+    redirect(withMessage(targetPath, "error", error.message));
   }
 
   await audit({
@@ -97,11 +142,14 @@ export async function toggleUserInternalAction(formData: FormData) {
     targetType: "user",
     targetId: parsed.data.userId,
     actorUserId: admin.user.id,
-    meta: { is_internal: nextValue },
+    meta: {
+      previous_is_internal: existingUser?.is_internal ?? null,
+      is_internal: nextValue,
+    },
   });
 
-  revalidatePath(`/admin/users/${parsed.data.userId}`);
-  redirect(withMessage(`/admin/users/${parsed.data.userId}`, "success", "Internal flag updated"));
+  revalidatePath(targetPath);
+  redirect(withMessage(targetPath, "success", "Internal flag updated"));
 }
 
 const internalNoteSchema = z.object({
@@ -110,7 +158,7 @@ const internalNoteSchema = z.object({
 });
 
 export async function addUserInternalNoteAction(formData: FormData) {
-  const admin = await requireAdminRole("admin_support");
+  const admin = await requireAdmin();
   const parsed = internalNoteSchema.safeParse({
     userId: formData.get("userId"),
     note: formData.get("note"),
@@ -120,6 +168,9 @@ export async function addUserInternalNoteAction(formData: FormData) {
     redirect(withMessage("/admin/accounts", "error", "Invalid note payload"));
   }
 
+  const targetPath = `/admin/users/${parsed.data.userId}`;
+  requireCapabilityOrRedirect(admin, "add_internal_note", targetPath);
+
   await audit({
     action: "user_internal_note_added",
     targetType: "user",
@@ -128,106 +179,147 @@ export async function addUserInternalNoteAction(formData: FormData) {
     meta: { note: parsed.data.note },
   });
 
-  revalidatePath(`/admin/users/${parsed.data.userId}`);
-  redirect(withMessage(`/admin/users/${parsed.data.userId}`, "success", "Note logged in audit trail"));
-}
-
-const moderationCreateSchema = z.object({
-  targetUserId: z.string().uuid().optional(),
-  targetBusinessId: z.string().uuid().optional(),
-  reason: z.string().min(3).max(500),
-  details: z.string().max(3000).optional(),
-});
-
-export async function createModerationFlagAction(formData: FormData) {
-  const admin = await requireAdminRole("admin_support");
-  const parsed = moderationCreateSchema.safeParse({
-    targetUserId: (formData.get("targetUserId") || "").toString() || undefined,
-    targetBusinessId: (formData.get("targetBusinessId") || "").toString() || undefined,
-    reason: formData.get("reason"),
-    details: (formData.get("details") || "").toString() || undefined,
-  });
-
-  if (!parsed.success) {
-    redirect(withMessage("/admin/moderation", "error", "Invalid moderation payload"));
-  }
-
-  const { client } = await getAdminDataClient();
-  const payload = {
-    created_by_user_id: admin.user.id,
-    target_user_id: parsed.data.targetUserId || null,
-    target_business_id: parsed.data.targetBusinessId || null,
-    reason: parsed.data.reason,
-    details: parsed.data.details || null,
-    status: "open",
-    updated_at: new Date().toISOString(),
-  };
-
-  const { data, error } = await client
-    .from("moderation_flags")
-    .insert(payload)
-    .select("id")
-    .single();
-
-  if (error) {
-    redirect(withMessage("/admin/moderation", "error", error.message));
-  }
-
-  await audit({
-    action: "moderation_flag_created",
-    targetType: "moderation_flag",
-    targetId: data.id,
-    actorUserId: admin.user.id,
-    meta: payload,
-  });
-
-  revalidatePath("/admin/moderation");
-  redirect(withMessage("/admin/moderation", "success", "Moderation flag created"));
+  revalidatePath(targetPath);
+  redirect(withMessage(targetPath, "success", "Note logged in audit trail"));
 }
 
 const moderationUpdateSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(["open", "triaged", "resolved", "dismissed"]),
+  status: z.enum(["open", "in_review", "resolved", "dismissed"]),
   adminNotes: z.string().max(2000).optional(),
+  returnTo: z.string().optional(),
 });
 
+const moderationTakeSchema = z.object({
+  id: z.string().uuid(),
+  returnTo: z.string().optional(),
+});
+
+const moderationHideSchema = z.object({
+  id: z.string().uuid(),
+  targetId: z.string().uuid(),
+  adminNotes: z.string().max(2000).optional(),
+  returnTo: z.string().optional(),
+});
+
+function resolveModerationReturnTo(value?: string) {
+  return getSafeRedirectPath(value || "") || "/admin/moderation";
+}
+
+export async function takeModerationCaseAction(formData: FormData) {
+  await requireAdminAnyRole(["admin_ops", "admin_super"]);
+  const parsed = moderationTakeSchema.safeParse({
+    id: formData.get("id"),
+    returnTo: (formData.get("returnTo") || "").toString() || undefined,
+  });
+
+  const returnTo = resolveModerationReturnTo(parsed.success ? parsed.data.returnTo : undefined);
+  if (!parsed.success) {
+    redirect(withMessage(returnTo, "error", "Invalid moderation payload"));
+  }
+
+  const { client } = await getAdminDataClient();
+  const { error } = await client.rpc("admin_update_moderation_flag", {
+    p_flag_id: parsed.data.id,
+    p_status: "in_review",
+    p_admin_notes: null,
+    p_meta: { action: "take_case" },
+  });
+
+  if (error) {
+    redirect(withMessage(returnTo, "error", error.message));
+  }
+
+  revalidatePath("/admin/moderation");
+  redirect(withMessage(returnTo, "success", "Case moved to in review"));
+}
+
 export async function updateModerationFlagAction(formData: FormData) {
-  const admin = await requireAdminRole("admin_support");
+  await requireAdminAnyRole(["admin_ops", "admin_super"]);
   const parsed = moderationUpdateSchema.safeParse({
     id: formData.get("id"),
     status: formData.get("status"),
     adminNotes: (formData.get("adminNotes") || "").toString() || undefined,
+    returnTo: (formData.get("returnTo") || "").toString() || undefined,
   });
 
+  const returnTo = resolveModerationReturnTo(parsed.success ? parsed.data.returnTo : undefined);
   if (!parsed.success) {
-    redirect(withMessage("/admin/moderation", "error", "Invalid moderation update payload"));
+    redirect(withMessage(returnTo, "error", "Invalid moderation update payload"));
   }
 
   const { client } = await getAdminDataClient();
-  const patch = {
-    status: parsed.data.status,
-    admin_notes: parsed.data.adminNotes || null,
-    reviewed_by_user_id: admin.user.id,
-    reviewed_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-
-  const { error } = await client.from("moderation_flags").update(patch).eq("id", parsed.data.id);
-
-  if (error) {
-    redirect(withMessage("/admin/moderation", "error", error.message));
-  }
-
-  await audit({
-    action: "moderation_flag_updated",
-    targetType: "moderation_flag",
-    targetId: parsed.data.id,
-    actorUserId: admin.user.id,
-    meta: patch,
+  const { error } = await client.rpc("admin_update_moderation_flag", {
+    p_flag_id: parsed.data.id,
+    p_status: parsed.data.status,
+    p_admin_notes: parsed.data.adminNotes || null,
+    p_meta: { action: "status_change" },
   });
 
+  if (error) {
+    redirect(withMessage(returnTo, "error", error.message));
+  }
+
   revalidatePath("/admin/moderation");
-  redirect(withMessage("/admin/moderation", "success", "Moderation flag updated"));
+  redirect(withMessage(returnTo, "success", "Moderation flag updated"));
+}
+
+export async function hideListingAndResolveModerationFlagAction(formData: FormData) {
+  await requireAdminAnyRole(["admin_ops", "admin_super"]);
+  const parsed = moderationHideSchema.safeParse({
+    id: formData.get("id"),
+    targetId: formData.get("targetId"),
+    adminNotes: (formData.get("adminNotes") || "").toString() || undefined,
+    returnTo: (formData.get("returnTo") || "").toString() || undefined,
+  });
+
+  const returnTo = resolveModerationReturnTo(parsed.success ? parsed.data.returnTo : undefined);
+  if (!parsed.success) {
+    redirect(withMessage(returnTo, "error", "Invalid hide listing payload"));
+  }
+
+  const { client } = await getAdminDataClient();
+  const { error } = await client.rpc("admin_hide_listing_and_resolve_flag", {
+    p_flag_id: parsed.data.id,
+    p_listing_id: parsed.data.targetId,
+    p_notes: parsed.data.adminNotes || null,
+  });
+
+  if (error) {
+    redirect(withMessage(returnTo, "error", error.message));
+  }
+
+  revalidatePath("/admin/moderation");
+  redirect(withMessage(returnTo, "success", "Listing action completed and flag resolved"));
+}
+
+export async function hideReviewAndResolveModerationFlagAction(formData: FormData) {
+  await requireAdminAnyRole(["admin_ops", "admin_super"]);
+  const parsed = moderationHideSchema.safeParse({
+    id: formData.get("id"),
+    targetId: formData.get("targetId"),
+    adminNotes: (formData.get("adminNotes") || "").toString() || undefined,
+    returnTo: (formData.get("returnTo") || "").toString() || undefined,
+  });
+
+  const returnTo = resolveModerationReturnTo(parsed.success ? parsed.data.returnTo : undefined);
+  if (!parsed.success) {
+    redirect(withMessage(returnTo, "error", "Invalid hide review payload"));
+  }
+
+  const { client } = await getAdminDataClient();
+  const { error } = await client.rpc("admin_hide_review_and_resolve_flag", {
+    p_flag_id: parsed.data.id,
+    p_review_id: parsed.data.targetId,
+    p_notes: parsed.data.adminNotes || null,
+  });
+
+  if (error) {
+    redirect(withMessage(returnTo, "error", error.message));
+  }
+
+  revalidatePath("/admin/moderation");
+  redirect(withMessage(returnTo, "success", "Review action completed and flag resolved"));
 }
 
 const supportCreateSchema = z.object({
@@ -332,6 +424,239 @@ export async function updateSupportTicketAction(formData: FormData) {
   redirect(withMessage("/admin/support", "success", "Support ticket updated"));
 }
 
+const upsertAdminSchema = z.object({
+  email: z.string().email().max(320),
+  role: z.enum(ADMIN_ROLES),
+});
+
+const changeAdminRoleSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(ADMIN_ROLES),
+});
+
+const disableAdminSchema = z.object({
+  userId: z.string().uuid(),
+});
+
+async function getSingleRoleForUser(client: any, userId: string): Promise<AdminRole | null> {
+  const { data } = await client
+    .from("admin_role_members")
+    .select("role_key")
+    .eq("user_id", userId);
+
+  if (!Array.isArray(data) || !data.length) return null;
+  const ordered = data
+    .map((row) => String(row?.role_key || "").trim())
+    .filter((role): role is AdminRole => (ADMIN_ROLES as readonly string[]).includes(role))
+    .sort((a, b) => ADMIN_ROLES.indexOf(b as AdminRole) - ADMIN_ROLES.indexOf(a as AdminRole));
+  return ordered[0] || null;
+}
+
+async function countSuperAdmins(client: any): Promise<number> {
+  const { count } = await client
+    .from("admin_role_members")
+    .select("user_id", { count: "exact", head: true })
+    .eq("role_key", "admin_super");
+  return Number(count || 0);
+}
+
+async function setAdminRoleSingle(
+  client: any,
+  userId: string,
+  role: AdminRole,
+  actorUserId: string
+) {
+  const { error: deleteError } = await client.from("admin_role_members").delete().eq("user_id", userId);
+  if (deleteError) throw new Error(deleteError.message || "Failed to clear prior admin roles");
+
+  const { error: insertError } = await client.from("admin_role_members").insert({
+    user_id: userId,
+    role_key: role,
+    granted_by: actorUserId,
+  });
+  if (insertError) throw new Error(insertError.message || "Failed to assign admin role");
+}
+
+export async function upsertAdminAccountAction(formData: FormData) {
+  const admin = await requireAdminAnyRole(["admin_super"]);
+  const parsed = upsertAdminSchema.safeParse({
+    email: formData.get("email"),
+    role: formData.get("role"),
+  });
+
+  if (!parsed.success) {
+    redirect(withMessage("/admin/admins", "error", "Invalid admin create payload"));
+  }
+
+  const email = parsed.data.email.trim().toLowerCase();
+  const role = parsed.data.role;
+  const serviceClient = getAdminServiceRoleClient();
+
+  let targetUserId: string | null = null;
+  const { data: existing } = await serviceClient
+    .from("users")
+    .select("id, email")
+    .eq("email", email)
+    .maybeSingle();
+  if (existing?.id) {
+    targetUserId = existing.id;
+  } else {
+    const inviteResult = await serviceClient.auth.admin.inviteUserByEmail(email);
+    if (inviteResult.error || !inviteResult.data.user?.id) {
+      redirect(withMessage("/admin/admins", "error", inviteResult.error?.message || "Failed to invite admin"));
+    }
+    targetUserId = inviteResult.data.user.id;
+  }
+
+  const { error: upsertUserError } = await serviceClient.from("users").upsert(
+    {
+      id: targetUserId,
+      email,
+      role: "admin",
+      is_internal: true,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "id", ignoreDuplicates: false }
+  );
+
+  if (upsertUserError) {
+    redirect(withMessage("/admin/admins", "error", upsertUserError.message));
+  }
+
+  const priorRole = await getSingleRoleForUser(serviceClient, targetUserId);
+  try {
+    await setAdminRoleSingle(serviceClient, targetUserId, role, admin.user.id);
+  } catch (error: any) {
+    redirect(withMessage("/admin/admins", "error", error?.message || "Failed to assign admin role"));
+  }
+
+  await audit({
+    action: existing?.id ? "admin_role_changed" : "admin_user_invited",
+    targetType: "admin_user",
+    targetId: targetUserId,
+    actorUserId: admin.user.id,
+    meta: {
+      email,
+      previous_role: priorRole,
+      new_role: role,
+      source: existing?.id ? "existing_user" : "invite",
+    },
+  });
+
+  revalidatePath("/admin/admins");
+  revalidatePath(`/admin/users/${targetUserId}`);
+  redirect(withMessage("/admin/admins", "success", existing?.id ? "Admin role updated" : "Admin invited"));
+}
+
+export async function changeAdminRoleAction(formData: FormData) {
+  const admin = await requireAdminAnyRole(["admin_super"]);
+  const parsed = changeAdminRoleSchema.safeParse({
+    userId: formData.get("userId"),
+    role: formData.get("role"),
+  });
+
+  if (!parsed.success) {
+    redirect(withMessage("/admin/admins", "error", "Invalid admin role payload"));
+  }
+
+  const serviceClient = getAdminServiceRoleClient();
+  const currentRole = await getSingleRoleForUser(serviceClient, parsed.data.userId);
+  const nextRole = parsed.data.role;
+
+  if (!currentRole) {
+    redirect(withMessage("/admin/admins", "error", "Target user is not currently an admin"));
+  }
+
+  if (currentRole === "admin_super" && nextRole !== "admin_super") {
+    const superCount = await countSuperAdmins(serviceClient);
+    if (superCount <= 1) {
+      redirect(withMessage("/admin/admins", "error", "Cannot demote the last admin_super"));
+    }
+  }
+
+  try {
+    await setAdminRoleSingle(serviceClient, parsed.data.userId, nextRole, admin.user.id);
+  } catch (error: any) {
+    redirect(withMessage("/admin/admins", "error", error?.message || "Failed to change admin role"));
+  }
+
+  await audit({
+    action: "admin_role_changed",
+    targetType: "admin_user",
+    targetId: parsed.data.userId,
+    actorUserId: admin.user.id,
+    meta: {
+      previous_role: currentRole,
+      new_role: nextRole,
+    },
+  });
+
+  revalidatePath("/admin/admins");
+  revalidatePath(`/admin/users/${parsed.data.userId}`);
+  redirect(withMessage("/admin/admins", "success", "Admin role updated"));
+}
+
+export async function disableAdminAccessAction(formData: FormData) {
+  const admin = await requireAdminAnyRole(["admin_super"]);
+  const parsed = disableAdminSchema.safeParse({
+    userId: formData.get("userId"),
+  });
+
+  if (!parsed.success) {
+    redirect(withMessage("/admin/admins", "error", "Invalid disable payload"));
+  }
+
+  const serviceClient = getAdminServiceRoleClient();
+  const currentRole = await getSingleRoleForUser(serviceClient, parsed.data.userId);
+  if (!currentRole) {
+    redirect(withMessage("/admin/admins", "error", "Admin access is already disabled"));
+  }
+
+  if (currentRole === "admin_super") {
+    const superCount = await countSuperAdmins(serviceClient);
+    if (superCount <= 1) {
+      redirect(withMessage("/admin/admins", "error", "Cannot disable the last admin_super"));
+    }
+  }
+
+  const { error: deleteError } = await serviceClient
+    .from("admin_role_members")
+    .delete()
+    .eq("user_id", parsed.data.userId);
+  if (deleteError) {
+    redirect(withMessage("/admin/admins", "error", deleteError.message));
+  }
+
+  const { data: userRow } = await serviceClient
+    .from("users")
+    .select("role")
+    .eq("id", parsed.data.userId)
+    .maybeSingle();
+  const updates: Record<string, unknown> = {
+    is_internal: false,
+    updated_at: new Date().toISOString(),
+  };
+  if (userRow?.role === "admin") {
+    updates.role = "customer";
+  }
+  await serviceClient.from("users").update(updates).eq("id", parsed.data.userId);
+
+  await audit({
+    action: "admin_access_disabled",
+    targetType: "admin_user",
+    targetId: parsed.data.userId,
+    actorUserId: admin.user.id,
+    meta: {
+      previous_role: currentRole,
+      disabled: true,
+    },
+  });
+
+  revalidatePath("/admin/admins");
+  revalidatePath(`/admin/users/${parsed.data.userId}`);
+  redirect(withMessage("/admin/admins", "success", "Admin access disabled"));
+}
+
 const startImpersonationSchema = z.object({
   targetUserId: z.string().uuid(),
   minutes: z.coerce.number().int().min(1).max(480).default(30),
@@ -340,7 +665,7 @@ const startImpersonationSchema = z.object({
 
 export async function startImpersonationAction(formData: FormData) {
   const diagEnabled = String(process.env.NEXT_PUBLIC_AUTH_DIAG || "") === "1";
-  const admin = await requireAdminRole("admin_support");
+  const admin = await requireAdminAnyRole(["admin_support", "admin_super"]);
   const parsed = startImpersonationSchema.safeParse({
     targetUserId: formData.get("targetUserId"),
     minutes: formData.get("minutes") || 30,

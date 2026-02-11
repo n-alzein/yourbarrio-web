@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   Heart,
+  MoreHorizontal,
   Shield,
   ShoppingBag,
   Star,
@@ -22,6 +23,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import { getAvailabilityBadgeStyle, normalizeInventory } from "@/lib/inventory";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { useCart } from "@/components/cart/CartProvider";
+import ReportModal from "@/components/moderation/ReportModal";
 
 export default function ListingDetails({ params }) {
   const { supabase, user, role } = useAuth();
@@ -60,7 +62,11 @@ export default function ListingDetails({ params }) {
   const [saveLoading, setSaveLoading] = useState(false);
   const [heroSrc, setHeroSrc] = useState("/business-placeholder.png");
   const [cartToast, setCartToast] = useState(null);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportToast, setReportToast] = useState(null);
+  const [listingMenuOpen, setListingMenuOpen] = useState(false);
   const toastTimerRef = useRef(null);
+  const listingMenuRef = useRef(null);
   const loginHref = useMemo(() => {
     const currentPath =
       typeof window !== "undefined"
@@ -279,6 +285,33 @@ export default function ListingDetails({ params }) {
     return () => clearTimeout(toastTimerRef.current);
   }, [cartToast]);
 
+  useEffect(() => {
+    if (!reportToast) return undefined;
+    const timeoutId = setTimeout(() => setReportToast(null), 5000);
+    return () => clearTimeout(timeoutId);
+  }, [reportToast]);
+
+  useEffect(() => {
+    if (!listingMenuOpen) return undefined;
+    const handleOutsideClick = (event) => {
+      if (!listingMenuRef.current) return;
+      if (!listingMenuRef.current.contains(event.target)) {
+        setListingMenuOpen(false);
+      }
+    };
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setListingMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [listingMenuOpen]);
+
   const handleAddToCart = async () => {
     if (!listing?.id) return;
     if (!requireAuth("place orders", setStatusMessage)) return;
@@ -317,6 +350,30 @@ export default function ListingDetails({ params }) {
         { label: "Checkout", onClick: () => router.push("/checkout") },
       ],
     });
+  };
+
+  const handleShareListing = async () => {
+    if (!listing?.id) return;
+    const url =
+      typeof window !== "undefined" ? window.location.href : `/listings/${listing.id}`;
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({
+          title: listing.title || "Listing",
+          text: listing.description || "",
+          url,
+        });
+      } else if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setStatusMessage("Listing link copied.");
+      } else {
+        setStatusMessage("Share is unavailable on this device.");
+      }
+    } catch {
+      setStatusMessage("Could not share listing.");
+    } finally {
+      setListingMenuOpen(false);
+    }
   };
 
   if (loading) {
@@ -607,6 +664,48 @@ export default function ListingDetails({ params }) {
                     fill={isSaved ? "currentColor" : "none"}
                   />
                 </button>
+                <div className="relative" ref={listingMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setListingMenuOpen((open) => !open)}
+                    className="rounded-full p-2 -mr-2 hover:bg-gray-100"
+                    aria-expanded={listingMenuOpen}
+                    aria-label="Open listing actions menu"
+                  >
+                    <MoreHorizontal className="h-5 w-5 opacity-80" />
+                  </button>
+                  {listingMenuOpen ? (
+                    <div className="absolute right-0 top-11 z-30 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+                      <button
+                        type="button"
+                        onClick={handleShareListing}
+                        className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100"
+                      >
+                        Share
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await handleToggleSave();
+                          setListingMenuOpen(false);
+                        }}
+                        className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100"
+                      >
+                        {isSaved ? "Unsave" : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setListingMenuOpen(false);
+                          setReportModalOpen(true);
+                        }}
+                        className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100"
+                      >
+                        Report
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               <div className="mt-4 space-y-3">
@@ -715,6 +814,27 @@ export default function ListingDetails({ params }) {
         </div>
       </div>
     ) : null}
+    <ReportModal
+      open={reportModalOpen}
+      onClose={() => setReportModalOpen(false)}
+      targetType="listing"
+      targetId={listing?.id}
+      targetLabel={listing?.title || "Listing"}
+      meta={{
+        listing_id: listing?.id || null,
+        business_id: listing?.business_id || null,
+      }}
+      onSubmitted={(payload) => {
+        setReportToast(payload?.message || "Thanks - your report has been received.");
+      }}
+    />
+      {reportToast ? (
+        <div className="fixed bottom-6 left-6 z-50">
+          <div className="rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-xl text-sm font-medium text-gray-900">
+            {reportToast}
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

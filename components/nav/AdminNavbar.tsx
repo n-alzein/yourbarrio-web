@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-export default function AdminNavbar() {
+export default function AdminNavbar({ role }: { role?: string | null }) {
   return (
     <nav className="fixed top-0 inset-x-0 z-[5000] theme-lock pointer-events-auto yb-navbar yb-navbar-bordered">
       <div className="relative w-full px-5 sm:px-6 md:px-8 lg:px-10 xl:px-14 flex items-center h-20 gap-6">
@@ -29,7 +29,7 @@ export default function AdminNavbar() {
         </Link>
 
         <p className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:ml-auto text-xs md:text-sm font-semibold uppercase tracking-[0.2em] text-white/80 whitespace-nowrap">
-          ADMIN ACCOUNT
+          ADMIN ACCOUNT{role ? ` • ${role}` : ""}
         </p>
       </div>
     </nav>

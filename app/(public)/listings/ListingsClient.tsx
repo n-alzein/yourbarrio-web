@@ -288,56 +288,57 @@ export default function ListingsClient() {
           const inventory = normalizeInventory(listing);
           const availability = getAvailabilityBadgeStyle(inventory);
           return (
-            <Link
+            <div
               key={listing.id}
-              href={`/listings/${listing.id}`}
               className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
             >
-              <div className="relative w-full h-[200px] sm:h-[220px] lg:h-[240px] overflow-hidden bg-gray-50 p-2">
-                <SafeImage
-                  src={primaryPhotoUrl(listing.photo_url)}
-                  alt={listing.title || "Listing photo"}
-                  className="h-full w-full object-contain transition duration-500 group-hover:scale-105"
-                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
-                  onError={() => {}}
-                  onLoad={() => {}}
-                />
-                {availability ? (
-                  <span
-                    className={`${availability.className} absolute left-3 top-3`}
-                  >
-                    {availability.label}
-                  </span>
-                ) : null}
-              </div>
-              <div className="flex flex-col gap-2 p-4">
-                <div className="text-gray-900 tabular-nums leading-none">
-                  {(() => {
-                    const price = splitPrice(listing.price);
-                    if (!price.dollars) {
+              <Link href={`/listings/${listing.id}`} className="block">
+                <div className="relative w-full h-[200px] sm:h-[220px] lg:h-[240px] overflow-hidden bg-gray-50 p-2">
+                  <SafeImage
+                    src={primaryPhotoUrl(listing.photo_url)}
+                    alt={listing.title || "Listing photo"}
+                    className="h-full w-full object-contain transition duration-500 group-hover:scale-105"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
+                    onError={() => {}}
+                    onLoad={() => {}}
+                  />
+                  {availability ? (
+                    <span
+                      className={`${availability.className} absolute left-3 top-3`}
+                    >
+                      {availability.label}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex flex-col gap-2 p-4">
+                  <div className="text-gray-900 tabular-nums leading-none">
+                    {(() => {
+                      const price = splitPrice(listing.price);
+                      if (!price.dollars) {
+                        return (
+                          <span className="text-2xl font-bold leading-none">
+                            {price.formatted}
+                          </span>
+                        );
+                      }
                       return (
-                        <span className="text-2xl font-bold leading-none">
-                          {price.formatted}
+                        <span className="inline-flex items-start gap-0">
+                          <span className="text-2xl font-bold leading-none">
+                            ${price.dollars}
+                          </span>
+                          <span className="relative top-[0.1em] text-[0.65em] font-semibold uppercase leading-none align-top">
+                            {price.cents}
+                          </span>
                         </span>
                       );
-                    }
-                    return (
-                      <span className="inline-flex items-start gap-0">
-                        <span className="text-2xl font-bold leading-none">
-                          ${price.dollars}
-                        </span>
-                        <span className="relative top-[0.1em] text-[0.65em] font-semibold uppercase leading-none align-top">
-                          {price.cents}
-                        </span>
-                      </span>
-                    );
-                  })()}
+                    })()}
+                  </div>
+                  <h2 className="text-sm font-semibold text-gray-900 line-clamp-3">
+                    {listing.title || "Untitled listing"}
+                  </h2>
                 </div>
-                <h2 className="text-sm font-semibold text-gray-900 line-clamp-3">
-                  {listing.title || "Untitled listing"}
-                </h2>
-              </div>
-            </Link>
+              </Link>
+            </div>
           );
         })}
       </div>

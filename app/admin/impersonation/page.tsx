@@ -1,6 +1,6 @@
 import { startImpersonationAction, stopImpersonationAction } from "@/app/admin/actions";
 import AdminFlash from "@/app/admin/_components/AdminFlash";
-import { requireAdminRole } from "@/lib/admin/permissions";
+import { requireAdminAnyRole } from "@/lib/admin/permissions";
 import { getAdminDataClient } from "@/lib/supabase/admin";
 
 export default async function AdminImpersonationPage({
@@ -8,7 +8,7 @@ export default async function AdminImpersonationPage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const admin = await requireAdminRole("admin_support");
+  const admin = await requireAdminAnyRole(["admin_support", "admin_super"]);
   const params = (await searchParams) || {};
 
   const { client } = await getAdminDataClient();

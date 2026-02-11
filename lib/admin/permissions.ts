@@ -12,6 +12,16 @@ export const ADMIN_ROLES = [
 ] as const;
 
 export type AdminRole = (typeof ADMIN_ROLES)[number];
+export type AdminCapability =
+  | "view_dashboard"
+  | "view_lists"
+  | "view_audit"
+  | "impersonate"
+  | "add_internal_note"
+  | "update_app_role"
+  | "toggle_internal_user"
+  | "moderation"
+  | "manage_admins";
 
 type AdminContext = {
   supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>;
@@ -34,6 +44,18 @@ const ROLE_ORDER: Record<AdminRole, number> = {
   admin_super: 40,
 };
 
+const CAPABILITY_ROLES: Record<AdminCapability, AdminRole[]> = {
+  view_dashboard: ["admin_readonly", "admin_support", "admin_ops", "admin_super"],
+  view_lists: ["admin_readonly", "admin_support", "admin_ops", "admin_super"],
+  view_audit: ["admin_readonly", "admin_support", "admin_ops", "admin_super"],
+  impersonate: ["admin_support", "admin_super"],
+  add_internal_note: ["admin_support", "admin_super"],
+  update_app_role: ["admin_support", "admin_super"],
+  toggle_internal_user: ["admin_ops", "admin_super"],
+  moderation: ["admin_ops", "admin_super"],
+  manage_admins: ["admin_super"],
+};
+
 function parseDevAllowEmails() {
   if (process.env.NODE_ENV === "production") return [];
   const value = process.env.ADMIN_DEV_ALLOW_EMAILS || "";
@@ -53,6 +75,24 @@ function canBypassStrictPermissionsInDev() {
 function hasRoleOrHigher(roles: AdminRole[], requiredRole: AdminRole) {
   const needed = ROLE_ORDER[requiredRole];
   return roles.some((role) => ROLE_ORDER[role] >= needed);
+}
+
+export function getHighestAdminRole(roles: AdminRole[]): AdminRole | null {
+  if (!roles.length) return null;
+  return [...roles].sort((a, b) => ROLE_ORDER[b] - ROLE_ORDER[a])[0] || null;
+}
+
+export function hasExactAdminRole(roles: AdminRole[], requiredRole: AdminRole) {
+  return roles.includes(requiredRole);
+}
+
+export function hasAnyAdminRole(roles: AdminRole[], allowedRoles: AdminRole[]) {
+  if (!allowedRoles.length) return false;
+  return roles.some((role) => allowedRoles.includes(role));
+}
+
+export function canAdmin(roles: AdminRole[], capability: AdminCapability) {
+  return hasAnyAdminRole(roles, CAPABILITY_ROLES[capability] || []);
 }
 
 async function checkIsAdminViaRpc(supabase: any) {
@@ -97,6 +137,11 @@ export async function getAdminRolesForUser(userId?: string): Promise<AdminRole[]
   }
 
   return roles;
+}
+
+export async function getAdminRole(userId?: string): Promise<AdminRole | null> {
+  const roles = await getAdminRolesForUser(userId);
+  return getHighestAdminRole(roles);
 }
 
 export function isAdminDevAllowlistConfigured() {
@@ -148,6 +193,23 @@ export async function requireAdminRole(requiredRole: AdminRole) {
   }
 
   if (!hasRoleOrHigher(context.roles, requiredRole)) {
+    redirect("/admin?error=forbidden");
+  }
+
+  return context;
+}
+
+export async function requireAdminAnyRole(requiredRoles: AdminRole[]) {
+  const context = await requireAdmin();
+
+  if (context.devAllowlistUsed && canBypassStrictPermissionsInDev()) {
+    return {
+      ...context,
+      strictPermissionBypassUsed: true,
+    };
+  }
+
+  if (!hasAnyAdminRole(context.roles, requiredRoles)) {
     redirect("/admin?error=forbidden");
   }
 

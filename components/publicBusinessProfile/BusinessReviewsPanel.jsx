@@ -8,6 +8,7 @@ import { getAuthedContext } from "@/lib/auth/getAuthedContext";
 import { useAuth } from "@/components/AuthProvider";
 import { useModal } from "@/components/modals/ModalProvider";
 import { useViewerContext } from "@/components/public/ViewerContextEnhancer";
+import ReportModal from "@/components/moderation/ReportModal";
 
 function formatReviewer(id) {
   if (!id) return "Customer";
@@ -109,6 +110,8 @@ export default function BusinessReviewsPanel({
   const [editBody, setEditBody] = useState("");
   const [editError, setEditError] = useState("");
   const [editLoading, setEditLoading] = useState(false);
+  const [reportToast, setReportToast] = useState(null);
+  const [reportTarget, setReportTarget] = useState(null);
 
   const customerId = viewer.user?.id || null;
 
@@ -592,6 +595,12 @@ export default function BusinessReviewsPanel({
     return [...mine, ...others];
   }, [reviews, customerId]);
 
+  useEffect(() => {
+    if (!reportToast) return undefined;
+    const timeoutId = setTimeout(() => setReportToast(null), 5000);
+    return () => clearTimeout(timeoutId);
+  }, [reportToast]);
+
   return (
     <section
       className={`rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 md:p-8 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.7)] ${className}`}
@@ -874,7 +883,28 @@ export default function BusinessReviewsPanel({
                         Delete
                       </button>
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="mt-4 flex items-center gap-2 text-sm">
+                      <button
+                        type="button"
+                        className="text-gray-500 hover:text-gray-700 transition"
+                        aria-label="Mark review as helpful"
+                        onClick={() => {}}
+                      >
+                        Helpful
+                      </button>
+                      <span className="text-gray-400">|</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReportTarget(review);
+                        }}
+                        className="text-gray-500 hover:text-gray-700 hover:underline transition"
+                      >
+                        Report
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -891,6 +921,27 @@ export default function BusinessReviewsPanel({
         >
           {loadingMore ? "Loading..." : "Load more reviews"}
         </button>
+      ) : null}
+      <ReportModal
+        open={Boolean(reportTarget)}
+        onClose={() => setReportTarget(null)}
+        targetType="review"
+        targetId={reportTarget?.id}
+        targetLabel={reportTarget?.title || reportTarget?.body || "Review"}
+        meta={{
+          review_id: reportTarget?.id || null,
+          business_id: businessId || null,
+        }}
+        onSubmitted={(payload) => {
+          setReportToast(payload?.message || "Thanks - your report has been received.");
+        }}
+      />
+      {reportToast ? (
+        <div className="fixed bottom-6 left-6 z-50">
+          <div className="rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-900 shadow-xl">
+            {reportToast}
+          </div>
+        </div>
       ) : null}
     </section>
   );

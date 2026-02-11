@@ -6,18 +6,8 @@ import {
   updateUserRoleAction,
 } from "@/app/admin/actions";
 import AdminFlash from "@/app/admin/_components/AdminFlash";
-import { requireAdminRole } from "@/lib/admin/permissions";
+import { canAdmin, requireAdminRole } from "@/lib/admin/permissions";
 import { getAdminDataClient } from "@/lib/supabase/admin";
-
-function hasRoleOrHigher(roles: string[], required: string) {
-  const order: Record<string, number> = {
-    admin_readonly: 10,
-    admin_support: 20,
-    admin_ops: 30,
-    admin_super: 40,
-  };
-  return roles.some((r) => (order[r] || 0) >= (order[required] || 0));
-}
 
 export default async function AdminUserDetailPage({
   params,
@@ -70,9 +60,10 @@ export default async function AdminUserDetailPage({
     );
   }
 
-  const canSupport = hasRoleOrHigher(admin.roles, "admin_support") || admin.strictPermissionBypassUsed;
-  const canOps = hasRoleOrHigher(admin.roles, "admin_ops") || admin.strictPermissionBypassUsed;
-  const canSuper = hasRoleOrHigher(admin.roles, "admin_super") || admin.strictPermissionBypassUsed;
+  const canSupport = admin.strictPermissionBypassUsed || canAdmin(admin.roles, "add_internal_note");
+  const canImpersonate = admin.strictPermissionBypassUsed || canAdmin(admin.roles, "impersonate");
+  const canOps = admin.strictPermissionBypassUsed || canAdmin(admin.roles, "toggle_internal_user");
+  const canRoleFixes = admin.strictPermissionBypassUsed || canAdmin(admin.roles, "update_app_role");
 
   return (
     <section className="space-y-4">
@@ -111,7 +102,7 @@ export default async function AdminUserDetailPage({
         </div>
 
         <div className="space-y-3">
-          {canSuper ? (
+          {canRoleFixes ? (
             <form action={updateUserRoleAction} className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
               <h3 className="mb-2 font-medium">Update app role</h3>
               <input type="hidden" name="userId" value={user.id} />
@@ -144,7 +135,7 @@ export default async function AdminUserDetailPage({
             </form>
           ) : null}
 
-          {canSupport ? (
+          {canImpersonate ? (
             <form action={startImpersonationAction} className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
               <h3 className="mb-2 font-medium">Start support mode (view-as)</h3>
               <input type="hidden" name="targetUserId" value={user.id} />

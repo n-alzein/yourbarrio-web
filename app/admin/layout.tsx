@@ -4,7 +4,7 @@ import AdminNav from "@/app/admin/_components/AdminNav";
 import ImpersonationBanner from "@/app/admin/_components/ImpersonationBanner";
 import AdminNavbar from "@/components/nav/AdminNavbar";
 import { getEffectiveUserId } from "@/lib/admin/impersonation";
-import { isAdminDevAllowlistConfigured, requireAdmin } from "@/lib/admin/permissions";
+import { getHighestAdminRole, isAdminDevAllowlistConfigured, requireAdmin } from "@/lib/admin/permissions";
 import { getCurrentUserRole } from "@/lib/auth/getCurrentUserRole";
 import { getRequestPath } from "@/lib/url/getRequestPath";
 import { isAdminBypassRlsEnabled } from "@/lib/supabase/admin";
@@ -42,15 +42,17 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const { activeImpersonation } = await getEffectiveUserId();
   const showAllowlistBanner = admin.devAllowlistUsed && isAdminDevAllowlistConfigured();
   const showBypassBanner = isAdminBypassRlsEnabled();
+  const currentRole = getHighestAdminRole(admin.roles) || "admin_readonly";
 
   return (
     <div className="yb-admin-shell min-h-screen bg-neutral-950 text-neutral-100 flex flex-col">
-      <AdminNavbar />
+      <AdminNavbar role={currentRole} />
       <div className="mx-auto grid w-full max-w-7xl flex-1 gap-4 p-4 md:grid-cols-[220px_1fr]">
         <aside className="space-y-3">
           <h1 className="text-lg font-semibold">YourBarrio Admin</h1>
           <p className="text-xs text-neutral-400">Signed in as {admin.user.email || admin.user.id}</p>
-          <AdminNav />
+          <p className="text-xs text-neutral-400">Role: {currentRole}</p>
+          <AdminNav roles={admin.roles} strictPermissionBypassUsed={admin.strictPermissionBypassUsed} />
         </aside>
         <main className="space-y-4 flex-1">
           {showAllowlistBanner ? (
