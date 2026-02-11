@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBusinessDataClientForRequest } from "@/lib/business/getBusinessDataClientForRequest";
+import { isUuid } from "@/lib/ids/isUuid";
 
 export async function GET(request) {
   const access = await getBusinessDataClientForRequest();
@@ -10,13 +11,14 @@ export async function GET(request) {
   const effectiveUserId = access.effectiveUserId;
 
   const { searchParams } = new URL(request.url);
-  const listingId = searchParams.get("id");
+  const listingRef = (searchParams.get("id") || "").trim();
 
-  if (listingId) {
+  if (listingRef) {
+    const field = isUuid(listingRef) ? "id" : "public_id";
     const { data, error } = await supabase
       .from("listings")
       .select("*, category_info:business_categories(name,slug)")
-      .eq("id", listingId)
+      .eq(field, listingRef)
       .eq("business_id", effectiveUserId)
       .maybeSingle();
 

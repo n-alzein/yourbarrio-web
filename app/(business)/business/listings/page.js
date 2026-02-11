@@ -10,6 +10,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import SafeImage from "@/components/SafeImage";
 import InventorySelfTest from "@/components/debug/InventorySelfTest";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
+import { getListingPublicRef } from "@/lib/ids/publicRefs";
 
 export default function BusinessListingsPage() {
   const { supabase, user, loadingUser } = useAuth();
@@ -560,7 +561,11 @@ export default function BusinessListingsPage() {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() =>
-                            router.push(`/business/listings/${listing.id}/edit`)
+                            router.push(
+                              `/business/listings/${encodeURIComponent(
+                                getListingPublicRef(listing) || listing.id
+                              )}/edit`
+                            )
                           }
                           className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                             isLight

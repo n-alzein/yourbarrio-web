@@ -59,7 +59,7 @@ async function searchListings(supabase, term, category, { city }) {
   let query = supabase
     .from("listings")
     .select(
-      "id,title,description,price,category,category_id,category_info:business_categories(name,slug),city,photo_url,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
+      "id,public_id,title,description,price,category,category_id,category_info:business_categories(name,slug),city,photo_url,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
     )
     .or(
       `title.ilike.%${safe}%,description.ilike.%${safe}%,category.ilike.%${safe}%`
@@ -86,6 +86,7 @@ async function searchListings(supabase, term, category, { city }) {
 
   return (data || []).map((row) => ({
     id: row.id,
+    public_id: row.public_id || null,
     title: row.title,
     description: row.description,
     price: row.price,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient, getUserCached } from "@/lib/supabaseServer";
+import { isUuid } from "@/lib/ids/isUuid";
 
 export async function GET(request) {
   const supabase = await getSupabaseServerClient();
@@ -10,16 +11,27 @@ export async function GET(request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const listingId = searchParams.get("id");
+  const listingRef = (searchParams.get("id") || "").trim();
 
-  if (!listingId) {
+  if (!listingRef) {
     return NextResponse.json({ error: "Missing listing id" }, { status: 400 });
+  }
+
+  const { data: resolvedRows, error: resolveError } = await supabase.rpc("resolve_listing_ref", {
+    p_ref: listingRef,
+  });
+  const resolvedRow = Array.isArray(resolvedRows) ? resolvedRows[0] : null;
+  const resolvedListingId =
+    resolvedRow?.id || (isUuid(listingRef) ? listingRef : null);
+
+  if (resolveError || !resolvedListingId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const { data: listing, error: listingError } = await supabase
     .from("listings")
     .select("*, category_info:business_categories(name,slug)")
-    .eq("id", listingId)
+    .eq("id", resolvedListingId)
     .maybeSingle();
 
   if (listingError) {
@@ -45,7 +57,7 @@ export async function GET(request) {
     .from("saved_listings")
     .select("id")
     .eq("user_id", user.id)
-    .eq("listing_id", listingId)
+    .eq("listing_id", resolvedListingId)
     .maybeSingle();
 
   const response = NextResponse.json(

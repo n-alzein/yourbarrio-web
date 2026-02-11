@@ -42,6 +42,7 @@ import {
   normalizeSelectedLocation,
   setLocationSearchParams,
 } from "@/lib/location";
+import { getCustomerListingUrl } from "@/lib/ids/publicRefs";
 
 const UNREAD_REFRESH_EVENT = "yb-unread-refresh";
 
@@ -914,17 +915,16 @@ function CustomerNavbarInner({ pathname, searchParams }) {
     navigateToSearch(searchTerm || "", next);
   };
 
-  const handleSuggestionSelect = (value, itemId) => {
+  const handleSuggestionSelect = (value, itemRef) => {
     const next = (value || "").trim();
     if (!next) return;
     setSearchTerm(next);
     setSuggestionsOpen(false);
-    if (itemId) {
+    if (itemRef) {
       const params = setLocationSearchParams(new URLSearchParams(), location);
       const suffix = params.toString();
-      hardNavigate(
-        suffix ? `/customer/listings/${itemId}?${suffix}` : `/customer/listings/${itemId}`
-      );
+      const target = getCustomerListingUrl({ public_id: itemRef, id: itemRef });
+      hardNavigate(suffix ? `${target}?${suffix}` : target);
       return;
     }
     navigateToSearch(next, selectedCategory);
@@ -1192,7 +1192,9 @@ function CustomerNavbarInner({ pathname, searchParams }) {
                           <button
                             key={`item-${item.id}`}
                             type="button"
-                            onClick={() => handleSuggestionSelect(item.title, item.id)}
+                            onClick={() =>
+                              handleSuggestionSelect(item.title, item.public_id || item.id)
+                            }
                             className="w-full text-left rounded-xl border border-white/10 bg-white/5 px-3 py-3 transition flex items-start gap-3 yb-dropdown-item"
                           >
                             <div className="h-10 w-10 rounded-lg bg-white/10 border border-white/10 flex items-center justify-center text-[11px] font-semibold text-white/80">

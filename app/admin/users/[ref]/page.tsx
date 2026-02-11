@@ -8,28 +8,40 @@ import {
 import AdminFlash from "@/app/admin/_components/AdminFlash";
 import { canAdmin, requireAdminRole } from "@/lib/admin/permissions";
 import { getAdminDataClient } from "@/lib/supabase/admin";
+import { normalizeUserRef } from "@/lib/ids/normalizeUserRef";
 
 export default async function AdminUserDetailPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ ref: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const admin = await requireAdminRole("admin_readonly");
-  const { id } = await params;
+  const { ref } = await params;
+  const normalizedRef = normalizeUserRef(ref);
   const resolvedSearch = (await searchParams) || {};
   const diagEnabled =
     String(process.env.NEXT_PUBLIC_AUTH_DIAG || "") === "1" ||
     String(process.env.AUTH_GUARD_DIAG || "") === "1";
 
   const { client, usingServiceRole } = await getAdminDataClient({ mode: "service" });
-  const { data: user, error: userError } = await client.from("users").select("*").eq("id", id).maybeSingle();
+  const { data: resolvedRefRows, error: resolveError } = await client.rpc("admin_resolve_user_ref", {
+    p_ref: ref,
+  });
+  const resolvedRefRow = Array.isArray(resolvedRefRows) ? resolvedRefRows[0] : null;
+  const resolvedUserId = resolvedRefRow?.id || normalizedRef.id;
+  const { data: user, error: userError } = resolvedUserId
+    ? await client.from("users").select("*").eq("id", resolvedUserId).maybeSingle()
+    : { data: null, error: resolveError };
 
   if (diagEnabled) {
     console.warn("[admin-user-detail] load", {
-      userId: id,
+      userRef: ref,
+      userId: resolvedUserId || null,
       usingServiceRole,
+      resolveErrorCode: resolveError?.code || null,
+      resolveErrorMessage: resolveError?.message || null,
       errorCode: userError?.code || null,
       errorMessage: userError?.message || null,
     });
@@ -70,7 +82,15 @@ export default async function AdminUserDetailPage({
       <header className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold">Account detail</h2>
-          <p className="text-sm text-neutral-400 font-mono">{user.id}</p>
+          <div className="mt-1 flex items-center gap-2">
+            <code className="rounded border border-neutral-700 bg-neutral-950 px-2 py-0.5 text-xs text-neutral-300">
+              usr_{user.public_id || user.id.slice(0, 8)}
+            </code>
+            <details className="text-xs text-neutral-500">
+              <summary className="cursor-pointer">Internal ID</summary>
+              <code className="mt-1 block break-all text-neutral-400">{user.id}</code>
+            </details>
+          </div>
         </div>
         <Link href="/admin/accounts" className="text-sm text-sky-300 hover:text-sky-200">
           Back to accounts
@@ -84,6 +104,7 @@ export default async function AdminUserDetailPage({
           <h3 className="mb-2 font-medium">Profile</h3>
           <dl className="space-y-2 text-sm">
             <Field label="Email" value={user.email} />
+            <Field label="Public ID" value={user.public_id || "-"} />
             <Field label="Full name" value={user.full_name} />
             <Field label="Phone" value={user.phone} />
             <Field label="Role" value={user.role} />

@@ -23,6 +23,7 @@ export type FetchAdminUsersParams = {
 
 export type AdminUserRow = {
   id: string;
+  public_id: string | null;
   email: string | null;
   full_name: string | null;
   phone: string | null;
@@ -95,6 +96,7 @@ function normalizeRows(
     const hasAdminAccess = role === "admin" || roleKeys.length > 0;
     return {
       id,
+      public_id: row?.public_id ?? null,
       email: row?.email ?? null,
       full_name: row?.full_name ?? null,
       phone: row?.phone ?? null,
@@ -276,7 +278,7 @@ export async function fetchAdminUsers(params: FetchAdminUsersParams): Promise<Ad
 
   let query = client
     .from("users")
-    .select("id, email, full_name, phone, business_name, role, is_internal, city, created_at", {
+    .select("id, public_id, email, full_name, phone, business_name, role, is_internal, city, created_at", {
       count: "exact",
     })
     .order("created_at", { ascending: false });

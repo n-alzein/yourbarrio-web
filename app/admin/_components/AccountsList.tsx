@@ -7,6 +7,7 @@ import {
   type AdminUserRoleFilter,
 } from "@/lib/admin/users";
 import { getAdminDataClient } from "@/lib/supabase/admin";
+import { getAdminUserUrl } from "@/lib/ids/publicRefs";
 
 /**
  * Admin accounts list findings:
@@ -179,9 +180,18 @@ export default async function AccountsList({
             {rows.map((user) => (
               <tr key={user.id} className="border-t border-neutral-800">
                 <td className="px-3 py-2">
-                  <Link href={`/admin/users/${user.id}`} className="text-sky-300 hover:text-sky-200">
+                  <Link href={getAdminUserUrl(user)} className="text-sky-300 hover:text-sky-200">
                     {user.full_name || user.business_name || user.id}
                   </Link>
+                  <div className="mt-1 flex items-center gap-2">
+                    <code className="rounded border border-neutral-700 bg-neutral-950 px-2 py-0.5 text-xs text-neutral-300">
+                      usr_{user.public_id || user.id.slice(0, 8)}
+                    </code>
+                    <details className="text-xs text-neutral-500">
+                      <summary className="cursor-pointer">Internal ID</summary>
+                      <code className="mt-1 block break-all text-neutral-400">{user.id}</code>
+                    </details>
+                  </div>
                 </td>
                 <td className="px-3 py-2">{user.email || "-"}</td>
                 <td className="px-3 py-2">

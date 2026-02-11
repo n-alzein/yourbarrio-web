@@ -13,7 +13,7 @@ export default function EditListingPage() {
   const router = useRouter();
   const params = useParams();
   const listingId = params.id;
-  const listingKey = useMemo(() => {
+  const listingRef = useMemo(() => {
     if (Array.isArray(listingId)) return listingId[0] || "";
     return typeof listingId === "string" ? listingId : "";
   }, [listingId]);
@@ -48,6 +48,7 @@ export default function EditListingPage() {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [categoriesError, setCategoriesError] = useState("");
   const [existingPhotos, setExistingPhotos] = useState([]);
+  const [internalListingId, setInternalListingId] = useState(null);
   const [newPhotos, setNewPhotos] = useState([]);
   const newPhotoPreviews = useMemo(
     () => newPhotos.map((file) => ({ url: URL.createObjectURL(file) })),
@@ -64,7 +65,7 @@ export default function EditListingPage() {
   // Load existing listing
   useEffect(() => {
     if (loadingUser && !accountId) return;
-    if (!accountId || !listingKey) {
+    if (!accountId || !listingRef) {
       setLoading(false);
       return;
     }
@@ -72,7 +73,7 @@ export default function EditListingPage() {
       try {
         const response = await retry(
           () =>
-            fetchWithTimeout(`/api/business/listings?id=${encodeURIComponent(listingKey)}`, {
+            fetchWithTimeout(`/api/business/listings?id=${encodeURIComponent(listingRef)}`, {
               method: "GET",
               credentials: "include",
               timeoutMs: 12000,
@@ -88,6 +89,7 @@ export default function EditListingPage() {
         const payload = await response.json();
         const data = payload?.listing;
         if (!data) throw new Error("Listing not found");
+        setInternalListingId(data.id || null);
 
         setForm({
           title: data.title || "",
@@ -108,7 +110,7 @@ export default function EditListingPage() {
     }
 
     loadListing();
-  }, [loadingUser, accountId, supabase, listingKey]);
+  }, [loadingUser, accountId, supabase, listingRef]);
 
   useEffect(() => {
     let isMounted = true;
@@ -275,10 +277,13 @@ export default function EditListingPage() {
 
       const { data, error } = await retry(
         async () => {
+          if (!internalListingId) {
+            throw new Error("Listing reference could not be resolved.");
+          }
           const result = await client
             .from("listings")
             .update(payload)
-            .eq("id", listingKey)
+            .eq("id", internalListingId)
             .eq("business_id", accountId)
             .select("id")
             .single();

@@ -91,7 +91,7 @@ export default async function BusinessProfileRoute() {
   const listingsQuery = supabase
     .from("listings")
     .select(
-      "id, business_id, title, price, category, category_id, category_info:business_categories(name,slug), photo_url, created_at"
+      "id, public_id, business_id, title, price, category, category_id, category_info:business_categories(name,slug), photo_url, created_at"
     )
     .eq("business_id", effectiveUserId)
     .order("created_at", { ascending: false });

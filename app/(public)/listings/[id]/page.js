@@ -24,6 +24,8 @@ import { getAvailabilityBadgeStyle, normalizeInventory } from "@/lib/inventory";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { useCart } from "@/components/cart/CartProvider";
 import ReportModal from "@/components/moderation/ReportModal";
+import { isUuid } from "@/lib/ids/isUuid";
+import { getListingUrl } from "@/lib/ids/publicRefs";
 
 export default function ListingDetails({ params }) {
   const { supabase, user, role } = useAuth();
@@ -34,7 +36,7 @@ export default function ListingDetails({ params }) {
   const routeParams = useParams();
   const pathname = usePathname();
   const [resolvedParams, setResolvedParams] = useState(params);
-  const id = routeParams?.id || resolvedParams?.id;
+  const listingRef = routeParams?.id || resolvedParams?.id;
 
   useEffect(() => {
     let active = true;
@@ -96,14 +98,14 @@ export default function ListingDetails({ params }) {
     const shouldUseServer = Boolean(accountId);
 
     async function load() {
-      if (!id) return;
+      if (!listingRef) return;
       setLoading(true);
       setError(null);
 
       try {
         if (shouldUseServer) {
           const response = await fetchWithTimeout(
-            `/api/customer/listings?id=${encodeURIComponent(id)}`,
+            `/api/customer/listings?id=${encodeURIComponent(listingRef)}`,
             {
               method: "GET",
               credentials: "include",
@@ -136,7 +138,7 @@ export default function ListingDetails({ params }) {
         const { data: item, error: listingError } = await client
           .from("listings")
           .select("*, category_info:business_categories(name,slug)")
-          .eq("id", id)
+          .eq(isUuid(listingRef) ? "id" : "public_id", listingRef)
           .maybeSingle();
 
         if (listingError) throw listingError;
@@ -170,12 +172,12 @@ export default function ListingDetails({ params }) {
     return () => {
       isMounted = false;
     };
-  }, [supabase, id, user?.id]);
+  }, [supabase, listingRef, user?.id]);
 
   useEffect(() => {
     let active = true;
     const accountId = user?.id || null;
-    if (!accountId || !id) return () => {};
+    if (!accountId || !listing?.id) return () => {};
     const checkSaved = async () => {
       const client = supabase ?? getSupabaseBrowserClient();
       if (!client) return;
@@ -183,7 +185,7 @@ export default function ListingDetails({ params }) {
         .from("saved_listings")
         .select("id")
         .eq("user_id", accountId)
-        .eq("listing_id", id)
+        .eq("listing_id", listing.id)
         .maybeSingle();
       if (!active) return;
       setIsSaved(!!data);
@@ -192,10 +194,10 @@ export default function ListingDetails({ params }) {
     return () => {
       active = false;
     };
-  }, [supabase, user?.id, id]);
+  }, [supabase, user?.id, listing?.id]);
 
   const handleToggleSave = async () => {
-    if (!id) return;
+    if (!listing?.id) return;
     if (!requireAuth("save listings", setStatusMessage)) return;
     setSaveLoading(true);
     setStatusMessage("");
@@ -206,13 +208,13 @@ export default function ListingDetails({ params }) {
           .from("saved_listings")
           .delete()
           .eq("user_id", userId)
-          .eq("listing_id", id);
+          .eq("listing_id", listing.id);
         setIsSaved(false);
         setStatusMessage("Removed from saved.");
       } else {
         await client
           .from("saved_listings")
-          .insert({ user_id: userId, listing_id: id });
+          .insert({ user_id: userId, listing_id: listing.id });
         setIsSaved(true);
         setStatusMessage("Saved to your list.");
       }
@@ -355,7 +357,7 @@ export default function ListingDetails({ params }) {
   const handleShareListing = async () => {
     if (!listing?.id) return;
     const url =
-      typeof window !== "undefined" ? window.location.href : `/listings/${listing.id}`;
+      typeof window !== "undefined" ? window.location.href : getListingUrl(listing);
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({

@@ -15,6 +15,7 @@ import {
 } from "@/lib/inventory";
 import { installNetTrace } from "@/lib/netTrace";
 import { resolveCategoryIdByName } from "@/lib/categories";
+import { getListingUrl } from "@/lib/ids/publicRefs";
 
 function formatPrice(value) {
   if (value === null || value === undefined || value === "") return "Price TBD";
@@ -292,7 +293,7 @@ export default function ListingsClient() {
               key={listing.id}
               className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
             >
-              <Link href={`/listings/${listing.id}`} className="block">
+              <Link href={getListingUrl(listing)} className="block">
                 <div className="relative w-full h-[200px] sm:h-[220px] lg:h-[240px] overflow-hidden bg-gray-50 p-2">
                   <SafeImage
                     src={primaryPhotoUrl(listing.photo_url)}

@@ -12,6 +12,7 @@ export type CategoryRow = {
 
 export type SupabaseListing = {
   id: string;
+  public_id?: string | null;
   title?: string | null;
   price?: number | string | null;
   photo_url?: string | null;
@@ -26,7 +27,7 @@ export type ListingsResult = {
 };
 
 const DEFAULT_LIMIT = 40;
-const LISTINGS_COLUMNS = "id,title,price,photo_url,created_at";
+const LISTINGS_COLUMNS = "id,public_id,title,price,photo_url,created_at";
 
 export async function getCategoryRowCached(slug: string): Promise<CategoryRow> {
   const normalized = typeof slug === "string" ? slug.trim() : "";

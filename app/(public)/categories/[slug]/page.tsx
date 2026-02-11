@@ -10,6 +10,7 @@ import {
   getCategoryRowCached,
   type SupabaseListing,
 } from "@/lib/categoryListingsCached";
+import { getListingUrl } from "@/lib/ids/publicRefs";
 
 export const revalidate = 60;
 
@@ -190,7 +191,7 @@ export default async function CategoryListingsPage({
               return (
                 <Link
                   key={item.id}
-                  href={`/listings/${item.id}`}
+                  href={getListingUrl(item)}
                   className="group rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition overflow-hidden"
                 >
                   <div className="relative w-full h-[200px] sm:h-[220px] lg:h-[240px] overflow-hidden bg-gray-50 p-2">

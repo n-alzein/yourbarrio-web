@@ -5,6 +5,7 @@ import { fetchCategoryBySlug } from "@/lib/strapi";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
 import { fetchCategoryBySlug as fetchCategoryBySlugFromDb } from "@/lib/categories";
+import { getCustomerListingUrl } from "@/lib/ids/publicRefs";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -78,7 +79,7 @@ export default async function CategoryListingsPage({ params, searchParams }) {
         supabase
           .from("listings")
           .select(
-            "id,title,description,price,category,category_id,category_info:business_categories(name,slug),city,photo_url,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
+            "id,public_id,title,description,price,category,category_id,category_info:business_categories(name,slug),city,photo_url,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
           )
           .order("created_at", { ascending: false })
           .limit(80)
@@ -158,7 +159,7 @@ export default async function CategoryListingsPage({ params, searchParams }) {
               return (
                 <Link
                   key={item.id}
-                  href={`/customer/listings/${item.id}`}
+                  href={getCustomerListingUrl(item)}
                   className="group rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition overflow-hidden"
                 >
                   <div className="relative h-40 bg-slate-100 flex items-center justify-center">

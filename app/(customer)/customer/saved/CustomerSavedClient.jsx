@@ -15,6 +15,7 @@ import {
 } from "@/lib/inventory";
 import { createFetchSafe } from "@/lib/fetchSafe";
 import { memoizeRequest } from "@/lib/requestMemo";
+import { getListingUrl } from "@/lib/ids/publicRefs";
 
 export default function CustomerSavedClient({
   initialSaved,
@@ -527,7 +528,7 @@ export default function CustomerSavedClient({
                 return (
                 <Link
                   key={item.id}
-                  href={`/listings/${item.id}`}
+                  href={getListingUrl(item)}
                   className="group relative rounded-2xl overflow-hidden border border-white/10 bg-white/5 backdrop-blur-xl shadow-xl hover:-translate-y-1 transition-transform duration-300"
                 >
                   <div className="relative h-48 w-full overflow-hidden">

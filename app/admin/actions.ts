@@ -35,6 +35,16 @@ function withMessage(pathname: string, type: "success" | "error", message: strin
   return `${pathname}?${params.toString()}`;
 }
 
+async function resolveAdminUserPath(client: any, userId: string) {
+  const { data } = await client
+    .from("users")
+    .select("public_id")
+    .eq("id", userId)
+    .maybeSingle();
+  const ref = String(data?.public_id || userId).trim();
+  return `/admin/users/${encodeURIComponent(ref || userId)}`;
+}
+
 const SAFE_APP_ROLES = ["customer", "business", "user"] as const;
 const SUPER_ONLY_APP_ROLES = ["admin"] as const;
 
@@ -64,18 +74,19 @@ export async function updateUserRoleAction(formData: FormData) {
     redirect(withMessage("/admin/accounts", "error", "Invalid role update payload"));
   }
 
-  const targetPath = `/admin/users/${parsed.data.userId}`;
-  requireCapabilityOrRedirect(admin, "update_app_role", targetPath);
+  const fallbackTargetPath = `/admin/users/${parsed.data.userId}`;
+  requireCapabilityOrRedirect(admin, "update_app_role", fallbackTargetPath);
 
   const nextRole = String(parsed.data.role || "").trim().toLowerCase();
   const safeRoles = new Set<string>(SAFE_APP_ROLES);
   const superOnlyRoles = new Set<string>(SUPER_ONLY_APP_ROLES);
   const canManageAdmins = admin.strictPermissionBypassUsed || canAdmin(admin.roles, "manage_admins");
   if (!safeRoles.has(nextRole) && !(canManageAdmins && superOnlyRoles.has(nextRole))) {
-    redirect(withMessage(targetPath, "error", "Unauthorized role update"));
+    redirect(withMessage(fallbackTargetPath, "error", "Unauthorized role update"));
   }
 
   const { client } = await getAdminDataClient({ mode: "service" });
+  const targetPath = await resolveAdminUserPath(client, parsed.data.userId);
   const { data: existingUser } = await client
     .from("users")
     .select("role")
@@ -118,11 +129,12 @@ export async function toggleUserInternalAction(formData: FormData) {
     redirect(withMessage("/admin/accounts", "error", "Invalid internal toggle payload"));
   }
 
-  const targetPath = `/admin/users/${parsed.data.userId}`;
-  requireCapabilityOrRedirect(admin, "toggle_internal_user", targetPath);
+  const fallbackTargetPath = `/admin/users/${parsed.data.userId}`;
+  requireCapabilityOrRedirect(admin, "toggle_internal_user", fallbackTargetPath);
 
   const nextValue = parsed.data.isInternal === "true";
   const { client } = await getAdminDataClient({ mode: "service" });
+  const targetPath = await resolveAdminUserPath(client, parsed.data.userId);
   const { data: existingUser } = await client
     .from("users")
     .select("is_internal")
@@ -168,8 +180,11 @@ export async function addUserInternalNoteAction(formData: FormData) {
     redirect(withMessage("/admin/accounts", "error", "Invalid note payload"));
   }
 
-  const targetPath = `/admin/users/${parsed.data.userId}`;
-  requireCapabilityOrRedirect(admin, "add_internal_note", targetPath);
+  const fallbackTargetPath = `/admin/users/${parsed.data.userId}`;
+  requireCapabilityOrRedirect(admin, "add_internal_note", fallbackTargetPath);
+
+  const { client } = await getAdminDataClient({ mode: "service" });
+  const targetPath = await resolveAdminUserPath(client, parsed.data.userId);
 
   await audit({
     action: "user_internal_note_added",

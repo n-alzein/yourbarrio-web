@@ -4,6 +4,7 @@ import Link from "next/link";
 import FastImage from "@/components/FastImage";
 import { ArrowUpRight } from "lucide-react";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
+import { getListingUrl } from "@/lib/ids/publicRefs";
 
 function formatPrice(value) {
   if (value === null || value === undefined || value === "") return "Price TBD";
@@ -35,7 +36,7 @@ export default function BusinessListingsGrid({ listings, className = "" }) {
             return (
               <Link
                 key={item.id}
-                href={`/listings/${item.id}`}
+                href={getListingUrl(item)}
                 className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition shadow-lg"
               >
                 <div className="relative h-48 w-full overflow-hidden bg-white/5 border-b border-white/10">
