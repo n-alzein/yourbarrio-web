@@ -103,7 +103,7 @@ export async function POST(req) {
     const { data, error } = await supabase
       .from("users")
       .upsert(payload, { onConflict: "id" })
-      .select("id")
+      .select("id, public_id")
       .single();
 
     if (error) {
@@ -114,7 +114,7 @@ export async function POST(req) {
       );
     }
 
-    return NextResponse.json({ id: data.id, geo });
+    return NextResponse.json({ id: data.id, public_id: data.public_id || null, geo });
   } catch (err) {
     console.error("Business create API error", err);
     return NextResponse.json(

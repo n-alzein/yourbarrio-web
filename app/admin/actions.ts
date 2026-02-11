@@ -29,10 +29,16 @@ import { shouldUseSecureCookies } from "@/lib/http/cookiesSecurity";
 import { getSupabaseServerAuthedClient, getSupabaseServerClient } from "@/lib/supabaseServer";
 import { getAdminDataClient, getAdminServiceRoleClient } from "@/lib/supabase/admin";
 
-function withMessage(pathname: string, type: "success" | "error", message: string) {
-  const params = new URLSearchParams();
-  params.set(type, message);
-  return `${pathname}?${params.toString()}`;
+function withMessage(pathname: string, type: "success" | "error" | "ok" | "err", message: string) {
+  const normalizedPath = getSafeRedirectPath(pathname || "") || "/admin";
+  const [rawPath, hash = ""] = normalizedPath.split("#");
+  const url = new URL(rawPath || "/admin", "http://local");
+  url.searchParams.set(type, message);
+  if (type === "ok") url.searchParams.set("success", message);
+  if (type === "err") url.searchParams.set("error", message);
+  const query = url.searchParams.toString();
+  const suffix = hash ? `#${hash}` : "";
+  return `${url.pathname}${query ? `?${query}` : ""}${suffix}`;
 }
 
 async function resolveAdminUserPath(client: any, userId: string) {
@@ -221,6 +227,26 @@ function resolveModerationReturnTo(value?: string) {
   return getSafeRedirectPath(value || "") || "/admin/moderation";
 }
 
+function isNextRedirectError(error: unknown) {
+  return typeof (error as { digest?: unknown })?.digest === "string" &&
+    String((error as { digest?: string }).digest).startsWith("NEXT_REDIRECT");
+}
+
+function toErrorMessage(error: unknown) {
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message?: unknown }).message || "Unknown error");
+  }
+  return "Unknown error";
+}
+
+function revalidateModerationReturnTo(returnTo: string) {
+  const pathOnly = (returnTo || "/admin/moderation").split("?")[0] || "/admin/moderation";
+  revalidatePath("/admin/moderation");
+  if (pathOnly !== "/admin/moderation") {
+    revalidatePath(pathOnly);
+  }
+}
+
 export async function takeModerationCaseAction(formData: FormData) {
   await requireAdminAnyRole(["admin_ops", "admin_super"]);
   const parsed = moderationTakeSchema.safeParse({
@@ -230,23 +256,41 @@ export async function takeModerationCaseAction(formData: FormData) {
 
   const returnTo = resolveModerationReturnTo(parsed.success ? parsed.data.returnTo : undefined);
   if (!parsed.success) {
-    redirect(withMessage(returnTo, "error", "Invalid moderation payload"));
+    redirect(withMessage(returnTo, "err", "Invalid moderation payload"));
   }
+  const actionName = "takeModerationCaseAction";
+  try {
+    const { client } = await getAdminDataClient({ mode: "actor" });
+    const { error } = await client.rpc("admin_take_moderation_case", {
+      p_flag_id: parsed.data.id,
+    });
 
-  const { client } = await getAdminDataClient();
-  const { error } = await client.rpc("admin_update_moderation_flag", {
-    p_flag_id: parsed.data.id,
-    p_status: "in_review",
-    p_admin_notes: null,
-    p_meta: { action: "take_case" },
-  });
+    if (error) {
+      const fallback = await client.rpc("admin_update_moderation_flag", {
+        p_flag_id: parsed.data.id,
+        p_status: "in_review",
+        p_admin_notes: null,
+        p_meta: { action: "take_case" },
+      });
+      if (fallback.error) {
+        throw fallback.error;
+      }
+    }
 
-  if (error) {
-    redirect(withMessage(returnTo, "error", error.message));
+    revalidateModerationReturnTo(returnTo);
+    redirect(withMessage(returnTo, "ok", "case_taken"));
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    console.error("[admin][moderation] action failed", {
+      action: actionName,
+      error,
+      inputs: {
+        id: parsed.data.id,
+        returnTo,
+      },
+    });
+    redirect(withMessage(returnTo, "err", toErrorMessage(error)));
   }
-
-  revalidatePath("/admin/moderation");
-  redirect(withMessage(returnTo, "success", "Case moved to in review"));
 }
 
 export async function updateModerationFlagAction(formData: FormData) {
@@ -260,23 +304,38 @@ export async function updateModerationFlagAction(formData: FormData) {
 
   const returnTo = resolveModerationReturnTo(parsed.success ? parsed.data.returnTo : undefined);
   if (!parsed.success) {
-    redirect(withMessage(returnTo, "error", "Invalid moderation update payload"));
+    redirect(withMessage(returnTo, "err", "Invalid moderation update payload"));
   }
+  const actionName = "updateModerationFlagAction";
+  try {
+    const { client } = await getAdminDataClient({ mode: "actor" });
+    const { error } = await client.rpc("admin_update_moderation_flag", {
+      p_flag_id: parsed.data.id,
+      p_status: parsed.data.status,
+      p_admin_notes: parsed.data.adminNotes || null,
+      p_meta: { action: "status_change" },
+    });
 
-  const { client } = await getAdminDataClient();
-  const { error } = await client.rpc("admin_update_moderation_flag", {
-    p_flag_id: parsed.data.id,
-    p_status: parsed.data.status,
-    p_admin_notes: parsed.data.adminNotes || null,
-    p_meta: { action: "status_change" },
-  });
+    if (error) {
+      throw error;
+    }
 
-  if (error) {
-    redirect(withMessage(returnTo, "error", error.message));
+    revalidateModerationReturnTo(returnTo);
+    redirect(withMessage(returnTo, "ok", "updated"));
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    console.error("[admin][moderation] action failed", {
+      action: actionName,
+      error,
+      inputs: {
+        id: parsed.data.id,
+        status: parsed.data.status,
+        hasAdminNotes: Boolean(parsed.data.adminNotes),
+        returnTo,
+      },
+    });
+    redirect(withMessage(returnTo, "err", toErrorMessage(error)));
   }
-
-  revalidatePath("/admin/moderation");
-  redirect(withMessage(returnTo, "success", "Moderation flag updated"));
 }
 
 export async function hideListingAndResolveModerationFlagAction(formData: FormData) {
@@ -290,22 +349,37 @@ export async function hideListingAndResolveModerationFlagAction(formData: FormDa
 
   const returnTo = resolveModerationReturnTo(parsed.success ? parsed.data.returnTo : undefined);
   if (!parsed.success) {
-    redirect(withMessage(returnTo, "error", "Invalid hide listing payload"));
+    redirect(withMessage(returnTo, "err", "Invalid hide listing payload"));
   }
+  const actionName = "hideListingAndResolveModerationFlagAction";
+  try {
+    const { client } = await getAdminDataClient({ mode: "actor" });
+    const { error } = await client.rpc("admin_hide_listing_and_resolve_flag", {
+      p_flag_id: parsed.data.id,
+      p_listing_id: parsed.data.targetId,
+      p_notes: parsed.data.adminNotes || null,
+    });
 
-  const { client } = await getAdminDataClient();
-  const { error } = await client.rpc("admin_hide_listing_and_resolve_flag", {
-    p_flag_id: parsed.data.id,
-    p_listing_id: parsed.data.targetId,
-    p_notes: parsed.data.adminNotes || null,
-  });
+    if (error) {
+      throw error;
+    }
 
-  if (error) {
-    redirect(withMessage(returnTo, "error", error.message));
+    revalidateModerationReturnTo(returnTo);
+    redirect(withMessage(returnTo, "ok", "hidden_and_resolved"));
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    console.error("[admin][moderation] action failed", {
+      action: actionName,
+      error,
+      inputs: {
+        id: parsed.data.id,
+        targetId: parsed.data.targetId,
+        hasAdminNotes: Boolean(parsed.data.adminNotes),
+        returnTo,
+      },
+    });
+    redirect(withMessage(returnTo, "err", toErrorMessage(error)));
   }
-
-  revalidatePath("/admin/moderation");
-  redirect(withMessage(returnTo, "success", "Listing action completed and flag resolved"));
 }
 
 export async function hideReviewAndResolveModerationFlagAction(formData: FormData) {
@@ -319,22 +393,37 @@ export async function hideReviewAndResolveModerationFlagAction(formData: FormDat
 
   const returnTo = resolveModerationReturnTo(parsed.success ? parsed.data.returnTo : undefined);
   if (!parsed.success) {
-    redirect(withMessage(returnTo, "error", "Invalid hide review payload"));
+    redirect(withMessage(returnTo, "err", "Invalid hide review payload"));
   }
+  const actionName = "hideReviewAndResolveModerationFlagAction";
+  try {
+    const { client } = await getAdminDataClient({ mode: "actor" });
+    const { error } = await client.rpc("admin_hide_review_and_resolve_flag", {
+      p_flag_id: parsed.data.id,
+      p_review_id: parsed.data.targetId,
+      p_notes: parsed.data.adminNotes || null,
+    });
 
-  const { client } = await getAdminDataClient();
-  const { error } = await client.rpc("admin_hide_review_and_resolve_flag", {
-    p_flag_id: parsed.data.id,
-    p_review_id: parsed.data.targetId,
-    p_notes: parsed.data.adminNotes || null,
-  });
+    if (error) {
+      throw error;
+    }
 
-  if (error) {
-    redirect(withMessage(returnTo, "error", error.message));
+    revalidateModerationReturnTo(returnTo);
+    redirect(withMessage(returnTo, "ok", "hidden_and_resolved"));
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    console.error("[admin][moderation] action failed", {
+      action: actionName,
+      error,
+      inputs: {
+        id: parsed.data.id,
+        targetId: parsed.data.targetId,
+        hasAdminNotes: Boolean(parsed.data.adminNotes),
+        returnTo,
+      },
+    });
+    redirect(withMessage(returnTo, "err", toErrorMessage(error)));
   }
-
-  revalidatePath("/admin/moderation");
-  redirect(withMessage(returnTo, "success", "Review action completed and flag resolved"));
 }
 
 const supportCreateSchema = z.object({

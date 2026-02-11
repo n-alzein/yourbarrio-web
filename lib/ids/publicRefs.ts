@@ -29,3 +29,11 @@ export function getCustomerListingUrl(listing: { public_id?: unknown; id?: unkno
   return ref ? `/customer/listings/${encodeRef(ref)}` : "/customer/listings";
 }
 
+export function getBusinessPublicRef(business: { public_id?: unknown; id?: unknown }) {
+  return cleanRef(business?.public_id) || cleanRef(business?.id);
+}
+
+export function getCustomerBusinessUrl(business: { public_id?: unknown; id?: unknown }) {
+  const ref = getBusinessPublicRef(business);
+  return ref ? `/customer/b/${encodeRef(ref)}` : "/customer/home";
+}

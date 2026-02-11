@@ -3,8 +3,6 @@
 import { useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useLocation } from "@/components/location/LocationProvider";
-import { withLocationHref } from "@/lib/location";
 import { markNavInProgress } from "@/lib/nav/safariNavGuard";
 
 const FALLBACK_TILES = Array.from({ length: 8 });
@@ -25,9 +23,7 @@ export default function CategoryTilesGrid({
   onTilePointerCancel,
   diagTileClick,
 }) {
-  const { location } = useLocation();
   const debugNavPerf = process.env.NEXT_PUBLIC_DEBUG_NAV_PERF === "1";
-  const withLocation = (href) => withLocationHref(href, location);
   const hasCategories = Array.isArray(categories) && categories.length > 0;
 
   const markNavStart = useCallback(() => {
@@ -87,7 +83,7 @@ export default function CategoryTilesGrid({
           </div>
           {viewAllHref ? (
             <Link
-              href={withLocation(viewAllHref)}
+              href={viewAllHref}
               prefetch={false}
               className="text-sm font-semibold text-white/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 rounded-md px-2 py-1"
             >
@@ -105,7 +101,7 @@ export default function CategoryTilesGrid({
           data-home-category-grid="1"
         >
           {categories.map((category, idx) => {
-            const href = withLocation(`/categories/${category.slug}`);
+            const href = `/categories/${category.slug}`;
             const tileTitle = category.name || "Category";
             return (
               <Link

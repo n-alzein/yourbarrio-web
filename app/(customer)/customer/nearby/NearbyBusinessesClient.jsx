@@ -15,6 +15,7 @@ import { BUSINESS_CATEGORIES, normalizeCategoryName } from "@/lib/businessCatego
 import { appendCrashLog } from "@/lib/crashlog";
 import { logDataDiag } from "@/lib/dataDiagnostics";
 import { useLocation } from "@/components/location/LocationProvider";
+import { getCustomerBusinessUrl } from "@/lib/ids/publicRefs";
 
 const isSameBusinessList = (prev, next) => {
   if (!Array.isArray(prev) || !Array.isArray(next)) return false;
@@ -344,7 +345,7 @@ export default function NearbyBusinessesClient() {
             let query = client
               .from("users")
               .select(
-                "id,business_name,full_name,category,city,address,description,website,profile_photo_url,latitude,longitude,lat,lng,role"
+                "id,public_id,business_name,full_name,category,city,address,description,website,profile_photo_url,latitude,longitude,lat,lng,role"
               )
               .eq("role", "business")
               .limit(400);
@@ -395,6 +396,7 @@ export default function NearbyBusinessesClient() {
               const hasCoords = typeof lat === "number" && typeof lng === "number" && lat !== 0 && lng !== 0;
               return {
                 id: row.id,
+                public_id: row.public_id || null,
                 name: row.business_name || row.name || row.full_name || "Local business",
                 category: row.category || "Local business",
                 categoryLabel: row.category || "Local business",
@@ -516,7 +518,7 @@ export default function NearbyBusinessesClient() {
           {filteredBusinesses.map((biz, bizIndex) => (
             <Link
               key={biz.id || biz.name}
-              href={biz?.id ? `/customer/b/${biz.id}` : "#"}
+              href={biz?.id ? getCustomerBusinessUrl(biz) : "#"}
               prefetch={false}
               data-safe-nav="1"
               className={`${compact ? "h-[88px]" : "h-[220px]"} snap-start text-left border-r border-white/10 bg-white/5 hover:bg-white/10 transition shadow-sm rounded-none last:border-r-0 flex flex-col overflow-hidden`}

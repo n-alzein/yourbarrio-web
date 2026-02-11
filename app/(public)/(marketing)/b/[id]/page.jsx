@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
+import { permanentRedirect } from "next/navigation";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { getPublicSupabaseServerClient } from "@/lib/supabasePublicServer";
 import PublicBusinessHero from "@/components/publicBusinessProfile/PublicBusinessHero";
@@ -14,6 +15,7 @@ import ViewerContextEnhancer from "@/components/public/ViewerContextEnhancer";
 
 const PROFILE_FIELDS = [
   "id",
+  "public_id",
   "role",
   "business_name",
   "full_name",
@@ -37,6 +39,8 @@ const PROFILE_FIELDS_WITH_OPTIONAL = [
 const PUBLIC_CACHE_SECONDS = 300;
 const PERF_ENV_FLAG = "YB_PROFILE_PERF";
 const MISSING_COLUMN_RE = /column "([^"]+)" does not exist/i;
+const UUID_ANY_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function buildRatingSummary(rows) {
   const breakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -120,6 +124,26 @@ async function fetchPublicProfile(supabase, id) {
   }
 
   return withOptional.data;
+}
+
+async function resolveBusinessRef(ref) {
+  const trimmedRef = String(ref || "").trim();
+  if (!trimmedRef) return null;
+  const supabase = getPublicSupabaseServerClient();
+  const { data, error } = await supabase.rpc("resolve_business_ref", {
+    p_ref: trimmedRef,
+  });
+  if (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[public business] resolve_business_ref failed", {
+        ref: trimmedRef,
+        code: error.code || null,
+        message: error.message || null,
+      });
+    }
+    return null;
+  }
+  return Array.isArray(data) && data.length > 0 ? data[0] : null;
 }
 
 function buildListingsQuery(supabase, businessId, limit, filters) {
@@ -324,7 +348,10 @@ function createPerfLogger({ enabled, label, businessId }) {
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await Promise.resolve(params);
-  const businessId = resolvedParams?.id;
+  const ref = resolvedParams?.id;
+  const resolvedRef = await resolveBusinessRef(ref);
+  const businessId = resolvedRef?.id || null;
+  const businessPublicId = resolvedRef?.public_id || null;
   const profile = businessId ? await getPublicProfileCached(businessId) : null;
   if (!profile) {
     return {
@@ -359,7 +386,7 @@ export async function generateMetadata({ params }) {
     title: `${name} on YourBarrio`,
     description,
     alternates: {
-      canonical: `/customer/b/${businessId || ""}`,
+      canonical: `/customer/b/${businessPublicId || businessId || ""}`,
     },
     openGraph: {
       title: `${name} on YourBarrio`,
@@ -377,17 +404,25 @@ function UnavailableState() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/60 to-black/90" />
         <div className="relative mx-auto max-w-4xl px-6 md:px-10 py-24 md:py-32 text-center">
           <h1 className="text-3xl md:text-4xl font-semibold">
-            This business profile is not available.
+            Business not found.
           </h1>
           <p className="mt-3 text-sm md:text-base text-white/70">
-            It may be offline or not ready for public viewing yet.
+            The profile may be unavailable or the link may be outdated.
           </p>
-          <Link
-            href="/customer/home"
-            className="mt-8 inline-flex items-center justify-center rounded-full bg-white/90 px-5 py-2 text-sm font-semibold text-slate-900 hover:bg-white transition"
-          >
-            Back to customer home
-          </Link>
+          <div className="mt-8 flex items-center justify-center gap-3">
+            <Link
+              href="/listings"
+              className="inline-flex items-center justify-center rounded-full bg-white/90 px-5 py-2 text-sm font-semibold text-slate-900 hover:bg-white transition"
+            >
+              Browse listings
+            </Link>
+            <Link
+              href="/customer/home"
+              className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-5 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
+            >
+              Back to search
+            </Link>
+          </div>
         </div>
       </div>
     </div>
@@ -401,8 +436,16 @@ export default async function PublicBusinessProfilePage({
 }) {
   const resolvedParams = await Promise.resolve(params);
   const resolvedSearch = await Promise.resolve(searchParams);
-  const businessId = resolvedParams?.id;
-  if (!businessId) return <UnavailableState />;
+  const ref = String(resolvedParams?.id || "").trim();
+  if (!ref) return <UnavailableState />;
+  const resolvedRef = await resolveBusinessRef(ref);
+  if (!resolvedRef?.id) return <UnavailableState />;
+  const businessId = resolvedRef.id;
+  const businessPublicId = String(resolvedRef.public_id || "").trim();
+  if (UUID_ANY_RE.test(ref) && businessPublicId) {
+    permanentRedirect(`/customer/b/${encodeURIComponent(businessPublicId)}`);
+  }
+  const publicPath = `/customer/b/${encodeURIComponent(businessPublicId || businessId)}`;
   const isPreview = resolvedSearch?.preview === "1";
   const perfEnabled =
     resolvedSearch?.perf === "1" || process.env[PERF_ENV_FLAG] === "1";
@@ -503,7 +546,7 @@ export default async function PublicBusinessProfilePage({
       <PublicBusinessHero
         profile={profile}
         ratingSummary={ratingSummary}
-        publicPath={`/customer/b/${businessId}`}
+        publicPath={publicPath}
         shell={shell}
       />
 

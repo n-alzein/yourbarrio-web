@@ -9,6 +9,7 @@ import BusinessGalleryGrid from "@/components/publicBusinessProfile/BusinessGall
 import BusinessListingsGrid from "@/components/publicBusinessProfile/BusinessListingsGrid";
 import BusinessReviewsPanel from "@/components/publicBusinessProfile/BusinessReviewsPanel";
 import ViewerContextEnhancer from "@/components/public/ViewerContextEnhancer";
+import { getCustomerBusinessUrl } from "@/lib/ids/publicRefs";
 
 const EMPTY_SUMMARY = {
   count: 0,
@@ -213,7 +214,7 @@ export default function PublicBusinessPreviewClient({
       const profileQuery = client
         .from("users")
         .select(
-          "id,role,business_name,full_name,category,description,website,phone,address,city,profile_photo_url,cover_photo_url,hours_json,social_links_json"
+          "id,public_id,role,business_name,full_name,category,description,website,phone,address,city,profile_photo_url,cover_photo_url,hours_json,social_links_json"
         )
         .eq("id", businessId)
         .eq("role", "business")
@@ -344,7 +345,7 @@ export default function PublicBusinessPreviewClient({
       <PublicBusinessHero
         profile={profile}
         ratingSummary={ratingSummary}
-        publicPath={`/customer/b/${businessId}`}
+        publicPath={getCustomerBusinessUrl(profile || { id: businessId })}
       />
 
       <div className="mx-auto max-w-6xl px-6 md:px-10 pb-16 space-y-8">

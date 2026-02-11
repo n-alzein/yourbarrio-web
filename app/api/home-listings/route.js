@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { getSupabaseServerClient as getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { resolveCategoryIdByName } from "@/lib/categories";
+import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
 
 async function runHomeListingsQuery(client, { limit, city, category }) {
   let query = client
@@ -32,7 +33,8 @@ export async function GET(request) {
   const url = new URL(request.url);
   const limitParam = Number(url.searchParams.get("limit") || 80);
   const limit = Number.isFinite(limitParam) ? Math.max(1, limitParam) : 80;
-  const city = url.searchParams.get("city") || null;
+  const location = await getLocationFromCookies();
+  const city = (url.searchParams.get("city") || location?.city || "").trim() || null;
   const category = url.searchParams.get("category") || null;
   const supabaseHost = (() => {
     try {

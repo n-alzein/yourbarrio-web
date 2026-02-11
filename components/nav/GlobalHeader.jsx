@@ -27,7 +27,6 @@ import {
   getLocationLabel,
   isZipLike,
   normalizeSelectedLocation,
-  setLocationSearchParams,
 } from "@/lib/location";
 import { markNavInProgress } from "@/lib/nav/safariNavGuard";
 
@@ -114,9 +113,8 @@ export default function GlobalHeader({
     const params = new URLSearchParams();
     if (value) params.set("q", value);
     if (nextCategory && nextCategory !== "All") params.set("category", nextCategory);
-    const withLocation = setLocationSearchParams(params, location);
-    const target = withLocation.toString()
-      ? `${baseSearchPath}?${withLocation.toString()}`
+    const target = params.toString()
+      ? `${baseSearchPath}?${params.toString()}`
       : baseSearchPath;
     setSuggestionsOpen(false);
     router.push(target);
@@ -139,9 +137,7 @@ export default function GlobalHeader({
     setSearchTerm(next);
     setSuggestionsOpen(false);
     if (itemId) {
-      const params = setLocationSearchParams(new URLSearchParams(), location);
-      const suffix = params.toString();
-      router.push(suffix ? `${listingPath}/${itemId}?${suffix}` : `${listingPath}/${itemId}`);
+      router.push(`${listingPath}/${itemId}`);
       return;
     }
     navigateToSearch(next, selectedCategory);
@@ -195,9 +191,6 @@ export default function GlobalHeader({
       const params = new URLSearchParams();
       params.set("q", term);
       if (categoryParam) params.set("category", categoryParam);
-      if (location.city) {
-        params.set("city", location.city);
-      }
       fetch(`/api/search?${params.toString()}`, {
         signal: controller.signal,
       })
@@ -449,7 +442,8 @@ export default function GlobalHeader({
   const applyLocationSuggestion = (suggestion) => {
     if (!suggestion) return;
     // We store city as the canonical location to match DB schema; zip is only used for lookup.
-    setLocation(normalizeSelectedLocation(suggestion), { replace: true });
+    setLocation(normalizeSelectedLocation(suggestion));
+    router.refresh();
     setLocationInput("");
     setLocationSuggestions([]);
     setLocationSuggestIndex(-1);

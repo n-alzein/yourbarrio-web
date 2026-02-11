@@ -18,6 +18,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 import ScrollToTop from "@/components/ScrollToTop";
 import { CartProvider } from "@/components/cart/CartProvider";
 import { LocationProvider } from "@/components/location/LocationProvider";
+import UrlLocationMigratorClient from "@/components/location/UrlLocationMigratorClient";
 import RealtimeProvider from "@/components/realtime/RealtimeProvider";
 
 export default function AppShell({ children }) {
@@ -54,6 +55,7 @@ export default function AppShell({ children }) {
         {/* Single provider tree; LocationProvider is the source of truth for city/ZIP. */}
         <Suspense fallback={null}>
           <LocationProvider>
+            <UrlLocationMigratorClient />
             <AuthProvider>
               <RealtimeProvider>
                 <CartProvider>

@@ -7,12 +7,14 @@ import BusinessListingsGrid from "@/components/publicBusinessProfile/BusinessLis
 import BusinessReviewsPanel from "@/components/publicBusinessProfile/BusinessReviewsPanel";
 import PreviewAutoRefresh from "@/components/business/preview/PreviewAutoRefresh";
 import ViewerContextEnhancer from "@/components/public/ViewerContextEnhancer";
+import { getCustomerBusinessUrl } from "@/lib/ids/publicRefs";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const PROFILE_FIELDS = [
   "id",
+  "public_id",
   "role",
   "business_name",
   "full_name",
@@ -232,7 +234,7 @@ export default async function BusinessPreviewPage() {
       <PublicBusinessHero
         profile={profile}
         ratingSummary={ratingSummary}
-        publicPath={`/customer/b/${effectiveUserId}`}
+        publicPath={getCustomerBusinessUrl(profile || { id: effectiveUserId })}
       />
 
       <div className="mx-auto max-w-6xl px-6 md:px-10 pb-16 space-y-8">

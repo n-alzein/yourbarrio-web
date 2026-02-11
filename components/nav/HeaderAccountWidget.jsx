@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, LogOut, MapPin } from "lucide-react";
 import SafeImage from "@/components/SafeImage";
@@ -27,6 +28,7 @@ export default function HeaderAccountWidget({
   onCloseMobileMenu,
   mobileDrawerId,
 }) {
+  const router = useRouter();
   const {
     supabase,
     user,
@@ -392,7 +394,8 @@ export default function HeaderAccountWidget({
 
   const applyMobileLocationSuggestion = (suggestion) => {
     if (!suggestion) return;
-    setLocation(normalizeSelectedLocation(suggestion), { replace: true });
+    setLocation(normalizeSelectedLocation(suggestion));
+    router.refresh();
     setMobileLocationInput("");
     setMobileLocationSuggestions([]);
     setMobileLocationSuggestIndex(-1);

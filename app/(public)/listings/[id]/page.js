@@ -25,7 +25,7 @@ import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { useCart } from "@/components/cart/CartProvider";
 import ReportModal from "@/components/moderation/ReportModal";
 import { isUuid } from "@/lib/ids/isUuid";
-import { getListingUrl } from "@/lib/ids/publicRefs";
+import { getCustomerBusinessUrl, getListingUrl } from "@/lib/ids/publicRefs";
 
 export default function ListingDetails({ params }) {
   const { supabase, user, role } = useAuth();
@@ -153,7 +153,7 @@ export default function ListingDetails({ params }) {
         const { data: biz } = await client
           .from("users")
           .select(
-            "id,business_name,full_name,category,city,address,website,phone,profile_photo_url"
+            "id,public_id,business_name,full_name,category,city,address,website,phone,profile_photo_url"
           )
           .eq("id", item.business_id)
           .maybeSingle();
@@ -605,7 +605,7 @@ export default function ListingDetails({ params }) {
                 <div className="mt-4 space-y-2">
                   {business?.id ? (
                     <Link
-                      href={`/customer/b/${business.id}`}
+                      href={getCustomerBusinessUrl(business)}
                       className="w-full inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition border bg-transparent hover:bg-white/10"
                       style={{ borderColor: "var(--border)" }}
                     >

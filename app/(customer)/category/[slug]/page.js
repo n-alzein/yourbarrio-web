@@ -1,57 +1,21 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { fetchCategoryBySlug } from "@/lib/strapi";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
 import { fetchCategoryBySlug as fetchCategoryBySlugFromDb } from "@/lib/categories";
 import { getCustomerListingUrl } from "@/lib/ids/publicRefs";
+import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-async function safeParseLocationCookie() {
-  try {
-    const jar = await cookies();
-    const raw = jar.get("yb-location")?.value;
-    if (!raw) return { city: "", label: "" };
-    try {
-      const parsed = JSON.parse(raw);
-      return {
-        city: String(parsed?.city || "").trim(),
-        label: String(parsed?.label || "").trim(),
-      };
-    } catch {
-      const decoded = decodeURIComponent(raw);
-      const parsed = JSON.parse(decoded);
-      return {
-        city: String(parsed?.city || "").trim(),
-        label: String(parsed?.label || "").trim(),
-      };
-    }
-  } catch {
-    return { city: "", label: "" };
-  }
-}
-
-export default async function CategoryListingsPage({ params, searchParams }) {
+export default async function CategoryListingsPage({ params }) {
   const slug = params?.slug;
   if (!slug) notFound();
-  const cityParam = Array.isArray(searchParams?.city)
-    ? searchParams?.city?.[0]
-    : searchParams?.city;
-  let city = (cityParam || "").trim();
-  if (!city) {
-    const fromCookie = await safeParseLocationCookie();
-    city = fromCookie.city || "";
-  }
-  const locationParams = new URLSearchParams();
-  if (city) {
-    locationParams.set("city", city);
-  }
-  const homeHref = locationParams.toString()
-    ? `/customer/home?${locationParams.toString()}`
-    : "/customer/home";
+  const location = await getLocationFromCookies();
+  const city = (location?.city || "").trim();
+  const homeHref = "/customer/home";
 
   let category = null;
   try {

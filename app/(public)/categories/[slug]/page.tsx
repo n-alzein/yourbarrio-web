@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
 import SafeImage from "@/components/SafeImage";
@@ -11,6 +10,7 @@ import {
   type SupabaseListing,
 } from "@/lib/categoryListingsCached";
 import { getListingUrl } from "@/lib/ids/publicRefs";
+import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
 
 export const revalidate = 60;
 
@@ -42,54 +42,17 @@ function humanizeSlug(slug: string) {
     .join(" ");
 }
 
-async function safeParseLocationCookie() {
-  try {
-    const jar = await cookies();
-    const raw = jar.get("yb-location")?.value;
-    if (!raw) return { city: "", label: "" };
-    try {
-      const parsed = JSON.parse(raw);
-      return {
-        city: String(parsed?.city || "").trim(),
-        label: String(parsed?.label || "").trim(),
-      };
-    } catch {
-      const decoded = decodeURIComponent(raw);
-      const parsed = JSON.parse(decoded);
-      return {
-        city: String(parsed?.city || "").trim(),
-        label: String(parsed?.label || "").trim(),
-      };
-    }
-  } catch {
-    return { city: "", label: "" };
-  }
-}
-
 export default async function CategoryListingsPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams?: Promise<{ city?: string | string[] }>;
 }) {
   const { slug } = await params;
-  const sp = (searchParams ? await searchParams : undefined) || {};
   const categorySlug = slug?.trim();
   if (!categorySlug) notFound();
-  const cityParam = Array.isArray(sp.city) ? sp.city[0] : sp.city;
-  let city = (cityParam || "").trim();
-  if (!city) {
-    const fromCookie = await safeParseLocationCookie();
-    city = fromCookie.city || "";
-  }
-  const locationParams = new URLSearchParams();
-  if (city) {
-    locationParams.set("city", city);
-  }
-  const listingsHref = locationParams.toString()
-    ? `/listings?${locationParams.toString()}`
-    : "/listings";
+  const location = await getLocationFromCookies();
+  const city = (location?.city || "").trim();
+  const listingsHref = "/listings";
 
   let listings: SupabaseListing[] = [];
   const normalizedSlug = categorySlug.toLowerCase();

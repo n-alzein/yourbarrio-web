@@ -40,7 +40,6 @@ import {
   getLocationLabel,
   isZipLike,
   normalizeSelectedLocation,
-  setLocationSearchParams,
 } from "@/lib/location";
 import { getCustomerListingUrl } from "@/lib/ids/publicRefs";
 
@@ -496,7 +495,10 @@ function CustomerNavbarInner({ pathname, searchParams }) {
   const applyLocationSuggestion = (suggestion) => {
     if (!suggestion) return;
     // We store city as the canonical location to match DB schema; zip is only used for lookup.
-    setLocation(normalizeSelectedLocation(suggestion), { replace: true });
+    setLocation(normalizeSelectedLocation(suggestion));
+    startTransition(() => {
+      router.refresh();
+    });
     setLocationInput("");
     setLocationSuggestions([]);
     setLocationSuggestIndex(-1);
@@ -550,9 +552,6 @@ function CustomerNavbarInner({ pathname, searchParams }) {
       const params = new URLSearchParams();
       params.set("q", term);
       if (categoryParam) params.set("category", categoryParam);
-      if (location.city) {
-        params.set("city", location.city);
-      }
       fetch(`/api/search?${params.toString()}`, {
         signal: controller.signal,
       })
@@ -896,9 +895,8 @@ function CustomerNavbarInner({ pathname, searchParams }) {
     const params = new URLSearchParams();
     if (value) params.set("q", value);
     if (nextCategory && nextCategory !== "All") params.set("category", nextCategory);
-    const withLocation = setLocationSearchParams(params, location);
-    const target = withLocation.toString()
-      ? `/customer/home?${withLocation.toString()}`
+    const target = params.toString()
+      ? `/customer/home?${params.toString()}`
       : "/customer/home";
     setSuggestionsOpen(false);
     router.push(target);
@@ -921,10 +919,8 @@ function CustomerNavbarInner({ pathname, searchParams }) {
     setSearchTerm(next);
     setSuggestionsOpen(false);
     if (itemRef) {
-      const params = setLocationSearchParams(new URLSearchParams(), location);
-      const suffix = params.toString();
       const target = getCustomerListingUrl({ public_id: itemRef, id: itemRef });
-      hardNavigate(suffix ? `${target}?${suffix}` : target);
+      hardNavigate(target);
       return;
     }
     navigateToSearch(next, selectedCategory);

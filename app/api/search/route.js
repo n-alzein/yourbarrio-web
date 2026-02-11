@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { resolveCategoryIdByName } from "@/lib/categories";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
+import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS =
@@ -201,7 +202,8 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const query = (searchParams.get("q") || "").trim();
   const category = (searchParams.get("category") || "").trim();
-  const city = sanitize(searchParams.get("city") || "");
+  const cookieLocation = await getLocationFromCookies();
+  const city = sanitize(searchParams.get("city") || cookieLocation?.city || "");
   const locationKey = (city || "none").toLowerCase();
   const cacheKey = `${query.toLowerCase()}::${category.toLowerCase()}::${locationKey}`;
 

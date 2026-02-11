@@ -5,6 +5,7 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { markImageFailed, resolveImageSrc } from "@/lib/safeImage";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
+import { getCustomerBusinessUrl } from "@/lib/ids/publicRefs";
 
 // helper: compute distance in km
 function haversine(lat1, lon1, lat2, lon2) {
@@ -362,6 +363,7 @@ export default function GoogleMapClient({
                 row.business_name || row.name || row.full_name || "Local Business";
               return {
                 id: row.id,
+                public_id: row.public_id || null,
                 name,
                 address: displayAddress,
                 coords,
@@ -549,7 +551,7 @@ export default function GoogleMapClient({
 
       const openBusinessProfile = (event) => {
         if (biz?.id) {
-          const url = `/customer/b/${biz.id}`;
+          const url = getCustomerBusinessUrl(biz);
           if (event?.metaKey || event?.ctrlKey) {
             window.open(url, "_blank", "noopener");
           } else {
