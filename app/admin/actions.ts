@@ -204,6 +204,88 @@ export async function addUserInternalNoteAction(formData: FormData) {
   redirect(withMessage(targetPath, "success", "Note logged in audit trail"));
 }
 
+const updateUserProfileFieldsSchema = z.object({
+  userId: z.string().uuid(),
+  full_name: z.string().max(160).optional(),
+  phone: z.string().max(64).optional(),
+  business_name: z.string().max(160).optional(),
+  category: z.string().max(120).optional(),
+  website: z.string().max(500).optional(),
+  address: z.string().max(240).optional(),
+  address2: z.string().max(240).optional(),
+  city: z.string().max(120).optional(),
+  state: z.string().max(120).optional(),
+  postal_code: z.string().max(32).optional(),
+});
+
+function normalizeNullableText(value: FormDataEntryValue | null): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized ? normalized : null;
+}
+
+export async function updateUserProfileFieldsAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const parsed = updateUserProfileFieldsSchema.safeParse({
+    userId: formData.get("userId"),
+    full_name: formData.get("full_name") ?? undefined,
+    phone: formData.get("phone") ?? undefined,
+    business_name: formData.get("business_name") ?? undefined,
+    category: formData.get("category") ?? undefined,
+    website: formData.get("website") ?? undefined,
+    address: formData.get("address") ?? undefined,
+    address2: formData.get("address2") ?? undefined,
+    city: formData.get("city") ?? undefined,
+    state: formData.get("state") ?? undefined,
+    postal_code: formData.get("postal_code") ?? undefined,
+  });
+
+  if (!parsed.success) {
+    redirect(withMessage("/admin/accounts", "error", "Invalid profile update payload"));
+  }
+
+  const fallbackTargetPath = `/admin/users/${parsed.data.userId}`;
+  requireCapabilityOrRedirect(admin, "update_app_role", fallbackTargetPath);
+
+  const { client } = await getAdminDataClient({ mode: "service" });
+  const targetPath = await resolveAdminUserPath(client, parsed.data.userId);
+  const updates = {
+    full_name: normalizeNullableText(formData.get("full_name")),
+    phone: normalizeNullableText(formData.get("phone")),
+    business_name: normalizeNullableText(formData.get("business_name")),
+    category: normalizeNullableText(formData.get("category")),
+    website: normalizeNullableText(formData.get("website")),
+    address: normalizeNullableText(formData.get("address")),
+    address_2: normalizeNullableText(formData.get("address2")),
+    city: normalizeNullableText(formData.get("city")),
+    state: normalizeNullableText(formData.get("state")),
+    postal_code: normalizeNullableText(formData.get("postal_code")),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await client
+    .from("users")
+    .update(updates)
+    .eq("id", parsed.data.userId);
+
+  if (error) {
+    redirect(withMessage(targetPath, "error", error.message));
+  }
+
+  await audit({
+    action: "user_profile_fields_updated",
+    targetType: "user",
+    targetId: parsed.data.userId,
+    actorUserId: admin.user.id,
+    meta: {
+      updated_fields: Object.keys(updates).filter((key) => key !== "updated_at"),
+    },
+  });
+
+  revalidatePath(targetPath);
+  redirect(withMessage(targetPath, "success", "Profile updated"));
+}
+
 const moderationUpdateSchema = z.object({
   id: z.string().uuid(),
   status: z.enum(["open", "in_review", "resolved", "dismissed"]),

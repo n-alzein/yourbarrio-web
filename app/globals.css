@@ -428,6 +428,32 @@ nav.theme-lock.yb-navbar {
   top: var(--yb-support-mode-offset, 0px) !important;
 }
 
+nav.theme-lock.yb-navbar.yb-admin-navbar {
+  position: fixed !important;
+  top: var(--yb-support-mode-offset, 0px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  margin-top: 0 !important;
+  transform: none !important;
+  background: var(--yb-navbar-bg) !important;
+}
+
+.yb-admin-root {
+  --admin-nav-h: 80px;
+  min-height: 100vh;
+  background: #0a0a0a;
+  isolation: isolate;
+}
+
+.yb-admin-root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #0a0a0a;
+  pointer-events: none;
+}
+
 .yb-navbar .text-white {
   color: var(--yb-navbar-fg) !important;
 }

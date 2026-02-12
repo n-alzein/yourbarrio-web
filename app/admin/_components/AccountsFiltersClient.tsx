@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import AdminTableToolbar from "@/app/admin/_components/AdminTableToolbar";
 import type { AdminUserRoleFilter } from "@/lib/admin/users";
 
 type InternalFilter = "all" | "true" | "false";
@@ -68,70 +69,75 @@ export default function AccountsFiltersClient({
     return () => window.clearTimeout(handle);
   }, [queryInput, updateQueryParams, urlQuery]);
 
-  const pageSizeOptions = useMemo(() => [10, 20, 50], []);
+  const pageSizeOptions = useMemo(() => [10, 25, 50], []);
 
   return (
-    <div className="grid gap-2 rounded-lg border border-neutral-800 bg-neutral-900 p-3 md:grid-cols-4">
-      <input
-        value={queryInput}
-        onChange={(event) => setQueryInput(event.target.value)}
-        placeholder="Search ID, name, email, phone, business"
-        className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm md:col-span-2"
-      />
+    <AdminTableToolbar
+      left={
+        <>
+          <input
+            value={queryInput}
+            onChange={(event) => setQueryInput(event.target.value)}
+            placeholder="Search ID, name, email, phone, business"
+            className="w-full min-w-[220px] flex-1 rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm sm:max-w-xl"
+          />
 
-      {!presetRole ? (
+          {!presetRole ? (
+            <label className="flex items-center gap-2 rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm">
+              <span className="text-neutral-400">Role:</span>
+              <select
+                value={effectiveRole}
+                onChange={(event) =>
+                  updateQueryParams({ role: event.target.value }, { resetPage: true })
+                }
+                className="bg-transparent text-sm outline-none"
+              >
+                <option value="all">All</option>
+                <option value="customer">Customer</option>
+                <option value="business">Business</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+          ) : (
+            <div className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-300">
+              Role: {presetRole[0].toUpperCase() + presetRole.slice(1)}
+            </div>
+          )}
+
+          <label className="flex items-center gap-2 rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm">
+            <span className="text-neutral-400">Internal:</span>
+            <select
+              value={urlInternal}
+              onChange={(event) =>
+                updateQueryParams({ internal: event.target.value }, { resetPage: true })
+              }
+              className="bg-transparent text-sm outline-none"
+            >
+              <option value="all">All</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+        </>
+      }
+      right={
         <label className="flex items-center gap-2 rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm">
-          <span className="text-neutral-400">Role:</span>
+          <span className="text-neutral-400">Page size:</span>
           <select
-            value={effectiveRole}
+            value={String(urlPageSize)}
             onChange={(event) =>
-              updateQueryParams({ role: event.target.value }, { resetPage: true })
+              updateQueryParams({ pageSize: event.target.value }, { resetPage: true })
             }
-            className="w-full bg-transparent text-sm outline-none"
+            className="bg-transparent text-sm outline-none"
           >
-            <option value="all">All</option>
-            <option value="customer">Customer</option>
-            <option value="business">Business</option>
-            <option value="admin">Admin</option>
+            {pageSizeOptions.map((size) => (
+              <option key={size} value={String(size)}>
+                {size}
+              </option>
+            ))}
           </select>
         </label>
-      ) : (
-        <div className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-300">
-          Role: {presetRole[0].toUpperCase() + presetRole.slice(1)}
-        </div>
-      )}
-
-      <label className="flex items-center gap-2 rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm">
-        <span className="text-neutral-400">Internal:</span>
-        <select
-          value={urlInternal}
-          onChange={(event) =>
-            updateQueryParams({ internal: event.target.value }, { resetPage: true })
-          }
-          className="w-full bg-transparent text-sm outline-none"
-        >
-          <option value="all">All</option>
-          <option value="true">Yes</option>
-          <option value="false">No</option>
-        </select>
-      </label>
-
-      <label className="flex items-center gap-2 rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm md:col-start-4">
-        <span className="text-neutral-400">Page size:</span>
-        <select
-          value={String(urlPageSize)}
-          onChange={(event) =>
-            updateQueryParams({ pageSize: event.target.value }, { resetPage: true })
-          }
-          className="w-full bg-transparent text-sm outline-none"
-        >
-          {pageSizeOptions.map((size) => (
-            <option key={size} value={String(size)}>
-              {size}
-            </option>
-          ))}
-        </select>
-      </label>
-    </div>
+      }
+    />
   );
 }

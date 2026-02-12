@@ -1,6 +1,7 @@
 import { stopImpersonationAction } from "@/app/admin/actions";
 import { getEffectiveActorAndTarget } from "@/lib/admin/supportMode";
 import { getHighestAdminRole, requireAdminRole } from "@/lib/admin/permissions";
+import { formatAdminRoleLabel } from "@/lib/admin/roleLabels";
 import { getAdminServiceRoleClient } from "@/lib/supabase/admin";
 
 export default async function AdminProfilePage() {
@@ -28,7 +29,7 @@ export default async function AdminProfilePage() {
         <dl className="space-y-2 text-sm">
           <ProfileField label="Email" value={admin.user.email || "-"} />
           <ProfileField label="User ID" value={admin.user.id} />
-          <ProfileField label="Admin role" value={currentRole} />
+          <ProfileField label="Admin role" value={formatAdminRoleLabel(currentRole)} />
           <ProfileField
             label="Profile created"
             value={admin.profile?.created_at ? new Date(admin.profile.created_at).toLocaleString() : "-"}

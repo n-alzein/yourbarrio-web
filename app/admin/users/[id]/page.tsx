@@ -3,23 +3,32 @@ import {
   addUserInternalNoteAction,
   startImpersonationAction,
   toggleUserInternalAction,
+  updateUserProfileFieldsAction,
   updateUserRoleAction,
 } from "@/app/admin/actions";
 import AdminFlash from "@/app/admin/_components/AdminFlash";
+import DeleteUserButton from "@/app/admin/users/[ref]/_components/DeleteUserButton";
+import { getActorAdminRoleKeys } from "@/lib/admin/getActorAdminRoleKeys";
 import { canAdmin, requireAdminRole } from "@/lib/admin/permissions";
 import { getAdminDataClient } from "@/lib/supabase/admin";
+import { getSupabaseServerAuthedClient } from "@/lib/supabaseServer";
 import { normalizeUserRef } from "@/lib/ids/normalizeUserRef";
 
 export default async function AdminUserDetailPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ ref: string }>;
+  params: Promise<{ id: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const admin = await requireAdminRole("admin_readonly");
-  const { ref } = await params;
-  const normalizedRef = normalizeUserRef(ref);
+  const authedClient = await getSupabaseServerAuthedClient();
+  const actorUser = authedClient
+    ? (await authedClient.auth.getUser()).data?.user || null
+    : null;
+  const actorRoleKeys = await getActorAdminRoleKeys(actorUser?.id);
+  const { id } = await params;
+  const normalizedRef = normalizeUserRef(id);
   const resolvedSearch = (await searchParams) || {};
   const diagEnabled =
     String(process.env.NEXT_PUBLIC_AUTH_DIAG || "") === "1" ||
@@ -48,7 +57,7 @@ export default async function AdminUserDetailPage({
 
   if (diagEnabled) {
     console.warn("[admin-user-detail] load", {
-      userRef: ref,
+      userRef: id,
       userId: resolvedUserId || null,
       userPublicId: resolvedPublicId || null,
       usingServiceRole,
@@ -134,10 +143,89 @@ export default async function AdminUserDetailPage({
 
         <div className="space-y-3">
           {canRoleFixes ? (
+            <form
+              action={updateUserProfileFieldsAction}
+              className="rounded-lg border border-neutral-800 bg-neutral-900 p-4"
+            >
+              <h3 className="mb-2 font-medium">Edit profile fields</h3>
+              <input type="hidden" name="userId" value={user.id} />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  name="full_name"
+                  defaultValue={user.full_name || ""}
+                  placeholder="Full name"
+                  className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                />
+                <input
+                  name="phone"
+                  defaultValue={user.phone || ""}
+                  placeholder="Phone"
+                  className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                />
+                <input
+                  name="business_name"
+                  defaultValue={user.business_name || ""}
+                  placeholder="Business name"
+                  className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                />
+                <input
+                  name="category"
+                  defaultValue={user.category || ""}
+                  placeholder="Category"
+                  className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                />
+                <input
+                  name="website"
+                  defaultValue={user.website || ""}
+                  placeholder="Website"
+                  className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                />
+                <input
+                  name="address"
+                  defaultValue={user.address || ""}
+                  placeholder="Address"
+                  className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                />
+                <input
+                  name="address2"
+                  defaultValue={user.address_2 || ""}
+                  placeholder="Address 2"
+                  className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                />
+                <input
+                  name="city"
+                  defaultValue={user.city || ""}
+                  placeholder="City"
+                  className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                />
+                <input
+                  name="state"
+                  defaultValue={user.state || ""}
+                  placeholder="State"
+                  className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                />
+                <input
+                  name="postal_code"
+                  defaultValue={user.postal_code || ""}
+                  placeholder="Postal code"
+                  className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                />
+              </div>
+              <button type="submit" className="mt-2 rounded bg-sky-600 px-3 py-2 text-sm hover:bg-sky-500">
+                Save profile
+              </button>
+            </form>
+          ) : null}
+
+          {canRoleFixes ? (
             <form action={updateUserRoleAction} className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
               <h3 className="mb-2 font-medium">Update app role</h3>
               <input type="hidden" name="userId" value={user.id} />
-              <input name="role" defaultValue={user.role || "customer"} className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
+              <input
+                name="role"
+                defaultValue={user.role || "customer"}
+                className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+              />
               <button type="submit" className="mt-2 rounded bg-sky-600 px-3 py-2 text-sm hover:bg-sky-500">
                 Save role
               </button>
@@ -159,7 +247,13 @@ export default async function AdminUserDetailPage({
             <form action={addUserInternalNoteAction} className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
               <h3 className="mb-2 font-medium">Add internal note (audit log)</h3>
               <input type="hidden" name="userId" value={user.id} />
-              <textarea name="note" required rows={4} className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" placeholder="Internal note (saved in admin_audit_log.meta.note)" />
+              <textarea
+                name="note"
+                required
+                rows={4}
+                className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                placeholder="Internal note (saved in admin_audit_log.meta.note)"
+              />
               <button type="submit" className="mt-2 rounded bg-sky-600 px-3 py-2 text-sm hover:bg-sky-500">
                 Log note
               </button>
@@ -171,14 +265,37 @@ export default async function AdminUserDetailPage({
               <h3 className="mb-2 font-medium">Start support mode (view-as)</h3>
               <input type="hidden" name="targetUserId" value={user.id} />
               <div className="grid gap-2 sm:grid-cols-2">
-                <input name="minutes" type="number" min={1} max={480} defaultValue={30} className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
-                <input name="reason" required placeholder="Reason" className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
+                <input
+                  name="minutes"
+                  type="number"
+                  min={1}
+                  max={480}
+                  defaultValue={30}
+                  className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                />
+                <input
+                  name="reason"
+                  required
+                  placeholder="Reason"
+                  className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                />
               </div>
-              <button type="submit" className="mt-2 rounded bg-amber-500 px-3 py-2 text-sm font-medium text-black hover:bg-amber-400">
+              <button
+                type="submit"
+                className="mt-2 rounded bg-amber-500 px-3 py-2 text-sm font-medium text-black hover:bg-amber-400"
+              >
                 Start view-as session
               </button>
             </form>
           ) : null}
+
+          <div className="rounded-lg border border-rose-900/70 bg-rose-950/30 p-4">
+            <h3 className="mb-2 font-medium text-rose-100">Danger zone</h3>
+            <p className="mb-3 text-sm text-rose-200/80">
+              Permanently deleting a user cannot be undone.
+            </p>
+            <DeleteUserButton targetUserId={user.id} actorRoleKeys={actorRoleKeys} />
+          </div>
         </div>
       </div>
     </section>

@@ -68,7 +68,7 @@ export default function RecentAuditActivity({
         </Link>
       </div>
 
-      <div className="overflow-auto">
+      <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead>
             <tr className="text-left text-neutral-400">

@@ -9,6 +9,7 @@ import {
   canAdmin,
   requireAdminRole,
 } from "@/lib/admin/permissions";
+import { formatAdminRoleLabel } from "@/lib/admin/roleLabels";
 import { getAdminDataClient } from "@/lib/supabase/admin";
 
 export default async function AdminAdminsPage({
@@ -106,7 +107,7 @@ export default async function AdminAdminsPage({
             >
               {ADMIN_ROLES.map((role) => (
                 <option key={role} value={role}>
-                  {role}
+                  {formatAdminRoleLabel(role)}
                 </option>
               ))}
             </select>
@@ -136,7 +137,7 @@ export default async function AdminAdminsPage({
                         <div className="font-medium">{row.full_name || row.email || row.user_id}</div>
                         <div className="font-mono text-xs text-neutral-500">{row.user_id}</div>
                       </td>
-                      <td className="px-3 py-2">{row.role_key}</td>
+                      <td className="px-3 py-2">{formatAdminRoleLabel(row.role_key)}</td>
                       <td className="px-3 py-2 text-xs text-neutral-400">
                         {row.created_at ? new Date(row.created_at).toLocaleString() : "-"}
                       </td>
@@ -151,7 +152,7 @@ export default async function AdminAdminsPage({
                             >
                               {ADMIN_ROLES.map((adminRole) => (
                                 <option key={adminRole} value={adminRole}>
-                                  {adminRole}
+                                  {formatAdminRoleLabel(adminRole)}
                                 </option>
                               ))}
                             </select>

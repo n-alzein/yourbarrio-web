@@ -17,7 +17,14 @@ const ADMIN_ROLE_KEYS = new Set([
 function normalizeRole(value: unknown): CurrentUserRole | null {
   if (typeof value !== "string") return null;
   const role = value.trim().toLowerCase();
-  if (role === "admin") return "admin";
+  if (
+    role === "admin" ||
+    role === "super_admin" ||
+    role === "admin_super" ||
+    role.startsWith("admin_")
+  ) {
+    return "admin";
+  }
   if (role === "business") return "business";
   if (role === "customer") return "customer";
   return null;

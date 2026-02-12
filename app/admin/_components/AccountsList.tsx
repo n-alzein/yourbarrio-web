@@ -17,7 +17,7 @@ import { getAdminUserUrl } from "@/lib/ids/publicRefs";
  * - Previous filter bug was `customer = role != business`, which included admin/internal rows and broke subsets.
  */
 
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 100;
 
 type InternalFilter = "all" | "true" | "false";
@@ -164,7 +164,7 @@ export default async function AccountsList({
         initialPageSize={pageSize}
       />
 
-      <div className="overflow-auto rounded-lg border border-neutral-800 bg-neutral-900">
+      <div className="overflow-x-auto rounded-lg border border-neutral-800 bg-neutral-900">
         <table className="min-w-full text-sm">
           <thead>
             <tr className="text-left text-neutral-400">

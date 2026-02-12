@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
-import AdminNav from "@/app/admin/_components/AdminNav";
-import ImpersonationBanner from "@/app/admin/_components/ImpersonationBanner";
-import AdminNavbar from "@/components/nav/AdminNavbar";
+import AdminShellClient from "@/app/admin/_components/AdminShellClient";
+import AdminSidebar from "@/app/admin/_components/AdminSidebar";
+import AdminStatusStack from "@/app/admin/_components/AdminStatusStack";
 import { getEffectiveUserId } from "@/lib/admin/impersonation";
 import { getHighestAdminRole, isAdminDevAllowlistConfigured, requireAdmin } from "@/lib/admin/permissions";
 import { getCurrentUserRole } from "@/lib/auth/getCurrentUserRole";
@@ -45,39 +45,35 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const currentRole = getHighestAdminRole(admin.roles) || "admin_readonly";
 
   return (
-    <div className="yb-admin-shell min-h-screen bg-neutral-950 text-neutral-100 flex flex-col">
-      <AdminNavbar role={currentRole} />
-      <div className="mx-auto grid w-full max-w-7xl flex-1 gap-4 p-4 md:grid-cols-[220px_1fr]">
-        <aside className="space-y-3">
-          <h1 className="text-lg font-semibold">YourBarrio Admin</h1>
-          <p className="text-xs text-neutral-400">Signed in as {admin.user.email || admin.user.id}</p>
-          <p className="text-xs text-neutral-400">Role: {currentRole}</p>
-          <AdminNav roles={admin.roles} strictPermissionBypassUsed={admin.strictPermissionBypassUsed} />
-        </aside>
-        <main className="space-y-4 flex-1">
-          {showAllowlistBanner ? (
-            <div className="rounded-md border border-yellow-700 bg-yellow-950/70 px-3 py-2 text-sm text-yellow-100">
-              Dev allowlist is active for this admin session. Do not use in production.
-            </div>
-          ) : null}
-          {showBypassBanner ? (
-            <div className="rounded-md border border-orange-700 bg-orange-950/70 px-3 py-2 text-sm text-orange-100">
-              ADMIN_BYPASS_RLS is enabled. Admin reads/writes are using service role in development only.
-            </div>
-          ) : null}
-          {activeImpersonation ? (
-            <ImpersonationBanner
-              targetLabel={
-                activeImpersonation.targetUserName ||
-                activeImpersonation.targetUserEmail ||
-                activeImpersonation.targetUserId
-              }
-              sessionId={activeImpersonation.sessionId}
-            />
-          ) : null}
-          {children}
-        </main>
-      </div>
-    </div>
+    <AdminShellClient
+      currentRoleKey={currentRole}
+      sidebarExpandedContent={
+        <AdminSidebar
+          roles={admin.roles}
+          currentRoleKey={currentRole}
+          emailOrId={admin.user.email || admin.user.id}
+          strictPermissionBypassUsed={admin.strictPermissionBypassUsed}
+          collapsed={false}
+        />
+      }
+      sidebarCollapsedContent={
+        <AdminSidebar
+          roles={admin.roles}
+          currentRoleKey={currentRole}
+          emailOrId={admin.user.email || admin.user.id}
+          strictPermissionBypassUsed={admin.strictPermissionBypassUsed}
+          collapsed
+        />
+      }
+      statusContent={
+        <AdminStatusStack
+          activeImpersonation={activeImpersonation}
+          showAllowlistBanner={showAllowlistBanner}
+          showBypassBanner={showBypassBanner}
+        />
+      }
+    >
+      {children}
+    </AdminShellClient>
   );
 }
