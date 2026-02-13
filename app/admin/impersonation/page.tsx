@@ -49,7 +49,7 @@ export default async function AdminImpersonationPage({
 
       <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
         <h3 className="mb-2 font-medium">Recent sessions</h3>
-        <div className="overflow-auto">
+        <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-left text-neutral-400">

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import BaseModal from "./BaseModal";
 import { useAuth } from "../AuthProvider";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -413,7 +414,7 @@ export default function CustomerLoginModal({ onClose, next: nextFromModalProps =
               w-full px-4 py-3 rounded-xl 
               bg-slate-50 border border-slate-200 
               text-slate-900 placeholder-slate-400
-              focus:ring-2 focus:ring-pink-500/40 focus:border-pink-400
+              focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-400
               transition
             "
             disabled={loading || loadingUser}
@@ -434,11 +435,16 @@ export default function CustomerLoginModal({ onClose, next: nextFromModalProps =
               w-full px-4 py-3 rounded-xl 
               bg-slate-50 border border-slate-200 
               text-slate-900 placeholder-slate-400
-              focus:ring-2 focus:ring-pink-500/40 focus:border-pink-400
+              focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-400
               transition
             "
             disabled={loading || loadingUser}
           />
+          <div className="mt-2 text-right">
+            <Link href="/auth/forgot-password" className="text-sm text-pink-600 font-semibold hover:underline">
+              Forgot your password?
+            </Link>
+          </div>
         </div>
 
         {error ? (

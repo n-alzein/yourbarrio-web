@@ -116,7 +116,7 @@ export default async function AdminAdminsPage({
             </button>
           </form>
 
-          <div className="overflow-auto rounded border border-neutral-800">
+          <div className="overflow-x-auto rounded border border-neutral-800">
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="text-left text-neutral-400">

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { audit } from "@/lib/admin/audit";
@@ -28,6 +28,7 @@ import {
 import { shouldUseSecureCookies } from "@/lib/http/cookiesSecurity";
 import { getSupabaseServerAuthedClient, getSupabaseServerClient } from "@/lib/supabaseServer";
 import { getAdminDataClient, getAdminServiceRoleClient } from "@/lib/supabase/admin";
+import { sendAdminInvite } from "@/lib/email/adminInvite";
 
 function withMessage(pathname: string, type: "success" | "error" | "ok" | "err", message: string) {
   const normalizedPath = getSafeRedirectPath(pathname || "") || "/admin";
@@ -677,6 +678,16 @@ export async function upsertAdminAccountAction(formData: FormData) {
   const email = parsed.data.email.trim().toLowerCase();
   const role = parsed.data.role;
   const serviceClient = getAdminServiceRoleClient();
+  const headerStore = await headers();
+  const forwardedProto = String(headerStore.get("x-forwarded-proto") || "")
+    .split(",")[0]
+    .trim();
+  const proto = forwardedProto || "http";
+  const forwardedHost = String(headerStore.get("x-forwarded-host") || "")
+    .split(",")[0]
+    .trim();
+  const host = forwardedHost || String(headerStore.get("host") || "").trim() || "localhost:3000";
+  const requestSiteUrl = `${proto}://${host}`;
 
   let targetUserId: string | null = null;
   const { data: existing } = await serviceClient
@@ -687,11 +698,12 @@ export async function upsertAdminAccountAction(formData: FormData) {
   if (existing?.id) {
     targetUserId = existing.id;
   } else {
-    const inviteResult = await serviceClient.auth.admin.inviteUserByEmail(email);
-    if (inviteResult.error || !inviteResult.data.user?.id) {
-      redirect(withMessage("/admin/admins", "error", inviteResult.error?.message || "Failed to invite admin"));
+    try {
+      const inviteResult = await sendAdminInvite(email, requestSiteUrl);
+      targetUserId = inviteResult.userId;
+    } catch (error: any) {
+      redirect(withMessage("/admin/admins", "error", error?.message || "Failed to invite admin"));
     }
-    targetUserId = inviteResult.data.user.id;
   }
 
   const { error: upsertUserError } = await serviceClient.from("users").upsert(

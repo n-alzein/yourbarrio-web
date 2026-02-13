@@ -309,7 +309,7 @@ export default async function AdminModerationPage({
               Failed to load moderation queue: {error.message}
             </div>
           ) : (
-            <div className="overflow-auto rounded-lg border border-neutral-800 bg-neutral-900">
+            <div className="overflow-x-auto rounded-lg border border-neutral-800 bg-neutral-900">
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="text-left text-neutral-400">
@@ -776,7 +776,7 @@ export default async function AdminModerationPage({
 
                 <details className="mt-3 rounded border border-neutral-800 bg-neutral-950 p-3">
                   <summary className="cursor-pointer text-xs text-neutral-400">Meta context</summary>
-                  <pre className="mt-2 overflow-auto text-xs text-neutral-300">
+                  <pre className="mt-2 overflow-x-auto text-xs text-neutral-300">
                     {JSON.stringify(selectedRow.meta || {}, null, 2)}
                   </pre>
                 </details>

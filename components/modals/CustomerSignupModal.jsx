@@ -142,7 +142,7 @@ export default function CustomerSignupModal({ onClose }) {
               w-full px-4 py-3 rounded-xl 
               bg-slate-50 border border-slate-200 
               text-slate-900 placeholder-slate-400
-              focus:ring-2 focus:ring-purple-500/40 focus:border-purple-400
+              focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-400
               transition
             "
             disabled={loading}
@@ -163,7 +163,7 @@ export default function CustomerSignupModal({ onClose }) {
               w-full px-4 py-3 rounded-xl 
               bg-slate-50 border border-slate-200 
               text-slate-900 placeholder-slate-400
-              focus:ring-2 focus:ring-purple-500/40 focus:border-purple-400
+              focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-400
               transition
             "
             disabled={loading}
@@ -180,7 +180,7 @@ export default function CustomerSignupModal({ onClose }) {
           type="submit"
           disabled={loading}
           className={`
-            w-full py-3 rounded-xl font-semibold text-white text-base
+            mt-2 w-full py-3 rounded-xl font-semibold text-white text-base
             bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500
             shadow-lg hover:brightness-110 active:scale-[0.97]
             transition-all duration-200

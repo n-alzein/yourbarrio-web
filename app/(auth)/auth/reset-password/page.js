@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export default function ResetPasswordPage() {
   const [email, setEmail] = useState("");
@@ -20,25 +19,18 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      setErrorMessage("Unable to load authentication.");
-      return;
-    }
-
     setSubmitting(true);
     try {
-      const redirectTo = `${window.location.origin}/auth/update-password`;
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo,
+      await fetch("/api/auth/request-password-reset", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ email: email.trim() }),
       });
-      if (error) {
-        setErrorMessage(error.message || "Failed to send reset email.");
-      } else {
-        setInfoMessage("Check your inbox for a password reset link.");
-      }
-    } catch (err) {
-      setErrorMessage(err?.message || "Failed to send reset email.");
+      setInfoMessage("If an account exists, we sent a reset link.");
+    } catch {
+      setInfoMessage("If an account exists, we sent a reset link.");
     } finally {
       setSubmitting(false);
     }

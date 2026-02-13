@@ -7,6 +7,7 @@ import {
   updateUserRoleAction,
 } from "@/app/admin/actions";
 import AdminFlash from "@/app/admin/_components/AdminFlash";
+import AdminUserSecurityActions from "@/app/admin/users/[id]/_components/AdminUserSecurityActions";
 import DeleteUserButton from "@/app/admin/users/[ref]/_components/DeleteUserButton";
 import { getActorAdminRoleKeys } from "@/lib/admin/getActorAdminRoleKeys";
 import { canAdmin, requireAdminRole } from "@/lib/admin/permissions";
@@ -95,6 +96,7 @@ export default async function AdminUserDetailPage({
   const canImpersonate = admin.strictPermissionBypassUsed || canAdmin(admin.roles, "impersonate");
   const canOps = admin.strictPermissionBypassUsed || canAdmin(admin.roles, "toggle_internal_user");
   const canRoleFixes = admin.strictPermissionBypassUsed || canAdmin(admin.roles, "update_app_role");
+  const canSuper = actorRoleKeys.includes("admin_super");
 
   return (
     <section className="space-y-4">
@@ -288,6 +290,12 @@ export default async function AdminUserDetailPage({
               </button>
             </form>
           ) : null}
+
+          <AdminUserSecurityActions
+            targetUserId={user.id}
+            currentEmail={user.email || null}
+            canManageSecurity={canSuper}
+          />
 
           <div className="rounded-lg border border-rose-900/70 bg-rose-950/30 p-4">
             <h3 className="mb-2 font-medium text-rose-100">Danger zone</h3>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getSupabaseAuthCookieName } from "@/lib/supabase/cookieName";
 import { PATHS } from "@/lib/auth/paths";
@@ -559,7 +560,7 @@ function BusinessLoginInner({ isPopup }) {
                 {authError}
               </div>
             ) : null}
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label
                 htmlFor="business-login-email"
                 className="text-sm font-medium text-slate-900"
@@ -578,7 +579,7 @@ function BusinessLoginInner({ isPopup }) {
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label
                 htmlFor="business-login-password"
                 className="text-sm font-medium text-slate-900"
@@ -595,6 +596,14 @@ function BusinessLoginInner({ isPopup }) {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <div className="mt-2 text-right">
+                <Link
+                  href="/auth/forgot-password"
+                  className="text-sm font-medium text-[var(--color-primary)] hover:underline"
+                >
+                  Forgot your password?
+                </Link>
+              </div>
             </div>
 
             <button

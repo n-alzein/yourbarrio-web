@@ -2,21 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-
-function resolveResetRedirectTo() {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL || "";
-  if (configured) {
-    try {
-      return new URL("/auth/update-password", configured).toString();
-    } catch {
-      // Ignore malformed env value and fall back to current origin.
-    }
-  }
-
-  if (typeof window === "undefined") return "/auth/update-password";
-  return `${window.location.origin}/auth/update-password`;
-}
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -35,17 +20,17 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      setErrorMessage("Unable to load authentication.");
-      return;
-    }
-
     setSubmitting(true);
     try {
-      await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-        redirectTo: resolveResetRedirectTo(),
+      await fetch("/api/auth/request-password-reset", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ email: normalizedEmail }),
       });
+      setInfoMessage("If an account exists, we sent a reset link.");
+    } catch {
       setInfoMessage("If an account exists, we sent a reset link.");
     } finally {
       setSubmitting(false);
@@ -53,14 +38,14 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#05010d] text-white flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl">
-        <h1 className="text-2xl font-semibold">Forgot your password?</h1>
-        <p className="mt-2 text-sm text-white/60">Enter your email and we will send a reset link.</p>
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center px-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h1 className="text-2xl font-semibold text-slate-900">Forgot your password?</h1>
+        <p className="mt-2 text-sm text-slate-700">Enter your email and we will send a reset link.</p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label htmlFor="reset-email" className="mb-1.5 block text-sm text-white/70">
+            <label htmlFor="reset-email" className="mb-1.5 block text-sm text-slate-700">
               Email address
             </label>
             <input
@@ -68,7 +53,7 @@ export default function ForgotPasswordPage() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="h-11 w-full rounded-xl border border-white/15 bg-black/20 px-3 text-base text-white placeholder:text-white/40 transition focus-visible:border-pink-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-400/60 md:text-sm"
+              className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base text-slate-900 placeholder:text-slate-400 transition focus-visible:border-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 md:text-sm"
               placeholder="you@example.com"
               autoComplete="email"
             />
@@ -77,8 +62,8 @@ export default function ForgotPasswordPage() {
           <button
             type="submit"
             disabled={submitting}
-            className={`inline-flex h-11 w-full items-center justify-center rounded-xl px-5 text-sm font-semibold transition ${
-              submitting ? "cursor-not-allowed bg-white/20 text-white/40" : "bg-white text-black hover:bg-gray-200"
+            className={`inline-flex h-11 w-full items-center justify-center rounded-xl px-5 text-sm font-semibold !text-white transition ${
+              submitting ? "cursor-not-allowed bg-slate-400" : "bg-black hover:bg-black/90"
             }`}
           >
             {submitting ? "Sending..." : "Send reset link"}
@@ -86,19 +71,19 @@ export default function ForgotPasswordPage() {
         </form>
 
         {errorMessage ? (
-          <div className="mt-4 rounded-xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {errorMessage}
           </div>
         ) : null}
 
         {infoMessage ? (
-          <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
             {infoMessage}
           </div>
         ) : null}
 
-        <div className="mt-6 text-sm text-white/60">
-          <Link className="text-pink-300 hover:text-pink-200" href="/">
+        <div className="mt-6 text-sm text-slate-600">
+          <Link className="text-indigo-700 hover:text-indigo-600" href="/">
             Back to home
           </Link>
         </div>

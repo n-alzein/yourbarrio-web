@@ -66,7 +66,7 @@ export default async function AdminAuditPage({
         </button>
       </form>
 
-      <div className="overflow-auto rounded-lg border border-neutral-800 bg-neutral-900">
+      <div className="overflow-x-auto rounded-lg border border-neutral-800 bg-neutral-900">
         <table className="min-w-full text-sm">
           <thead>
             <tr className="text-left text-neutral-400">
@@ -85,7 +85,7 @@ export default async function AdminAuditPage({
                 <td className="px-3 py-2">{row.action}</td>
                 <td className="px-3 py-2">{row.target_type || "-"}:{row.target_id || "-"}</td>
                 <td className="px-3 py-2">
-                  <pre className="max-w-xl overflow-auto whitespace-pre-wrap text-xs text-neutral-400">
+                  <pre className="max-w-xl overflow-x-auto whitespace-pre-wrap text-xs text-neutral-400">
                     {JSON.stringify(row.meta || {}, null, 2)}
                   </pre>
                 </td>

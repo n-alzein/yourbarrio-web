@@ -220,7 +220,7 @@ function BusinessRegisterInner({ isPopup }) {
         </div>
 
         <form onSubmit={handleRegister} className="space-y-4">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <label className="text-sm font-medium text-slate-900" htmlFor="business-name">
               Business name
             </label>
@@ -235,7 +235,7 @@ function BusinessRegisterInner({ isPopup }) {
             />
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <label className="text-sm font-medium text-slate-900" htmlFor="business-email">
               Email
             </label>
@@ -250,7 +250,7 @@ function BusinessRegisterInner({ isPopup }) {
             />
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <label className="text-sm font-medium text-slate-900" htmlFor="business-password">
               Password
             </label>
@@ -268,7 +268,7 @@ function BusinessRegisterInner({ isPopup }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl font-semibold bg-[#6E34FF] text-white transition hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="mt-2 w-full py-3 rounded-xl font-semibold bg-[#6E34FF] text-white transition hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? "Creating..." : "Create account"}
           </button>
