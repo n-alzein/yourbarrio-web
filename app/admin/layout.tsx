@@ -46,11 +46,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   return (
     <AdminShellClient
-      currentRoleKey={currentRole}
       sidebarExpandedContent={
         <AdminSidebar
           roles={admin.roles}
-          currentRoleKey={currentRole}
           emailOrId={admin.user.email || admin.user.id}
           strictPermissionBypassUsed={admin.strictPermissionBypassUsed}
           collapsed={false}
@@ -59,7 +57,6 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       sidebarCollapsedContent={
         <AdminSidebar
           roles={admin.roles}
-          currentRoleKey={currentRole}
           emailOrId={admin.user.email || admin.user.id}
           strictPermissionBypassUsed={admin.strictPermissionBypassUsed}
           collapsed

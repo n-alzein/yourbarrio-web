@@ -98,7 +98,7 @@ export default async function AdminDashboardPage({
         <p className="text-sm text-neutral-400">Admin platform summary and latest activity.</p>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Total users" value={totalUsers} />
         <StatCard label="Total businesses" value={totalBusinesses} />
         <StatCard label="New users (7d)" value={newUsers7d} />
@@ -106,7 +106,9 @@ export default async function AdminDashboardPage({
         <StatCard label="Open support tickets" value={openSupport} />
       </div>
 
-      <AdminUserSignupsChart data={signupChartData} />
+      <div className="mt-8">
+        <AdminUserSignupsChart data={signupChartData} />
+      </div>
 
       <RecentAuditActivity
         initialRows={initialAuditRows}
@@ -119,9 +121,9 @@ export default async function AdminDashboardPage({
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-      <div className="text-sm text-neutral-400">{label}</div>
-      <div className="mt-1 text-2xl font-semibold">{value.toLocaleString()}</div>
+    <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-3">
+      <div className="text-xs text-neutral-400">{label}</div>
+      <div className="mt-1 text-xl font-semibold">{value.toLocaleString()}</div>
     </div>
   );
 }
