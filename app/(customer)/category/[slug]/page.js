@@ -41,9 +41,9 @@ export default async function CategoryListingsPage({ params }) {
     const buildBaseQuery = () =>
       applyLocation(
         supabase
-          .from("listings")
+          .from("public_listings_v")
           .select(
-            "id,public_id,title,description,price,category,category_id,category_info:business_categories(name,slug),city,photo_url,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
+            "id,public_id,title,description,price,category,category_id,city,photo_url,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
           )
           .order("created_at", { ascending: false })
           .limit(80)
@@ -139,7 +139,7 @@ export default async function CategoryListingsPage({ params }) {
                   </div>
                   <div className="p-4 space-y-2">
                     <div className="text-xs uppercase tracking-wide text-slate-600">
-                      {item.category_info?.name || item.category || "Listing"}
+                      {item.category || "Listing"}
                       {item.city ? ` · ${item.city}` : ""}
                     </div>
                     <h3 className="text-base font-semibold text-slate-900 line-clamp-2">

@@ -132,8 +132,8 @@ export default function ListingsClient() {
     async function getListingsSafe({ signal }) {
       try {
         let query = client
-          .from("listings")
-          .select("*, category_info:business_categories(name,slug)")
+          .from("public_listings_v")
+          .select("*")
           .order("created_at", { ascending: false });
         if (location.city) {
           query = query.ilike("city", location.city);
@@ -202,10 +202,7 @@ export default function ListingsClient() {
           setListings([]);
           return;
         }
-        const next = result.data.map((row) => ({
-          ...row,
-          category: row.category_info?.name || row.category,
-        }));
+        const next = result.data;
         setListings(next);
         setHasLoaded(true);
         if (typeof window !== "undefined") {

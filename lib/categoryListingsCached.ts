@@ -82,7 +82,7 @@ export async function getCategoryListingsCached({
       const buildBaseQuery = () =>
         applyLocation(
           supabase
-            .from("listings")
+            .from("public_listings_v")
             .select(LISTINGS_COLUMNS)
             .order("created_at", { ascending: false })
             .limit(resolvedLimit)

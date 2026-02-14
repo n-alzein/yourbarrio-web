@@ -7,9 +7,9 @@ import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
 
 async function runHomeListingsQuery(client, { limit, city, category }) {
   let query = client
-    .from("listings")
+    .from("public_listings_v")
     .select(
-      "id,title,price,category,category_id,category_info:business_categories(name,slug),city,photo_url,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
+      "id,title,price,category,category_id,city,photo_url,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
     )
     .order("created_at", { ascending: false })
     .limit(limit);

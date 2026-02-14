@@ -440,9 +440,9 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
 
       try {
         let query = client
-          .from("listings")
+          .from("public_listings_v")
           .select(
-            "id,title,description,price,category,category_id,category_info:business_categories(name,slug),city,photo_url,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
+            "id,title,description,price,category,category_id,city,photo_url,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
           )
           .or(
             `title.ilike.%${safe}%,description.ilike.%${safe}%,category.ilike.%${safe}%`
@@ -473,12 +473,7 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
           setHybridItemsError("Could not load item matches right now.");
           setHybridItems([]);
         } else {
-          setHybridItems(
-            (data || []).map((row) => ({
-              ...row,
-              category: row.category_info?.name || row.category,
-            }))
-          );
+          setHybridItems(Array.isArray(data) ? data : []);
         }
       } catch (err) {
         if (!isActive || requestId !== hybridRequestIdRef.current) return;

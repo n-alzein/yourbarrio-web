@@ -12,7 +12,7 @@ export type ListingSummary = {
   price: number | string | null;
   category: string | null;
   category_id: string | number | null;
-  category_info: { name?: string | null; slug?: string | null } | null;
+  category_info?: { name?: string | null; slug?: string | null } | null;
   city: string | null;
   photo_url: unknown;
   business_id: string | null;
@@ -43,12 +43,12 @@ type GetHomeBrowseDataArgs = {
 
 const PUBLIC_LISTING_SELECT = [
   "id",
+  "public_id",
   "title",
   "description",
   "price",
   "category",
   "category_id",
-  "category_info:business_categories(name,slug)",
   "city",
   "photo_url",
   "business_id",
@@ -75,7 +75,7 @@ async function tryLoadFromPublicListingsView({
 }) {
   const supabase = getPublicSupabaseServerClient();
   let query = supabase
-    .from("public_listings")
+    .from("public_listings_v")
     .select(PUBLIC_LISTING_SELECT)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -101,45 +101,23 @@ async function tryLoadFromListingsTable({
   limit: number;
 }) {
   const supabase = getPublicSupabaseServerClient();
+  let query = supabase
+    .from("public_listings")
+    .select(PUBLIC_LISTING_SELECT)
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
-  const run = async (activeFilter: "is_active" | "status:published" | "status:active") => {
-    let query = supabase
-      .from("listings")
-      .select(PUBLIC_LISTING_SELECT)
-      .order("created_at", { ascending: false })
-      .limit(limit);
-
-    if (city) {
-      query = query.ilike("city", city);
-    } else if (zip) {
-      query = query.eq("zip", zip);
-    }
-
-    if (activeFilter === "is_active") {
-      query = query.eq("is_active", true);
-    } else if (activeFilter === "status:published") {
-      query = query.eq("status", "published");
-    } else {
-      query = query.eq("status", "active");
-    }
-
-    return query;
-  };
-
-  const attempts: Array<"is_active" | "status:published" | "status:active"> = [
-    "is_active",
-    "status:published",
-    "status:active",
-  ];
-
-  for (const filter of attempts) {
-    const { data, error } = await run(filter);
-    if (!error) {
-      return { data: (data ?? []) as unknown as ListingSummary[], error: null };
-    }
+  if (city) {
+    query = query.ilike("city", city);
+  } else if (zip) {
+    query = query.eq("zip", zip);
   }
 
-  return { data: [] as ListingSummary[], error: "listings_public_query_failed" };
+  const { data, error } = await query;
+  if (error) {
+    return { data: [] as ListingSummary[], error: "legacy_public_listings_query_failed" };
+  }
+  return { data: (data ?? []) as unknown as ListingSummary[], error: null };
 }
 
 async function loadPublicSafeListings({
@@ -154,11 +132,9 @@ async function loadPublicSafeListings({
   const fromView = await tryLoadFromPublicListingsView({ city, zip, limit });
   if (!fromView.error && fromView.data) return fromView.data;
 
-  const fromTable = await tryLoadFromListingsTable({ city, zip, limit });
-  if (!fromTable.error && Array.isArray(fromTable.data)) return fromTable.data;
+  const fromLegacyView = await tryLoadFromListingsTable({ city, zip, limit });
+  if (!fromLegacyView.error && Array.isArray(fromLegacyView.data)) return fromLegacyView.data;
 
-  // TODO: If anon reads fail due to RLS, add policy allowing SELECT for anon on
-  // published listings (or expose a `public_listings` view with that policy).
   return [];
 }
 
