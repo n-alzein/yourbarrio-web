@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient, getUserCached } from "@/lib/supabaseServer";
 import { isUuid } from "@/lib/ids/isUuid";
+import { getPublicBusinessByOwnerId } from "@/lib/business/getPublicBusinessByOwnerId";
 
 export async function GET(request) {
   const supabase = await getSupabaseServerClient();
@@ -45,13 +46,10 @@ export async function GET(request) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { data: business } = await supabase
-    .from("users")
-    .select(
-      "id,business_name,full_name,category,city,address,website,phone,profile_photo_url"
-    )
-    .eq("id", listing.business_id)
-    .maybeSingle();
+  const business = await getPublicBusinessByOwnerId(listing.business_id);
+  if (!business) {
+    return NextResponse.json({ error: "Business not found" }, { status: 404 });
+  }
 
   const { data: saved } = await supabase
     .from("saved_listings")
@@ -63,7 +61,7 @@ export async function GET(request) {
   const response = NextResponse.json(
     {
       listing,
-      business: business || null,
+      business,
       isSaved: Boolean(saved),
     },
     { status: 200 }

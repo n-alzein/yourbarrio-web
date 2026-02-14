@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import { permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
+import { getPublicBusinessByOwnerId } from "@/lib/business/getPublicBusinessByOwnerId";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { getPublicSupabaseServerClient } from "@/lib/supabasePublicServer";
 import PublicBusinessHero from "@/components/publicBusinessProfile/PublicBusinessHero";
@@ -13,34 +13,15 @@ import PublicBusinessPreviewClient from "@/components/publicBusinessProfile/Publ
 import ProfileViewTracker from "@/components/publicBusinessProfile/ProfileViewTracker";
 import ViewerContextEnhancer from "@/components/public/ViewerContextEnhancer";
 
-const PROFILE_FIELDS = [
-  "id",
-  "public_id",
-  "role",
-  "business_name",
-  "full_name",
-  "category",
-  "description",
-  "website",
-  "phone",
-  "address",
-  "city",
-  "profile_photo_url",
-  "cover_photo_url",
-  "hours_json",
-  "social_links_json",
-].join(",");
-
-const OPTIONAL_PUBLISH_FIELDS = ["is_published", "is_verified", "is_active"];
-const PROFILE_FIELDS_WITH_OPTIONAL = [
-  PROFILE_FIELDS,
-  OPTIONAL_PUBLISH_FIELDS.join(","),
-].join(",");
 const PUBLIC_CACHE_SECONDS = 300;
 const PERF_ENV_FLAG = "YB_PROFILE_PERF";
-const MISSING_COLUMN_RE = /column "([^"]+)" does not exist/i;
 const UUID_ANY_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isMissingColumnError(error) {
+  if (!error) return false;
+  return error?.code === "42703";
+}
 
 function buildRatingSummary(rows) {
   const breakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -58,21 +39,6 @@ function buildRatingSummary(rows) {
 
   const average = count ? sum / count : 0;
   return { count, average, breakdown };
-}
-
-function pickPublishFlag(profile) {
-  for (const key of OPTIONAL_PUBLISH_FIELDS) {
-    if (Object.prototype.hasOwnProperty.call(profile, key)) {
-      return { key, value: Boolean(profile[key]) };
-    }
-  }
-  return null;
-}
-
-function isMissingColumnError(error) {
-  if (!error) return false;
-  if (error?.code === "42703") return true;
-  return MISSING_COLUMN_RE.test(error?.message || "");
 }
 
 async function safeQuery(promise, fallback, label) {
@@ -97,33 +63,15 @@ async function safeQuery(promise, fallback, label) {
   }
 }
 
-async function fetchPublicProfile(supabase, id) {
-  const withOptional = await supabase
-    .from("users")
-    .select(PROFILE_FIELDS_WITH_OPTIONAL)
-    .eq("id", id)
-    .eq("role", "business")
-    .maybeSingle();
-
-  if (withOptional.error) {
-    if (isMissingColumnError(withOptional.error)) {
-      const base = await supabase
-        .from("users")
-        .select(PROFILE_FIELDS)
-        .eq("id", id)
-        .eq("role", "business")
-        .maybeSingle();
-      if (base.error) {
-        console.error("[public business] profile query failed", base.error);
-        return null;
-      }
-      return base.data;
-    }
-    console.error("[public business] profile query failed", withOptional.error);
-    return null;
+async function fetchPublicProfile(id) {
+  const profile = await getPublicBusinessByOwnerId(id);
+  if (!profile) {
+    console.warn("[monitor] public_business_not_found_or_unverified", {
+      ownerUserId: id,
+      route: "/customer/b/[id]",
+    });
   }
-
-  return withOptional.data;
+  return profile;
 }
 
 async function resolveBusinessRef(ref) {
@@ -269,8 +217,7 @@ function descriptionSnippet(value) {
 
 const getPublicProfileCached = unstable_cache(
   async (businessId) => {
-    const supabase = getPublicSupabaseServerClient();
-    return fetchPublicProfile(supabase, businessId);
+    return fetchPublicProfile(businessId);
   },
   ["public-business-profile"],
   { revalidate: PUBLIC_CACHE_SECONDS }
@@ -360,15 +307,8 @@ export async function generateMetadata({ params }) {
     };
   }
 
-  const publishFlag = pickPublishFlag(profile);
-  let isEligible = false;
-
-  if (publishFlag) {
-    isEligible = publishFlag.value;
-  } else {
-    const listingPreview = await getPublicListingsCached(businessId, 1);
-    isEligible = listingPreview.length > 0;
-  }
+  const listingPreview = await getPublicListingsCached(businessId, 1);
+  const isEligible = listingPreview.length > 0;
 
   if (!isEligible) {
     return {
@@ -396,39 +336,6 @@ export async function generateMetadata({ params }) {
   };
 }
 
-function UnavailableState() {
-  return (
-    <div className="min-h-screen text-white theme-lock">
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900/70 to-black" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/60 to-black/90" />
-        <div className="relative mx-auto max-w-4xl px-6 md:px-10 py-24 md:py-32 text-center">
-          <h1 className="text-3xl md:text-4xl font-semibold">
-            Business not found.
-          </h1>
-          <p className="mt-3 text-sm md:text-base text-white/70">
-            The profile may be unavailable or the link may be outdated.
-          </p>
-          <div className="mt-8 flex items-center justify-center gap-3">
-            <Link
-              href="/listings"
-              className="inline-flex items-center justify-center rounded-full bg-white/90 px-5 py-2 text-sm font-semibold text-slate-900 hover:bg-white transition"
-            >
-              Browse listings
-            </Link>
-            <Link
-              href="/customer/home"
-              className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-5 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
-            >
-              Back to search
-            </Link>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default async function PublicBusinessProfilePage({
   params,
   searchParams,
@@ -437,9 +344,9 @@ export default async function PublicBusinessProfilePage({
   const resolvedParams = await Promise.resolve(params);
   const resolvedSearch = await Promise.resolve(searchParams);
   const ref = String(resolvedParams?.id || "").trim();
-  if (!ref) return <UnavailableState />;
+  if (!ref) notFound();
   const resolvedRef = await resolveBusinessRef(ref);
-  if (!resolvedRef?.id) return <UnavailableState />;
+  if (!resolvedRef?.id) notFound();
   const businessId = resolvedRef.id;
   const businessPublicId = String(resolvedRef.public_id || "").trim();
   if (UUID_ANY_RE.test(ref) && businessPublicId) {
@@ -464,60 +371,52 @@ export default async function PublicBusinessProfilePage({
     ? await getSupabaseServerClient()
     : null;
   const profile = await perf.time("profile", () =>
-    useAuthenticatedClient
-      ? fetchPublicProfile(supabase, businessId)
-      : getPublicProfileCached(businessId)
+    getPublicProfileCached(businessId)
   );
 
   if (!profile) {
     perf.end({ outcome: "missing-profile" });
-    return <UnavailableState />;
+    notFound();
   }
 
-  const publishFlag = pickPublishFlag(profile);
-  let isEligible = false;
-
-  if (publishFlag) {
-    isEligible = publishFlag.value;
-  } else {
-    const listingPreview = await perf.time("listings-preview", () =>
-      useAuthenticatedClient
-        ? fetchListingsWithFallback(supabase, businessId, 1)
-        : getPublicListingsCached(businessId, 1)
-    );
-    isEligible = listingPreview.length > 0;
-  }
+  const publicReadClient = supabase || getPublicSupabaseServerClient();
+  const listingPreview = await perf.time("listings-preview", () =>
+    useAuthenticatedClient
+      ? fetchListingsWithFallback(publicReadClient, businessId, 1)
+      : getPublicListingsCached(businessId, 1)
+  );
+  const isEligible = listingPreview.length > 0;
 
   if (!isEligible) {
     perf.end({ outcome: "unpublished" });
-    return <UnavailableState />;
+    notFound();
   }
 
   const [gallery, announcements, listings, reviews, reviewRatings] =
     await Promise.all([
       perf.time("gallery", () =>
         useAuthenticatedClient
-          ? fetchGallery(supabase, businessId)
+          ? fetchGallery(publicReadClient, businessId)
           : getPublicGalleryCached(businessId)
       ),
       perf.time("announcements", () =>
         useAuthenticatedClient
-          ? fetchAnnouncements(supabase, businessId)
+          ? fetchAnnouncements(publicReadClient, businessId)
           : getPublicAnnouncementsCached(businessId)
       ),
       perf.time("listings", () =>
         useAuthenticatedClient
-          ? fetchListingsWithFallback(supabase, businessId, 24)
+          ? fetchListingsWithFallback(publicReadClient, businessId, 24)
           : getPublicListingsCached(businessId, 24)
       ),
       perf.time("reviews", () =>
         useAuthenticatedClient
-          ? fetchReviews(supabase, businessId)
+          ? fetchReviews(publicReadClient, businessId)
           : getPublicReviewsCached(businessId)
       ),
       perf.time("review-ratings", () =>
         useAuthenticatedClient
-          ? fetchReviewRatings(supabase, businessId)
+          ? fetchReviewRatings(publicReadClient, businessId)
           : getPublicReviewRatingsCached(businessId)
       ),
     ]);

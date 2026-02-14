@@ -109,6 +109,47 @@ export async function updateUserRoleAction(formData: FormData) {
     redirect(withMessage(targetPath, "error", error.message));
   }
 
+  if (nextRole === "business") {
+    const { data: businessSeed } = await client
+      .from("users")
+      .select(
+        "id, public_id, business_name, category, description, website, phone, profile_photo_url, cover_photo_url, address, address_2, city, state, postal_code, latitude, longitude, hours_json, social_links_json, is_internal"
+      )
+      .eq("id", parsed.data.userId)
+      .maybeSingle();
+
+    if (businessSeed) {
+      const { error: businessUpsertError } = await client.from("businesses").upsert(
+        {
+          owner_user_id: businessSeed.id,
+          public_id: businessSeed.public_id || null,
+          business_name: businessSeed.business_name || null,
+          category: businessSeed.category || null,
+          description: businessSeed.description || null,
+          website: businessSeed.website || null,
+          phone: businessSeed.phone || null,
+          profile_photo_url: businessSeed.profile_photo_url || null,
+          cover_photo_url: businessSeed.cover_photo_url || null,
+          address: businessSeed.address || null,
+          address_2: businessSeed.address_2 || null,
+          city: businessSeed.city || null,
+          state: businessSeed.state || null,
+          postal_code: businessSeed.postal_code || null,
+          latitude: businessSeed.latitude ?? null,
+          longitude: businessSeed.longitude ?? null,
+          hours_json: businessSeed.hours_json || {},
+          social_links_json: businessSeed.social_links_json || {},
+          is_internal: businessSeed.is_internal === true,
+        },
+        { onConflict: "owner_user_id", ignoreDuplicates: false }
+      );
+
+      if (businessUpsertError) {
+        redirect(withMessage(targetPath, "error", businessUpsertError.message));
+      }
+    }
+  }
+
   await audit({
     action: "user_role_updated",
     targetType: "user",
@@ -272,6 +313,45 @@ export async function updateUserProfileFieldsAction(formData: FormData) {
 
   if (error) {
     redirect(withMessage(targetPath, "error", error.message));
+  }
+
+  const { data: roleRow } = await client
+    .from("users")
+    .select(
+      "id, role, public_id, business_name, category, description, website, phone, profile_photo_url, cover_photo_url, address, address_2, city, state, postal_code, latitude, longitude, hours_json, social_links_json, is_internal"
+    )
+    .eq("id", parsed.data.userId)
+    .maybeSingle();
+
+  if (String(roleRow?.role || "").toLowerCase() === "business") {
+    const { error: businessUpsertError } = await client.from("businesses").upsert(
+      {
+        owner_user_id: roleRow.id,
+        public_id: roleRow.public_id || null,
+        business_name: roleRow.business_name || null,
+        category: roleRow.category || null,
+        description: roleRow.description || null,
+        website: roleRow.website || null,
+        phone: roleRow.phone || null,
+        profile_photo_url: roleRow.profile_photo_url || null,
+        cover_photo_url: roleRow.cover_photo_url || null,
+        address: roleRow.address || null,
+        address_2: roleRow.address_2 || null,
+        city: roleRow.city || null,
+        state: roleRow.state || null,
+        postal_code: roleRow.postal_code || null,
+        latitude: roleRow.latitude ?? null,
+        longitude: roleRow.longitude ?? null,
+        hours_json: roleRow.hours_json || {},
+        social_links_json: roleRow.social_links_json || {},
+        is_internal: roleRow.is_internal === true,
+      },
+      { onConflict: "owner_user_id", ignoreDuplicates: false }
+    );
+
+    if (businessUpsertError) {
+      redirect(withMessage(targetPath, "error", businessUpsertError.message));
+    }
   }
 
   await audit({

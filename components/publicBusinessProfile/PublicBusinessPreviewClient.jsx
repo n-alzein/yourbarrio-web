@@ -212,12 +212,11 @@ export default function PublicBusinessPreviewClient({
       dispatch({ type: "REQUEST" });
 
       const profileQuery = client
-        .from("users")
+        .from("businesses")
         .select(
-          "id,public_id,role,business_name,full_name,category,description,website,phone,address,city,profile_photo_url,cover_photo_url,hours_json,social_links_json"
+          "id,owner_user_id,public_id,business_name,category,description,website,phone,address,city,profile_photo_url,cover_photo_url,hours_json,social_links_json,verification_status"
         )
-        .eq("id", businessId)
-        .eq("role", "business")
+        .eq("owner_user_id", businessId)
         .maybeSingle();
 
       const nowIso = new Date().toISOString();
@@ -301,7 +300,13 @@ export default function PublicBusinessPreviewClient({
       dispatch({
         type: "SUCCESS",
         payload: {
-          profile: profileResult?.data ?? null,
+          profile: profileResult?.data
+            ? {
+                ...profileResult.data,
+                id: profileResult.data.owner_user_id,
+                full_name: null,
+              }
+            : null,
           announcements: announcementsResult?.data || [],
           gallery: galleryResult?.data || [],
           listings: listingsResult?.data || [],

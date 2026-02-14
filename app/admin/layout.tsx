@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import AdminShellClient from "@/app/admin/_components/AdminShellClient";
 import AdminSidebar from "@/app/admin/_components/AdminSidebar";
 import AdminStatusStack from "@/app/admin/_components/AdminStatusStack";
+import { getCachedPendingBusinessVerificationsCount } from "@/lib/admin/businessVerification";
 import { getEffectiveUserId } from "@/lib/admin/impersonation";
 import { getHighestAdminRole, isAdminDevAllowlistConfigured, requireAdmin } from "@/lib/admin/permissions";
 import { getCurrentUserRole } from "@/lib/auth/getCurrentUserRole";
@@ -39,7 +40,11 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       devAllowlistUsed: admin.devAllowlistUsed,
     });
   }
-  const { activeImpersonation } = await getEffectiveUserId();
+  const [effectiveUserResult, pendingVerificationCount] = await Promise.all([
+    getEffectiveUserId(),
+    getCachedPendingBusinessVerificationsCount().catch(() => 0),
+  ]);
+  const { activeImpersonation } = effectiveUserResult;
   const showAllowlistBanner = admin.devAllowlistUsed && isAdminDevAllowlistConfigured();
   const showBypassBanner = isAdminBypassRlsEnabled();
   const currentRole = getHighestAdminRole(admin.roles) || "admin_readonly";
@@ -51,6 +56,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           roles={admin.roles}
           emailOrId={admin.user.email || admin.user.id}
           strictPermissionBypassUsed={admin.strictPermissionBypassUsed}
+          pendingVerificationCount={pendingVerificationCount}
           collapsed={false}
         />
       }
@@ -59,6 +65,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           roles={admin.roles}
           emailOrId={admin.user.email || admin.user.id}
           strictPermissionBypassUsed={admin.strictPermissionBypassUsed}
+          pendingVerificationCount={pendingVerificationCount}
           collapsed
         />
       }

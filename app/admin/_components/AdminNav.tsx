@@ -8,6 +8,7 @@ type AdminNavProps = {
   strictPermissionBypassUsed?: boolean;
   variant?: "vertical" | "horizontal";
   collapsed?: boolean;
+  pendingVerificationCount?: number;
 };
 
 export default function AdminNav({
@@ -15,6 +16,7 @@ export default function AdminNav({
   strictPermissionBypassUsed = false,
   variant = "vertical",
   collapsed = false,
+  pendingVerificationCount = 0,
 }: AdminNavProps) {
   const normalizedRoles = roles.filter((role): role is AdminRole =>
     (ADMIN_ROLES as readonly string[]).includes(role)
@@ -25,11 +27,12 @@ export default function AdminNav({
   const currentRole = getHighestAdminRole(normalizedRoles) || "admin_readonly";
   const isHorizontal = variant === "horizontal";
 
-  const navItems: Array<{ href: string; label: string; icon: NavIconName }> = [
+  const navItems: Array<{ href: string; label: string; icon: NavIconName; badgeCount?: number }> = [
     { href: "/admin", label: "Dashboard", icon: "dashboard" },
     { href: "/admin/accounts", label: "Accounts", icon: "accounts" },
     { href: "/admin/customers", label: "Customers", icon: "customers" },
     { href: "/admin/businesses", label: "Businesses", icon: "businesses" },
+    { href: "/admin/verification", label: "Verification", icon: "verification", badgeCount: pendingVerificationCount },
     { href: "/admin/admins", label: canManageAdmins ? "Admin Management" : "Admins", icon: "admins" },
     ...(canModerate ? [{ href: "/admin/moderation", label: "Moderation", icon: "moderation" as const }] : []),
     { href: "/admin/audit", label: "Audit", icon: "audit" },
@@ -62,7 +65,23 @@ export default function AdminNav({
             }
           >
             <NavIcon name={item.icon} />
-            {!collapsed || isHorizontal ? <span>{item.label}</span> : null}
+            {!collapsed || isHorizontal ? (
+              <span className="flex min-w-0 items-center gap-2">
+                <span>{item.label}</span>
+                {typeof item.badgeCount === "number" ? (
+                  <span
+                    className={`inline-flex min-w-[2rem] items-center justify-center rounded-full border px-1.5 py-0.5 text-[11px] font-semibold ${
+                      item.badgeCount > 0
+                        ? "border-red-700/70 bg-red-950/80 text-red-100"
+                        : "border-transparent text-transparent"
+                    }`}
+                    aria-label={item.badgeCount > 0 ? `${item.badgeCount} pending verifications` : undefined}
+                  >
+                    {item.badgeCount > 99 ? "99+" : item.badgeCount > 0 ? item.badgeCount : 0}
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
           </Link>
         ))}
         <form action={adminLogoutAction}>
@@ -92,6 +111,7 @@ type NavIconName =
   | "accounts"
   | "customers"
   | "businesses"
+  | "verification"
   | "admins"
   | "moderation"
   | "audit"
@@ -130,6 +150,13 @@ function NavIcon({ name }: { name: NavIconName }) {
           <path d="M3 21h18" />
           <path d="M5 21V7l7-4 7 4v14" />
           <path d="M9 10h6M9 14h6" />
+        </svg>
+      );
+    case "verification":
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 2 4 6v6c0 5.3 3.4 9 8 10 4.6-1 8-4.7 8-10V6z" />
+          <path d="m9 12 2 2 4-4" />
         </svg>
       );
     case "admins":

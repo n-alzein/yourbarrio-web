@@ -5,6 +5,7 @@ type AdminSidebarProps = {
   emailOrId: string;
   strictPermissionBypassUsed: boolean;
   collapsed?: boolean;
+  pendingVerificationCount?: number;
 };
 
 export default function AdminSidebar({
@@ -12,6 +13,7 @@ export default function AdminSidebar({
   emailOrId,
   strictPermissionBypassUsed,
   collapsed = false,
+  pendingVerificationCount = 0,
 }: AdminSidebarProps) {
   return (
     <div className="min-h-0 flex-1 p-2">
@@ -26,6 +28,7 @@ export default function AdminSidebar({
         strictPermissionBypassUsed={strictPermissionBypassUsed}
         variant="vertical"
         collapsed={collapsed}
+        pendingVerificationCount={pendingVerificationCount}
       />
     </div>
   );

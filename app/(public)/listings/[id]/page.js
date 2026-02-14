@@ -151,14 +151,24 @@ export default function ListingDetails({ params }) {
         );
 
         const { data: biz } = await client
-          .from("users")
+          .from("businesses")
           .select(
-            "id,public_id,business_name,full_name,category,city,address,website,phone,profile_photo_url"
+            "id,owner_user_id,public_id,business_name,category,city,address,website,phone,profile_photo_url,verification_status"
           )
-          .eq("id", item.business_id)
+          .eq("owner_user_id", item.business_id)
           .maybeSingle();
 
-        if (isMounted) setBusiness(biz || null);
+        if (!biz) {
+          throw new Error("Business not found");
+        }
+
+        if (isMounted) {
+          setBusiness({
+            ...biz,
+            id: biz.owner_user_id,
+            full_name: null,
+          });
+        }
       } catch (err) {
         console.error("Failed to load listing", err);
         if (isMounted) setError("We couldn’t load this item. Try again.");

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getBusinessByUserId } from "@/lib/business/getBusinessByUserId";
 import { getBusinessDataClientForRequest } from "@/lib/business/getBusinessDataClientForRequest";
 
 const SALES_STATUSES = ["fulfilled", "completed"];
@@ -98,7 +99,7 @@ export async function GET(request) {
   const fromStr = fromIso.toISOString();
   const toStr = new Date(toIso.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString();
 
-  const [ordersRes, viewsRes, listingsRes, recentOrdersRes, businessRes] =
+  const [ordersRes, viewsRes, listingsRes, recentOrdersRes, businessProfile] =
     await Promise.all([
       supabase
         .from("orders")
@@ -125,11 +126,10 @@ export async function GET(request) {
         .eq("vendor_id", businessUserId)
         .order("created_at", { ascending: false })
         .limit(8),
-      supabase
-        .from("users")
-        .select("business_name, full_name, profile_photo_url")
-        .eq("id", businessUserId)
-        .maybeSingle(),
+      getBusinessByUserId({
+        client: supabase,
+        userId: businessUserId,
+      }),
     ]);
 
   if (ordersRes.error) {
@@ -156,13 +156,6 @@ export async function GET(request) {
       { status: 500 }
     );
   }
-  if (businessRes.error) {
-    return NextResponse.json(
-      { error: businessRes.error.message || "Failed to load business profile" },
-      { status: 500 }
-    );
-  }
-
   const listingRows = listingsRes.data || [];
   const listingMap = new Map(
     listingRows.map((row) => [
@@ -399,12 +392,12 @@ export async function GET(request) {
       businessName:
         access.effectiveProfile?.business_name ||
         access.effectiveProfile?.full_name ||
-        businessRes.data?.business_name ||
-        businessRes.data?.full_name ||
+        businessProfile?.business_name ||
+        businessProfile?.full_name ||
         "YourBarrio",
       businessAvatarUrl:
         access.effectiveProfile?.profile_photo_url ||
-        businessRes.data?.profile_photo_url ||
+        businessProfile?.profile_photo_url ||
         null,
     },
     { status: 200 }

@@ -9,7 +9,6 @@ import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import FastImage from "@/components/FastImage";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import CustomerMap from "@/components/customer/CustomerMap";
 import { BUSINESS_CATEGORIES, normalizeCategoryName } from "@/lib/businessCategories";
 import { appendCrashLog } from "@/lib/crashlog";
@@ -28,7 +27,7 @@ const isSameBusinessList = (prev, next) => {
 
 export default function NearbyBusinessesClient() {
   const searchParams = useSearchParams();
-  const { user, loadingUser, supabase } = useAuth();
+  const { user, loadingUser } = useAuth();
   const { theme, hydrated } = useTheme();
   const isLight = hydrated ? theme === "light" : true;
   const { location, hydrated: locationHydrated } = useLocation();
@@ -294,7 +293,6 @@ export default function NearbyBusinessesClient() {
       setYbBusinessesLoading((prev) => (hasLoadedYbRef.current ? prev : true));
       setYbBusinessesError(null);
       logDataDiag("request:start", { label: "nearby:yb-businesses", requestId });
-      const client = supabase ?? getSupabaseBrowserClient();
       try {
         let rows = [];
 
@@ -335,47 +333,6 @@ export default function NearbyBusinessesClient() {
           console.warn("public-businesses endpoint failed", errApi);
         }
 
-        if (!rows.length && client) {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(
-            () => controller.abort(new DOMException("Timeout", "AbortError")),
-            12000
-          );
-          try {
-            let query = client
-              .from("users")
-              .select(
-                "id,public_id,business_name,full_name,category,city,address,description,website,profile_photo_url,latitude,longitude,lat,lng,role"
-              )
-              .eq("role", "business")
-              .limit(400);
-            if (location.city) {
-              query = query.ilike("city", location.city);
-            }
-            if (typeof query.abortSignal === "function") {
-              query = query.abortSignal(controller.signal);
-            }
-            const { data, error } = await query;
-            if (error) {
-              console.warn("Supabase fallback failed", error);
-            } else {
-              rows = data || [];
-            }
-          } catch (err) {
-            if (err?.name === "AbortError") {
-              logCrashEvent({
-                context: "public-businesses",
-                kind: "timeout",
-                message: "Supabase users query timed out after 12s",
-              });
-            } else {
-              console.warn("Supabase fallback threw", err);
-            }
-          } finally {
-            clearTimeout(timeoutId);
-          }
-        }
-
         if (!active || requestId !== ybRequestIdRef.current) return;
 
         if (!rows.length) {
@@ -397,7 +354,7 @@ export default function NearbyBusinessesClient() {
               return {
                 id: row.id,
                 public_id: row.public_id || null,
-                name: row.business_name || row.name || row.full_name || "Local business",
+                name: row.business_name || row.name || "Local business",
                 category: row.category || "Local business",
                 categoryLabel: row.category || "Local business",
                 address,
@@ -406,7 +363,7 @@ export default function NearbyBusinessesClient() {
                 description: row.description || row.bio || "",
                 website: row.website || "",
                 imageUrl: row.profile_photo_url || row.photo_url || "",
-                source: "supabase_users",
+                source: "supabase_businesses",
                 coords: hasCoords ? { lat, lng } : null,
               };
             })
@@ -448,7 +405,7 @@ export default function NearbyBusinessesClient() {
     return () => {
       active = false;
     };
-  }, [supabase, logCrashEvent, isVisible, locationHydrated, locationKey, location.city, storageKey]);
+  }, [logCrashEvent, isVisible, locationHydrated, locationKey, location.city, storageKey]);
 
   useEffect(() => {
     if (!ybBusinessesLoading) return;

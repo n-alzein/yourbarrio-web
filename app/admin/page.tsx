@@ -1,6 +1,11 @@
+import Link from "next/link";
 import AdminFlash from "@/app/admin/_components/AdminFlash";
 import AdminUserSignupsChart from "@/app/admin/_components/AdminUserSignupsChart";
 import RecentAuditActivity from "@/app/admin/_components/RecentAuditActivity";
+import {
+  getCachedPendingBusinessVerificationsCount,
+  listPendingBusinessVerifications,
+} from "@/lib/admin/businessVerification";
 import { requireAdminRole } from "@/lib/admin/permissions";
 import { getAdminDataClient } from "@/lib/supabase/admin";
 
@@ -30,6 +35,25 @@ function formatBucketLabel(bucketStart: string) {
   });
 }
 
+function formatRelativeTime(value: string | null) {
+  if (!value) return "-";
+  const then = new Date(value).getTime();
+  if (!Number.isFinite(then)) return "-";
+  const diffSeconds = Math.round((then - Date.now()) / 1000);
+  const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+    ["day", 24 * 3600],
+    ["hour", 3600],
+    ["minute", 60],
+  ];
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  for (const [unit, seconds] of units) {
+    if (Math.abs(diffSeconds) >= seconds) {
+      return rtf.format(Math.round(diffSeconds / seconds), unit);
+    }
+  }
+  return "just now";
+}
+
 export default async function AdminDashboardPage({
   searchParams,
 }: {
@@ -52,7 +76,16 @@ export default async function AdminDashboardPage({
   const totalUsersCount = totalUsersCountResult.data;
   const signupsSeriesData = signupsSeriesResult.data;
 
-  const [totalAccountsDistinct, totalBusinesses, newUsers7d, openModeration, openSupport, recentAudit] =
+  const [
+    totalAccountsDistinct,
+    totalBusinesses,
+    newUsers7d,
+    openModeration,
+    openSupport,
+    recentAudit,
+    pendingVerificationCount,
+    recentPendingVerificationRows,
+  ] =
     await Promise.all([
       getCount(client, "users"),
       getCount(client, "users", (q) => q.eq("role", "business")),
@@ -65,7 +98,13 @@ export default async function AdminDashboardPage({
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
         .limit(AUDIT_PAGE_SIZE + 1),
-  ]);
+      getCachedPendingBusinessVerificationsCount(),
+      listPendingBusinessVerifications({
+        status: "pending",
+        from: 0,
+        to: 9,
+      }).then((result) => result.rows),
+    ]);
 
   const totalUsers = Number(totalAccountsDistinct || 0);
   const allAuditRows = recentAudit.data || [];
@@ -105,6 +144,42 @@ export default async function AdminDashboardPage({
         <StatCard label="Open moderation flags" value={openModeration} />
         <StatCard label="Open support tickets" value={openSupport} />
       </div>
+
+      <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-semibold">Pending Verifications</h3>
+            <p className="text-sm text-neutral-400">{pendingVerificationCount} pending</p>
+          </div>
+          <Link
+            href="/admin/verification"
+            className="rounded border border-neutral-700 px-3 py-1.5 text-sm text-neutral-100 hover:border-neutral-500"
+          >
+            View all
+          </Link>
+        </div>
+
+        {pendingVerificationCount === 0 ? (
+          <div className="rounded border border-emerald-800/60 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-100">
+            No pending verifications.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {recentPendingVerificationRows.map((row) => (
+              <Link
+                key={row.owner_user_id}
+                href={`/admin/users/${encodeURIComponent(row.owner_user_id)}`}
+                className="block rounded border border-neutral-800 bg-neutral-950/60 px-3 py-2 hover:border-neutral-600"
+              >
+                <p className="text-sm font-medium text-neutral-100">{row.business_name || "Unnamed business"}</p>
+                <p className="text-xs text-neutral-400">
+                  {(row.city || "No city")} · {formatRelativeTime(row.created_at)}
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="mt-8">
         <AdminUserSignupsChart data={signupChartData} />

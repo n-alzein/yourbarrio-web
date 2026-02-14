@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import SafeImage from "@/components/SafeImage";
 import { useRouter } from "next/navigation";
+import { getBusinessByUserId } from "@/lib/business/getBusinessByUserId";
 import {
   getAuthProviderLabel,
   getPrimaryAuthProvider,
@@ -46,6 +47,7 @@ export default function SettingsPage() {
   });
 
   const [form, setForm] = useState(() => buildInitialForm(profile));
+  const [initialForm, setInitialForm] = useState(() => buildInitialForm(profile));
   const lastUserIdRef = useRef(profile?.id ?? null);
 
   const showToast = (type, message) => {
@@ -121,11 +123,36 @@ export default function SettingsPage() {
      LOAD PROFILE INTO FORM
   ----------------------------------------------------------- */
   useEffect(() => {
+    if (!supabase || !user?.id) return;
+    let cancelled = false;
+
+    (async () => {
+      const business = await getBusinessByUserId({
+        client: supabase,
+        userId: user.id,
+        selfHeal: true,
+      });
+      if (cancelled) return;
+      if (!business) return;
+      const nextForm = buildInitialForm(business);
+      lastUserIdRef.current = user.id;
+      setForm(nextForm);
+      setInitialForm(nextForm);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, user?.id]);
+
+  useEffect(() => {
     if (!profile?.id) return;
     if (lastUserIdRef.current === profile.id) return;
     lastUserIdRef.current = profile.id;
     queueMicrotask(() => {
-      setForm(buildInitialForm(profile));
+      const nextForm = buildInitialForm(profile);
+      setForm(nextForm);
+      setInitialForm(nextForm);
     });
   }, [profile]);
 
@@ -153,32 +180,84 @@ export default function SettingsPage() {
     setSaving(true);
     setFieldErrors({});
 
-    const { error } = await supabase
+    const updates = {
+      full_name: form.full_name,
+      business_name: form.full_name,
+      phone: form.phone,
+      city: normalizedAddress.city || null,
+      address: normalizedAddress.address || null,
+      address_2: normalizedAddress.address_2 || null,
+      state: normalizedAddress.state || null,
+      postal_code: normalizedAddress.postal_code || null,
+      website: form.website,
+      profile_photo_url: form.profile_photo_url,
+    };
+
+    const { error: userUpdateError } = await supabase
       .from("users")
-        .update({
-          full_name: form.full_name,
-          business_name: form.full_name,
-          phone: form.phone,
-          city: normalizedAddress.city || null,
-          address: normalizedAddress.address || null,
-          address_2: normalizedAddress.address_2 || null,
-          state: normalizedAddress.state || null,
-          postal_code: normalizedAddress.postal_code || null,
-          website: form.website,
-          profile_photo_url: form.profile_photo_url,
-        })
+        .update(updates)
       .eq("id", user.id);
+
+    let businessUpdateError = null;
+    const businessesPayload = {
+      owner_user_id: user.id,
+      business_name: form.full_name || null,
+      phone: form.phone || null,
+      city: normalizedAddress.city || null,
+      address: normalizedAddress.address || null,
+      address_2: normalizedAddress.address_2 || null,
+      state: normalizedAddress.state || null,
+      postal_code: normalizedAddress.postal_code || null,
+      website: form.website || null,
+      profile_photo_url: form.profile_photo_url || null,
+      is_internal: profile?.is_internal === true,
+    };
+
+    if (profile?.public_id) {
+      businessesPayload.public_id = profile.public_id;
+    }
+
+    const businessResult = await supabase
+      .from("businesses")
+      .upsert(businessesPayload, { onConflict: "owner_user_id", ignoreDuplicates: false });
+
+    if (businessResult.error) {
+      const code = String(businessResult.error.code || "");
+      const isSchemaMissing = code === "42P01" || code === "42703" || code === "PGRST204";
+      if (!isSchemaMissing) {
+        businessUpdateError = businessResult.error;
+      }
+    }
 
     setSaving(false);
     setEditMode(false);
 
-    if (!error) {
+    if (!userUpdateError && !businessUpdateError) {
       refreshProfile();
+      const nextForm = buildInitialForm({
+        ...profile,
+        business_name: form.full_name,
+        full_name: form.full_name,
+        phone: form.phone,
+        city: normalizedAddress.city || null,
+        address: normalizedAddress.address || null,
+        address_2: normalizedAddress.address_2 || null,
+        state: normalizedAddress.state || null,
+        postal_code: normalizedAddress.postal_code || null,
+        website: form.website,
+        profile_photo_url: form.profile_photo_url,
+      });
+      setInitialForm(nextForm);
       showToast("success", "Settings updated.");
       return;
     }
 
-    showToast("error", error.message || "Failed to save settings.");
+    showToast(
+      "error",
+      userUpdateError?.message ||
+        businessUpdateError?.message ||
+        "Failed to save settings."
+    );
   }
 
   /* -----------------------------------------------------------
@@ -226,10 +305,7 @@ export default function SettingsPage() {
   /* -----------------------------------------------------------
      CHANGE DETECTION
   ----------------------------------------------------------- */
-  const hasChanges =
-    profile &&
-    JSON.stringify(form) !==
-        JSON.stringify(buildInitialForm(profile));
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(initialForm);
 
   const primaryProvider = getPrimaryAuthProvider(user);
   const providerLabel = getAuthProviderLabel(user);
@@ -434,7 +510,7 @@ export default function SettingsPage() {
                   <button
                     onClick={() => {
                       setEditMode(false);
-                      setForm(buildInitialForm(profile));
+                      setForm(initialForm);
                       setFieldErrors({});
                     }}
                     className="inline-flex h-11 items-center justify-center rounded-xl border border-white/20 bg-white/5 px-5 text-sm font-semibold text-white transition hover:bg-white/10"

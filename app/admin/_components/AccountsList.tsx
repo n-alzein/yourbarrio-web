@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AdminFlash from "@/app/admin/_components/AdminFlash";
 import AccountsFiltersClient from "@/app/admin/_components/AccountsFiltersClient";
+import { getCachedPendingBusinessVerificationsCount } from "@/lib/admin/businessVerification";
 import { requireAdminRole } from "@/lib/admin/permissions";
 import {
   fetchAdminUsers,
@@ -68,6 +69,19 @@ function roleBadgeClass(role: AdminUserRoleFilter) {
   return "border-emerald-700/60 bg-emerald-950/70 text-emerald-200";
 }
 
+function verificationBadgeClass(status: string) {
+  if (status === "manually_verified") {
+    return "border-emerald-700/60 bg-emerald-950/70 text-emerald-200";
+  }
+  if (status === "auto_verified") {
+    return "border-sky-700/60 bg-sky-950/70 text-sky-200";
+  }
+  if (status === "suspended") {
+    return "border-rose-700/60 bg-rose-950/70 text-rose-200";
+  }
+  return "border-amber-700/60 bg-amber-950/70 text-amber-200";
+}
+
 export default async function AccountsList({
   title,
   description,
@@ -99,6 +113,25 @@ export default async function AccountsList({
     from,
     to,
   });
+  const isBusinessList = presetRole === "business";
+  const businessVerificationByOwnerId = new Map<string, string>();
+  let pendingVerificationCount = 0;
+  if (isBusinessList) {
+    const ownerIds = rows.map((row) => row.id).filter(Boolean);
+    if (ownerIds.length) {
+      const { data: businessRows } = await client
+        .from("businesses")
+        .select("owner_user_id, verification_status")
+        .in("owner_user_id", ownerIds);
+      for (const row of Array.isArray(businessRows) ? businessRows : []) {
+        const ownerId = String(row?.owner_user_id || "");
+        if (!ownerId) continue;
+        const status = String(row?.verification_status || "pending").trim().toLowerCase() || "pending";
+        businessVerificationByOwnerId.set(ownerId, status);
+      }
+    }
+    pendingVerificationCount = await getCachedPendingBusinessVerificationsCount().catch(() => 0);
+  }
 
   if ((diagEnabled || process.env.NODE_ENV !== "production") && (error || diag?.probes)) {
     console.warn("[admin-accounts] list diagnostics", {
@@ -164,6 +197,18 @@ export default async function AccountsList({
         initialPageSize={pageSize}
       />
 
+      {isBusinessList ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/verification?status=pending"
+            className="inline-flex items-center rounded-full border border-amber-700/70 bg-amber-950/40 px-3 py-1.5 text-sm text-amber-100 hover:border-amber-500"
+          >
+            Pending verification ({pendingVerificationCount})
+          </Link>
+          <span className="text-xs text-neutral-500">Use Verification Queue for high-volume review workflow.</span>
+        </div>
+      ) : null}
+
       <div className="overflow-x-auto rounded-lg border border-neutral-800 bg-neutral-900">
         <table className="min-w-full text-sm">
           <thead>
@@ -171,6 +216,7 @@ export default async function AccountsList({
               <th className="px-3 py-2">Name</th>
               <th className="px-3 py-2">Email</th>
               <th className="px-3 py-2">Role</th>
+              {isBusinessList ? <th className="px-3 py-2">Verification status</th> : null}
               <th className="px-3 py-2">Internal</th>
               <th className="px-3 py-2">City</th>
               <th className="px-3 py-2">Created</th>
@@ -203,6 +249,17 @@ export default async function AccountsList({
                     {user.account_role}
                   </span>
                 </td>
+                {isBusinessList ? (
+                  <td className="px-3 py-2">
+                    <span
+                      className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${verificationBadgeClass(
+                        businessVerificationByOwnerId.get(user.id) || "pending"
+                      )}`}
+                    >
+                      {businessVerificationByOwnerId.get(user.id) || "pending"}
+                    </span>
+                  </td>
+                ) : null}
                 <td className="px-3 py-2">
                   <span
                     className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${
@@ -222,7 +279,7 @@ export default async function AccountsList({
             ))}
             {!rows.length ? (
               <tr>
-                <td colSpan={6} className="px-3 py-4 text-neutral-400">
+                <td colSpan={isBusinessList ? 7 : 6} className="px-3 py-4 text-neutral-400">
                   No accounts found.
                 </td>
               </tr>

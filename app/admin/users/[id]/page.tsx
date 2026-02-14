@@ -6,6 +6,7 @@ import {
   toggleUserInternalAction,
 } from "@/app/admin/actions";
 import AdminFlash from "@/app/admin/_components/AdminFlash";
+import BusinessVerificationActionsClient from "@/app/admin/verification/_components/BusinessVerificationActionsClient";
 import AdminUserDetailLayout from "@/app/admin/users/[id]/_components/AdminUserDetailLayout";
 import AdminUserHeaderBar from "@/app/admin/users/[id]/_components/AdminUserHeaderBar";
 import AdminUserProfileEditor from "@/app/admin/users/[id]/_components/AdminUserProfileEditor";
@@ -13,6 +14,7 @@ import AdminUserRoleEditor from "@/app/admin/users/[id]/_components/AdminUserRol
 import AdminUserSecurityActions from "@/app/admin/users/[id]/_components/AdminUserSecurityActions";
 import DeleteUserButton from "@/app/admin/users/[ref]/_components/DeleteUserButton";
 import { getActorAdminRoleKeys } from "@/lib/admin/getActorAdminRoleKeys";
+import { getBusinessByUserId } from "@/lib/business/getBusinessByUserId";
 import { canAdmin, requireAdminRole } from "@/lib/admin/permissions";
 import { normalizeUserRef } from "@/lib/ids/normalizeUserRef";
 import { getAdminDataClient } from "@/lib/supabase/admin";
@@ -47,6 +49,7 @@ export default async function AdminUserDetailPage({
       ? await client.rpc("admin_get_account_by_public_id", { p_public_id: resolvedPublicId })
       : { data: null, error: null };
   const user = Array.isArray(accountRows) ? accountRows[0] || null : null;
+  let mergedUser = user;
 
   if (userError) {
     console.error("[admin] admin_get_account failed", {
@@ -95,6 +98,41 @@ export default async function AdminUserDetailPage({
     );
   }
 
+  const { data: userDetail } = await client
+    .from("users")
+    .select(
+      "id, public_id, email, full_name, phone, role, is_internal, business_name, category, website, address, address_2, city, state, postal_code, created_at, updated_at"
+    )
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const business = await getBusinessByUserId({
+    client,
+    userId: user.id,
+  });
+
+  mergedUser = {
+    ...user,
+    ...(userDetail || {}),
+    ...(business
+      ? {
+          public_id: business.public_id ?? userDetail?.public_id ?? user.public_id ?? null,
+          business_name: business.business_name ?? userDetail?.business_name ?? null,
+          category: business.category ?? userDetail?.category ?? null,
+          website: business.website ?? userDetail?.website ?? null,
+          phone: business.phone ?? userDetail?.phone ?? null,
+          address: business.address ?? userDetail?.address ?? null,
+          address_2: business.address_2 ?? userDetail?.address_2 ?? null,
+          city: business.city ?? userDetail?.city ?? null,
+          state: business.state ?? userDetail?.state ?? null,
+          postal_code: business.postal_code ?? userDetail?.postal_code ?? null,
+          is_internal: business.is_internal ?? userDetail?.is_internal ?? false,
+          verification_status: business.verification_status,
+          stripe_connected: business.stripe_connected,
+        }
+      : {}),
+  };
+
   const canSupport = admin.strictPermissionBypassUsed || canAdmin(admin.roles, "add_internal_note");
   const canImpersonate = admin.strictPermissionBypassUsed || canAdmin(admin.roles, "impersonate");
   const canOps = admin.strictPermissionBypassUsed || canAdmin(admin.roles, "toggle_internal_user");
@@ -103,46 +141,78 @@ export default async function AdminUserDetailPage({
 
   return (
     <AdminUserDetailLayout
-      header={<AdminUserHeaderBar user={user} />}
+      header={<AdminUserHeaderBar user={mergedUser} />}
       flash={<AdminFlash searchParams={resolvedSearch} />}
-      aside={<AdminUserAside user={user} canImpersonate={canImpersonate} />}
+      aside={<AdminUserAside user={mergedUser} canImpersonate={canImpersonate} />}
     >
         <div className="space-y-3">
           <SectionCard title="Key properties">
             <dl className="space-y-2 text-sm">
-              <Field label="Email" value={user.email} />
-              <Field label="Public ID" value={user.public_id || "-"} />
-              <Field label="Full name" value={user.full_name} />
-              <Field label="Phone" value={user.phone} />
-              <Field label="Role" value={user.role} />
-              <Field label="Business name" value={user.business_name} />
-              <Field label="Category" value={user.category} />
-              <Field label="Website" value={user.website} />
-              <Field label="Address" value={user.address} />
-              <Field label="Address 2" value={user.address_2} />
-              <Field label="City" value={user.city} />
-              <Field label="State" value={user.state} />
-              <Field label="Postal" value={user.postal_code} />
-              <Field label="Internal" value={String(Boolean(user.is_internal))} />
-              <Field label="Created" value={user.created_at ? new Date(user.created_at).toLocaleString() : "-"} />
-              <Field label="Updated" value={user.updated_at ? new Date(user.updated_at).toLocaleString() : "-"} />
+              <Field label="Email" value={mergedUser.email} />
+              <Field label="Public ID" value={mergedUser.public_id || "-"} />
+              <Field label="Full name" value={mergedUser.full_name} />
+              <Field label="Phone" value={mergedUser.phone} />
+              <Field label="Role" value={mergedUser.role} />
+              <Field label="Business name" value={mergedUser.business_name} />
+              <Field label="Category" value={mergedUser.category} />
+              <Field label="Website" value={mergedUser.website} />
+              <Field label="Address" value={mergedUser.address} />
+              <Field label="Address 2" value={mergedUser.address_2} />
+              <Field label="City" value={mergedUser.city} />
+              <Field label="State" value={mergedUser.state} />
+              <Field label="Postal" value={mergedUser.postal_code} />
+              <Field label="Internal" value={String(Boolean(mergedUser.is_internal))} />
+              <Field label="Verification" value={mergedUser.verification_status || "-"} />
+              <Field label="Stripe connected" value={String(Boolean(mergedUser.stripe_connected))} />
+              <Field label="Created" value={mergedUser.created_at ? new Date(mergedUser.created_at).toLocaleString() : "-"} />
+              <Field label="Updated" value={mergedUser.updated_at ? new Date(mergedUser.updated_at).toLocaleString() : "-"} />
             </dl>
           </SectionCard>
+
+          {business ? (
+            <SectionCard title="Business Verification">
+              <div className="space-y-3 text-sm">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Field label="Business" value={business.business_name || "-"} />
+                  <div className="grid grid-cols-[120px_1fr] gap-2">
+                    <dt className="text-neutral-400">Status</dt>
+                    <dd>
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${verificationBadgeClass(
+                          business.verification_status
+                        )}`}
+                      >
+                        {business.verification_status}
+                      </span>
+                    </dd>
+                  </div>
+                  <Field label="Verified at" value={business.verified_at ? new Date(business.verified_at).toLocaleString() : "-"} />
+                  <Field label="Stripe connected" value={business.stripe_connected ? "Yes" : "No"} />
+                  <Field label="Internal" value={business.is_internal ? "Yes" : "No"} />
+                </div>
+                <BusinessVerificationActionsClient
+                  ownerUserId={user.id}
+                  currentStatus={business.verification_status}
+                  canManage={canSuper}
+                />
+              </div>
+            </SectionCard>
+          ) : null}
 
           {canRoleFixes ? (
             <AdminUserProfileEditor
               userId={user.id}
               initialValues={{
-                full_name: user.full_name || "",
-                phone: user.phone || "",
-                business_name: user.business_name || "",
-                category: user.category || "",
-                website: user.website || "",
-                address: user.address || "",
-                address2: user.address_2 || "",
-                city: user.city || "",
-                state: user.state || "",
-                postal_code: user.postal_code || "",
+                full_name: mergedUser.full_name || "",
+                phone: mergedUser.phone || "",
+                business_name: mergedUser.business_name || "",
+                category: mergedUser.category || "",
+                website: mergedUser.website || "",
+                address: mergedUser.address || "",
+                address2: mergedUser.address_2 || "",
+                city: mergedUser.city || "",
+                state: mergedUser.state || "",
+                postal_code: mergedUser.postal_code || "",
               }}
             />
           ) : null}
@@ -184,9 +254,9 @@ export default async function AdminUserDetailPage({
             <form action={toggleUserInternalAction} className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
               <h3 className="mb-2 font-medium">Toggle internal user</h3>
               <input type="hidden" name="userId" value={user.id} />
-              <input type="hidden" name="isInternal" value={String(!user.is_internal)} />
+              <input type="hidden" name="isInternal" value={String(!mergedUser.is_internal)} />
               <button type="submit" className="rounded bg-sky-600 px-3 py-2 text-sm hover:bg-sky-500">
-                Set is_internal = {String(!user.is_internal)}
+                Set is_internal = {String(!mergedUser.is_internal)}
               </button>
             </form>
           ) : (
@@ -197,7 +267,7 @@ export default async function AdminUserDetailPage({
         <div className="space-y-3">
           <AdminUserSecurityActions
             targetUserId={user.id}
-            currentEmail={user.email || null}
+            currentEmail={mergedUser.email || null}
             canManageSecurity={canSuper}
           />
 
@@ -341,6 +411,19 @@ function PlaceholderMessage({ message }: { message: string }) {
   return (
     <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4 text-sm text-neutral-400">{message}</div>
   );
+}
+
+function verificationBadgeClass(status: string) {
+  if (status === "manually_verified") {
+    return "border-emerald-700/60 bg-emerald-950/70 text-emerald-200";
+  }
+  if (status === "auto_verified") {
+    return "border-sky-700/60 bg-sky-950/70 text-sky-200";
+  }
+  if (status === "suspended") {
+    return "border-rose-700/60 bg-rose-950/70 text-rose-200";
+  }
+  return "border-amber-700/60 bg-amber-950/70 text-amber-200";
 }
 
 function Field({

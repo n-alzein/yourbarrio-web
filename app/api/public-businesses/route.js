@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient } from "@/lib/supabaseServer";
 
 const CACHE_SECONDS = 120;
 const GEOCODE_KEY = process.env.MAPBOX_GEOCODING_TOKEN || process.env.GOOGLE_GEOCODING_API_KEY || "";
+const VERIFIED_STATUSES = ["auto_verified", "manually_verified"];
 
-function createSupabaseClient() {
-  const supabase = getSupabaseServerClient();
+async function createSupabaseClient() {
+  const supabase = await getSupabaseServerClient();
   if (!supabase) {
     throw new Error("Missing Supabase configuration");
   }
@@ -41,34 +42,23 @@ async function geocodeAddress(address) {
 async function fetchBusinesses(supabase, { city }) {
   let query = supabase
     .from("businesses")
-    .select("*")
+    .select(
+      "id,owner_user_id,public_id,business_name,category,city,address,description,website,profile_photo_url,latitude,longitude,lat,lng,verification_status"
+    )
+    .in("verification_status", VERIFIED_STATUSES)
     .limit(400);
+
   if (city) {
     query = query.ilike("city", city);
   }
+
   const businessesResult = await query;
   if (businessesResult.error) {
     console.warn("public-businesses: businesses query failed", businessesResult.error);
     return [];
   }
-  return (businessesResult.data || []).map((row) => ({ ...row, _table: "businesses" }));
-}
 
-async function fetchUsers(supabase, { city }) {
-  let query = supabase
-    .from("users")
-    .select("*")
-    .eq("role", "business")
-    .limit(400);
-  if (city) {
-    query = query.ilike("city", city);
-  }
-  const usersResult = await query;
-  if (usersResult.error) {
-    console.warn("public-businesses: users query failed", usersResult.error);
-    return [];
-  }
-  return (usersResult.data || []).map((row) => ({ ...row, _table: "users" }));
+  return businessesResult.data || [];
 }
 
 export async function GET(request) {
@@ -78,22 +68,9 @@ export async function GET(request) {
     if (!city) {
       return NextResponse.json({ businesses: [], message: "missing_location" }, { status: 200 });
     }
-    const supabase = createSupabaseClient();
 
-    const [businesses, users] = await Promise.all([
-      fetchBusinesses(supabase, { city }),
-      fetchUsers(supabase, { city }),
-    ]);
-
-    const combined = [...businesses, ...users];
-    const deduped = [];
-    const seen = new Set();
-    for (const row of combined) {
-      const key = row.id;
-      if (key && seen.has(key)) continue;
-      if (key) seen.add(key);
-      deduped.push(row);
-    }
+    const supabase = await createSupabaseClient();
+    const rows = await fetchBusinesses(supabase, { city });
 
     const parseNum = (val) => {
       if (typeof val === "number" && Number.isFinite(val)) return val;
@@ -101,8 +78,8 @@ export async function GET(request) {
       return Number.isFinite(parsed) ? parsed : null;
     };
 
-    const withCoords = await Promise.all(
-      deduped.map(async (row, idx) => {
+    const businesses = await Promise.all(
+      rows.map(async (row) => {
         const lat = parseNum(row.latitude ?? row.lat);
         const lng = parseNum(row.longitude ?? row.lng);
         const hasCoords =
@@ -114,64 +91,38 @@ export async function GET(request) {
         if (hasCoords) {
           return {
             ...row,
+            id: row.owner_user_id,
             latitude: lat,
             longitude: lng,
             lat,
             lng,
+            source: "supabase_businesses",
           };
         }
 
-        const addressParts = [row.address, row.city, row.state, row.country]
-          .filter(Boolean)
-          .join(", ");
-
-        let coords = null;
-        if (GEOCODE_KEY) {
-          coords = await geocodeAddress(addressParts);
-          if (coords) {
-            try {
-              const payload = {
-                latitude: coords.lat,
-                longitude: coords.lng,
-                lat: coords.lat,
-                lng: coords.lng,
-              };
-              if (row._table === "businesses") {
-                await supabase.from("businesses").update(payload).eq("id", row.id);
-              } else if (row._table === "users") {
-                await supabase.from("users").update(payload).eq("id", row.id);
-              }
-            } catch (updateErr) {
-              console.warn("Failed to persist geocode coords", row.id, updateErr);
-            }
-          }
-        }
-
-        if (coords) {
-          return {
-            ...row,
-            latitude: coords.lat,
-            longitude: coords.lng,
-            lat: coords.lat,
-            lng: coords.lng,
-          };
-        }
+        const addressParts = [row.address, row.city].filter(Boolean).join(", ");
+        const coords = GEOCODE_KEY ? await geocodeAddress(addressParts) : null;
 
         return {
           ...row,
-          latitude: null,
-          longitude: null,
-          lat: null,
-          lng: null,
+          id: row.owner_user_id,
+          latitude: coords?.lat ?? null,
+          longitude: coords?.lng ?? null,
+          lat: coords?.lat ?? null,
+          lng: coords?.lng ?? null,
+          source: "supabase_businesses",
         };
       })
     );
 
-    const resp = NextResponse.json({ businesses: withCoords }, {
-      headers: {
-        "Cache-Control": `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=${CACHE_SECONDS}`,
-      },
-    });
+    const resp = NextResponse.json(
+      { businesses },
+      {
+        headers: {
+          "Cache-Control": `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=${CACHE_SECONDS}`,
+        },
+      }
+    );
     return resp;
   } catch (err) {
     console.warn("public-businesses endpoint error", err);

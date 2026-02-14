@@ -103,13 +103,47 @@ export async function POST(req) {
     const { data, error } = await supabase
       .from("users")
       .upsert(payload, { onConflict: "id" })
-      .select("id, public_id")
+      .select("id, public_id, is_internal")
       .single();
 
     if (error) {
       console.error("Business upsert failed", error);
       return NextResponse.json(
         { error: error.message || "Upsert failed" },
+        { status: 400 }
+      );
+    }
+
+    const businessPayload = {
+      owner_user_id: userId,
+      public_id: data?.public_id || null,
+      business_name: name || null,
+      category: category || null,
+      description: description || null,
+      website: normalizedWebsite || null,
+      phone: phone || null,
+      profile_photo_url: null,
+      cover_photo_url: null,
+      address: address || null,
+      address_2: address_2 || null,
+      city: city || null,
+      state: state || null,
+      postal_code: postal_code || null,
+      latitude: geo?.lat ?? null,
+      longitude: geo?.lng ?? null,
+      is_internal: data?.is_internal === true,
+      verification_status: "pending",
+      stripe_connected: false,
+    };
+
+    const { error: businessError } = await supabase
+      .from("businesses")
+      .upsert(businessPayload, { onConflict: "owner_user_id", ignoreDuplicates: false });
+
+    if (businessError) {
+      console.error("Business profile upsert failed", businessError);
+      return NextResponse.json(
+        { error: businessError.message || "Business profile upsert failed" },
         { status: 400 }
       );
     }

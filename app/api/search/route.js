@@ -109,13 +109,13 @@ async function searchBusinesses(supabase, term, category, { city }) {
   const safeCategory = sanitize(category);
 
   let query = supabase
-    .from("users")
+    .from("businesses")
     .select(
-      "id,business_name,full_name,category,city,address,description,website,profile_photo_url,role"
+      "id,owner_user_id,public_id,business_name,category,city,address,description,website,profile_photo_url,verification_status"
     )
-    .eq("role", "business")
+    .in("verification_status", ["auto_verified", "manually_verified"])
     .or(
-      `business_name.ilike.%${safe}%,full_name.ilike.%${safe}%,category.ilike.%${safe}%,description.ilike.%${safe}%,city.ilike.%${safe}%`
+      `business_name.ilike.%${safe}%,category.ilike.%${safe}%,description.ilike.%${safe}%,city.ilike.%${safe}%`
     );
   if (city) {
     query = query.ilike("city", city);
@@ -131,8 +131,9 @@ async function searchBusinesses(supabase, term, category, { city }) {
   }
 
   return (data || []).map((row) => ({
-    id: row.id,
-    name: row.business_name || row.full_name || "Local business",
+    id: row.owner_user_id,
+    public_id: row.public_id || null,
+    name: row.business_name || "Local business",
     category: row.category,
     city: row.city,
     address: row.address,
