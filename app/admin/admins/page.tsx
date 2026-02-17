@@ -1,4 +1,5 @@
 import AccountsList from "@/app/admin/_components/AccountsList";
+import AdminPage from "@/app/admin/_components/AdminPage";
 import {
   changeAdminRoleAction,
   disableAdminAccessAction,
@@ -76,7 +77,7 @@ export default async function AdminAdminsPage({
   }
 
   return (
-    <section className="space-y-4">
+    <AdminPage>
       <AccountsList
         title="Admins"
         description="Internal/admin staff accounts."
@@ -189,6 +190,6 @@ export default async function AdminAdminsPage({
           </div>
         </div>
       ) : null}
-    </section>
+    </AdminPage>
   );
 }

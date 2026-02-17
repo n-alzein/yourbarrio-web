@@ -13,6 +13,7 @@ export default async function AdminBusinessesPage({
       basePath="/admin/businesses"
       searchParams={params}
       presetRole="business"
+      showVerificationQueueBanner={false}
     />
   );
 }

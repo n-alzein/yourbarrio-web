@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabaseServerClient, getUserCached } from "@/lib/supabaseServer";
+import { getBusinessDataClientForRequest } from "@/lib/business/getBusinessDataClientForRequest";
 import { perfLog, perfTimer } from "@/lib/perf";
 
 const allowedFields = new Set([
@@ -19,12 +19,12 @@ function sanitizeUpdates(updates) {
 }
 
 export async function POST(request) {
-  const supabase = await getSupabaseServerClient();
-  const { user, error: userError } = await getUserCached(supabase);
-
-  if (userError || !user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const access = await getBusinessDataClientForRequest();
+  if (!access.ok) {
+    return NextResponse.json({ error: access.error || "forbidden" }, { status: access.status || 403 });
   }
+  const supabase = access.client;
+  const businessUserId = access.effectiveUserId;
 
   let body;
   try {
@@ -55,7 +55,7 @@ export async function POST(request) {
       .from("listings")
       .select("id, business_id")
       .eq("id", listingId)
-      .eq("business_id", user.id)
+      .eq("business_id", businessUserId)
       .maybeSingle();
 
     if (listingError) {
@@ -70,7 +70,7 @@ export async function POST(request) {
     const { data: existingJobs } = await supabase
       .from("inventory_jobs")
       .select("id, status, listing_id")
-      .eq("business_id", user.id)
+      .eq("business_id", businessUserId)
       .in("status", ["queued", "running"])
       .order("created_at", { ascending: false })
       .limit(1);
@@ -88,7 +88,7 @@ export async function POST(request) {
     const { data: job, error: jobError } = await supabase
       .from("inventory_jobs")
       .insert({
-        business_id: user.id,
+        business_id: businessUserId,
         listing_id: listingId,
         status: "queued",
         progress: 0,

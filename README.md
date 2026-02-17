@@ -41,6 +41,24 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 - Public routes live under `app/(public)` and always render the public shell.
 - To enable client auth diagnostics, set `NEXT_PUBLIC_AUTH_DIAG=1` and inspect console logs for auth state transitions.
 
+### RSC Redirect Safety (Safari)
+
+- Any request containing `_rsc` must never return HTML and must never redirect.
+- Middleware enforces this by returning a stable non-HTML response (`204` with `content-type: text/x-component`) for `_rsc` requests on app pages.
+- Auth/role redirects are limited to true document navigations determined by fetch metadata (`sec-fetch-mode`, `sec-fetch-dest`, `sec-fetch-user`).
+- API routes and internal/assets are not rewritten for `_rsc`.
+
+Remote probe evidence (2026-02-15 UTC):
+- `BASE_URL=https://yourbarrio.com` returns `307` for all probed variants due to host canonical redirect to `https://www.yourbarrio.com/...`.
+- `BASE_URL=https://www.yourbarrio.com`:
+  - `/?_rsc=test` and `/business?_rsc=test` flight-like probes return `200`.
+  - `/business/onboarding?_rsc=test` flight-like probes return `307 -> /signin?modal=signin&next=%2Fbusiness%2Fonboarding` (this is the app-level redirect to eliminate).
+
+Safari verification:
+- Open Network panel and inspect `/business/onboarding?_rsc=...` requests.
+- Confirm response headers include `x-yb-request-kind` and `x-yb-redirect-suppressed`.
+- For any flight/prefetch request, expected is `x-yb-request-kind: non-navigation`, `x-yb-redirect-suppressed: 1`, and no `Location` header.
+
 Manual Safari smoke test:
 - iPhone Safari: login → open `/customer/home` → scroll for 60s → background/foreground → no public navbar flash and no blank screen.
 - Unauthenticated access to `/customer/home` redirects to `/`.

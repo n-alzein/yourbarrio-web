@@ -26,7 +26,13 @@ export default function RootLayout({ children }) {
   })();
 
   return (
-    <html lang="en" className="theme-light" data-scroll-behavior="smooth">
+    <html
+      lang="en"
+      className="theme-light"
+      data-theme="light"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
       <head>
         <meta
           name="viewport"
@@ -39,7 +45,7 @@ export default function RootLayout({ children }) {
           <link key={`dns-${host}`} rel="dns-prefetch" href={host} />
         ))}
       </head>
-      <body className="min-h-screen w-full overflow-x-hidden antialiased text-white">
+      <body className="min-h-screen w-full overflow-x-hidden antialiased text-[var(--yb-text)]">
         <GlobalSupportModeBanner />
         <AppShell>{children}</AppShell>
         {/* Vercel Web Analytics: global passive tracking; keep at root and avoid page-level duplicates. */}

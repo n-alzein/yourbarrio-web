@@ -1,4 +1,5 @@
 import { stopImpersonationAction } from "@/app/admin/actions";
+import AdminPage from "@/app/admin/_components/AdminPage";
 import { getEffectiveActorAndTarget } from "@/lib/admin/supportMode";
 import { getHighestAdminRole, requireAdminRole } from "@/lib/admin/permissions";
 import { formatAdminRoleLabel } from "@/lib/admin/roleLabels";
@@ -19,7 +20,7 @@ export default async function AdminProfilePage() {
   }
 
   return (
-    <section className="space-y-4">
+    <AdminPage>
       <header>
         <h2 className="text-xl font-semibold">Admin profile</h2>
         <p className="text-sm text-neutral-400">Current admin identity, role, and support mode state.</p>
@@ -61,7 +62,7 @@ export default async function AdminProfilePage() {
           <p className="text-sm text-neutral-400">No active support mode session.</p>
         )}
       </div>
-    </section>
+    </AdminPage>
   );
 }
 

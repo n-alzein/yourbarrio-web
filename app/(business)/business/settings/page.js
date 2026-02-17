@@ -130,7 +130,7 @@ export default function SettingsPage() {
       const business = await getBusinessByUserId({
         client: supabase,
         userId: user.id,
-        selfHeal: true,
+        selfHeal: false,
       });
       if (cancelled) return;
       if (!business) return;

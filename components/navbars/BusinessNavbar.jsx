@@ -204,7 +204,7 @@ function BusinessNavbarInner({ pathname, forcedAuth = null }) {
 
   const quickActions = [
     {
-      href: "/business/dashboard",
+      href: "/go/dashboard",
       title: "Open dashboard",
       description: "Monitor performance & leads",
       icon: LayoutDashboard,
@@ -628,7 +628,7 @@ function BusinessNavbarInner({ pathname, forcedAuth = null }) {
             </svg>
           </button>
 
-          <Link href={isBusinessAuthed ? "/business/dashboard" : "/business"}>
+          <Link href={isBusinessAuthed ? "/go/dashboard" : "/business"}>
             <span className="relative block h-32 w-32">
               <Image
                 src="/logo.png"
@@ -651,7 +651,7 @@ function BusinessNavbarInner({ pathname, forcedAuth = null }) {
         <div className="hidden md:flex items-center gap-10">
           {/* Logo */}
           <div className="relative flex items-center">
-            <Link href={isBusinessAuthed ? "/business/dashboard" : "/business"}>
+            <Link href={isBusinessAuthed ? "/go/dashboard" : "/business"}>
               <span className="relative block h-32 w-32">
                 <Image
                   src="/logo.png"

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AdminPage from "@/app/admin/_components/AdminPage";
 import AdminFlash from "@/app/admin/_components/AdminFlash";
 import AdminUserSignupsChart from "@/app/admin/_components/AdminUserSignupsChart";
 import RecentAuditActivity from "@/app/admin/_components/RecentAuditActivity";
@@ -130,7 +131,7 @@ export default async function AdminDashboardPage({
   }
 
   return (
-    <section className="space-y-4">
+    <AdminPage>
       <AdminFlash searchParams={searchParams} />
       <header>
         <h2 className="text-xl font-semibold">Dashboard</h2>
@@ -181,16 +182,14 @@ export default async function AdminDashboardPage({
         )}
       </section>
 
-      <div className="mt-8">
-        <AdminUserSignupsChart data={signupChartData} />
-      </div>
+      <AdminUserSignupsChart data={signupChartData} />
 
       <RecentAuditActivity
         initialRows={initialAuditRows}
         initialHasMore={initialAuditHasMore}
         pageSize={AUDIT_PAGE_SIZE}
       />
-    </section>
+    </AdminPage>
   );
 }
 

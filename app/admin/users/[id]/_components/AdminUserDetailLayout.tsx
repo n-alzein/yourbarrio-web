@@ -28,7 +28,7 @@ export default function AdminUserDetailLayout({
   const panels = useMemo(() => Children.toArray(children), [children]);
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-8">
       {header}
       {flash}
       <AdminUserTabs tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />

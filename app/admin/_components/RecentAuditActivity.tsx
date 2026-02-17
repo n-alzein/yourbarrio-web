@@ -60,7 +60,7 @@ export default function RecentAuditActivity({
   }
 
   return (
-    <div className="mt-8 rounded-lg border border-neutral-800 bg-neutral-900 p-4">
+    <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-medium">Recent audit activity</h3>
         <Link href="/admin/audit" className="text-sm text-sky-300 hover:text-sky-200">

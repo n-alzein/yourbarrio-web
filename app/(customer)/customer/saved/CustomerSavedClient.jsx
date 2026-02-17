@@ -401,10 +401,10 @@ export default function CustomerSavedClient({
 
   if (loadingUser && !user && !initialUserId) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--yb-bg)] text-[var(--yb-text)] flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="h-12 w-12 rounded-full border-4 border-white/10 border-t-white/70 animate-spin mx-auto" />
-          <p className="text-lg text-white/70">Loading your account...</p>
+          <div className="h-12 w-12 rounded-full border-4 border-[var(--yb-border)] border-t-slate-500 animate-spin mx-auto" />
+          <p className="text-lg text-[var(--yb-text-muted)]">Loading your account...</p>
         </div>
       </div>
     );

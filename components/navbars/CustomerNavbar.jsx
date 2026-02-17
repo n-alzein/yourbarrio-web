@@ -120,6 +120,7 @@ function CustomerNavbarInner({ pathname, searchParams }) {
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileLogoutShieldActive, setMobileLogoutShieldActive] = useState(false);
   const [searchTerm, setSearchTerm] = useState(() => getInitialSearchTerm(searchParams));
   const [selectedCategory, setSelectedCategory] = useState(() => getInitialCategory(searchParams));
   const [locationOpen, setLocationOpen] = useState(false);
@@ -154,6 +155,7 @@ function CustomerNavbarInner({ pathname, searchParams }) {
   const locationSuggestReqIdRef = useRef(0);
   const locationSuggestSpinnerRef = useRef(null);
   const locationSuggestShownAtRef = useRef(0);
+  const mobileLogoutShieldTimerRef = useRef(null);
   const navSavedRef = useRef(null);
   const navSettingsRef = useRef(null);
   const searchRequestIdRef = useRef(0);
@@ -163,6 +165,16 @@ function CustomerNavbarInner({ pathname, searchParams }) {
   const locationNoMatchMessage = isZipLike(locationInput)
     ? "No matches. Try another postal code."
     : "No matches. Try another city.";
+  const armMobileLogoutShield = useCallback(() => {
+    if (mobileLogoutShieldTimerRef.current) {
+      clearTimeout(mobileLogoutShieldTimerRef.current);
+    }
+    setMobileLogoutShieldActive(true);
+    mobileLogoutShieldTimerRef.current = setTimeout(() => {
+      mobileLogoutShieldTimerRef.current = null;
+      setMobileLogoutShieldActive(false);
+    }, 300);
+  }, []);
   // DEBUG_CLICK_DIAG / NAV_TRACE
   const clickDiagEnabled = process.env.NEXT_PUBLIC_CLICK_DIAG === "1";
   const diagClick = (label) => (event) => {
@@ -192,6 +204,15 @@ function CustomerNavbarInner({ pathname, searchParams }) {
       delete document.documentElement.dataset.navMenuOpen;
     };
   }, [profileMenuOpen, mobileMenuOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (mobileLogoutShieldTimerRef.current) {
+        clearTimeout(mobileLogoutShieldTimerRef.current);
+        mobileLogoutShieldTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // DEBUG_CLICK_DIAG: trace search focus behavior on home
   useEffect(() => {
@@ -1523,6 +1544,7 @@ function CustomerNavbarInner({ pathname, searchParams }) {
         onClose={() => setMobileMenuOpen(false)}
         title={hasAuth ? "My account" : "Welcome"}
         id={mobileDrawerId}
+        shieldActive={mobileLogoutShieldActive}
       >
         <div className="flex flex-col gap-5 text-white" data-nav-guard="1">
           {!hasAuth && (
@@ -1663,7 +1685,13 @@ function CustomerNavbarInner({ pathname, searchParams }) {
             </>
           )}
 
-          {hasAuth ? <LogoutButton mobile onSuccess={() => setMobileMenuOpen(false)} /> : null}
+          {hasAuth ? (
+            <LogoutButton
+              mobile
+              onBeforeLogout={armMobileLogoutShield}
+              onAfterLogout={() => setMobileMenuOpen(false)}
+            />
+          ) : null}
         </div>
       </MobileSidebarDrawer>
     </nav>

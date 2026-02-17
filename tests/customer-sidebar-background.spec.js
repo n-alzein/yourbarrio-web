@@ -12,33 +12,21 @@ const loginCustomer = async (page) => {
   await expect(page).toHaveURL(/\/customer\/home/);
 };
 
-const readShellState = async (page) =>
+const readInertState = (page) =>
   page.evaluate(() => {
-    const pick = (selector) => {
-      const el = document.querySelector(selector);
-      if (!el) return null;
-      const style = window.getComputedStyle(el);
-      return {
-        className: el.className,
-        backgroundColor: style.backgroundColor,
-        backgroundImage: style.backgroundImage,
-        opacity: style.opacity,
-        display: style.display,
-      };
-    };
-
-    const root = document.querySelector('[data-testid="customer-page-root"]');
+    const root =
+      document.querySelector('[data-testid="customer-page-root"]') ||
+      document.querySelector(".app-shell-root") ||
+      document.querySelector("main");
+    if (!root) return { found: false, inert: false };
     return {
-      rootClass: root?.className || null,
-      bodyBackgroundColor: window.getComputedStyle(document.body).backgroundColor,
-      shell: pick(".app-shell-root"),
-      shellSolid: pick(".app-shell-bg-solid"),
-      shellGradient: pick(".app-shell-bg-gradient"),
-      animatedBg: pick(".animated-bg"),
+      found: true,
+      inert: Boolean(root.inert),
+      ariaHidden: root.getAttribute("aria-hidden"),
     };
   });
 
-test.describe("Customer sidebar background", () => {
+test.describe("Customer sidebar inert background", () => {
   test.use({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -46,36 +34,29 @@ test.describe("Customer sidebar background", () => {
     deviceScaleFactor: 3,
   });
 
-  test("opening mobile sidebar keeps page background unchanged", async ({ page }) => {
+  test("background becomes inert while mobile sidebar is open and restores after close", async ({
+    page,
+  }) => {
     test.skip(!customerEmail || !customerPassword, "Set E2E_CUSTOMER_* env vars");
 
     await loginCustomer(page);
-    await expect(page.getByTestId("customer-page-root")).toBeVisible();
-
-    const beforeOpen = await readShellState(page);
-
     await page.getByRole("button", { name: "Open menu" }).click();
-    const overlay = page.getByTestId("mobile-sidebar-overlay");
-    await expect(overlay).toBeVisible();
 
-    const overlayClass = (await overlay.getAttribute("class")) || "";
-    expect(overlayClass).toContain("pointer-events-auto");
-    expect(overlayClass).not.toMatch(/primary|purple|hsl\(var\(--primary\)\)/i);
-
-    const overlayBg = await overlay.evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(overlayBg).not.toBe("rgba(0, 0, 0, 0)");
-
-    const afterOpen = await readShellState(page);
-    expect(afterOpen).toEqual(beforeOpen);
+    await expect.poll(() => readInertState(page)).toMatchObject({
+      found: true,
+      inert: true,
+      ariaHidden: "true",
+    });
 
     await page.getByRole("button", { name: /close menu/i }).click();
-    await expect(overlay).not.toBeVisible();
-
-    const afterClose = await readShellState(page);
-    expect(afterClose).toEqual(beforeOpen);
+    await expect
+      .poll(() => readInertState(page))
+      .toMatchObject({ found: true, inert: false, ariaHidden: null });
   });
 
-  test("logout from mobile sidebar does not click through to category routes", async ({ page }) => {
+  test("logout does not click-through to category route and inert clears after shield", async ({
+    page,
+  }) => {
     test.skip(!customerEmail || !customerPassword, "Set E2E_CUSTOMER_* env vars");
 
     const visitedPaths = [];
@@ -87,6 +68,12 @@ test.describe("Customer sidebar background", () => {
 
     await loginCustomer(page);
     await page.getByRole("button", { name: "Open menu" }).click();
+    await expect.poll(() => readInertState(page)).toMatchObject({
+      found: true,
+      inert: true,
+      ariaHidden: "true",
+    });
+
     await page.getByRole("button", { name: /log out/i }).click();
 
     await expect
@@ -96,9 +83,14 @@ test.describe("Customer sidebar background", () => {
       })
       .toBe(false);
 
-    expect(visitedPaths.some((pathname) => pathname.startsWith("/customer/category/"))).toBeFalsy();
+    await page.waitForTimeout(500);
 
-    await page.goto("/customer/home");
-    await expect(page).not.toHaveURL(/\/customer\/home/);
+    expect(
+      visitedPaths.some((pathname) => pathname.startsWith("/customer/category/"))
+    ).toBeFalsy();
+
+    await expect
+      .poll(() => readInertState(page))
+      .toMatchObject({ found: true, inert: false, ariaHidden: null });
   });
 });

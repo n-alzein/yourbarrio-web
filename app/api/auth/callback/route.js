@@ -6,15 +6,24 @@ import {
   createSupabaseRouteHandlerClient,
   getUserCached,
 } from "@/lib/supabaseServer";
-import { resolvePostLoginTarget } from "@/lib/auth/redirects";
 
 export async function GET(request) {
   const requestUrl = new URL(request.url);
+  const origin = requestUrl.origin;
   const code = requestUrl.searchParams.get("code");
   const authDiagEnabled = process.env.NEXT_PUBLIC_AUTH_DIAG === "1";
-
-  const response = NextResponse.redirect(new URL(PATHS.public.root, request.url));
+  const response = NextResponse.redirect(new URL(PATHS.public.root, origin));
+  const nextParam = requestUrl.searchParams.get("next");
+  const nextPath =
+    nextParam && nextParam.startsWith("/") ? nextParam : PATHS.business.onboarding;
   const supabase = createSupabaseRouteHandlerClient(request, response);
+
+  const withAuthCookies = (targetResponse) => {
+    response.cookies.getAll().forEach(({ name, value }) => {
+      targetResponse.cookies.set(name, value);
+    });
+    return targetResponse;
+  };
 
   try {
     if (code) {
@@ -35,24 +44,7 @@ export async function GET(request) {
       return response;
     }
 
-    const { data: profile } = await supabase
-      .from("users")
-      .select("role,is_internal")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    const role = profile?.role || user?.app_metadata?.role || null;
-    const nextParam = ["next", "returnUrl", "callbackUrl"]
-      .map((key) => requestUrl.searchParams.get(key))
-      .find(Boolean);
-    const target = resolvePostLoginTarget({
-      profile: profile || null,
-      role,
-      roles: [],
-      next: nextParam,
-    });
-    response.headers.set("location", new URL(target, request.url).toString());
-    return response;
+    return withAuthCookies(NextResponse.redirect(new URL(nextPath, origin)));
   } catch (err) {
     return response;
   }

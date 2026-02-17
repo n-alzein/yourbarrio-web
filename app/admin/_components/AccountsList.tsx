@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AdminPage from "@/app/admin/_components/AdminPage";
 import AdminFlash from "@/app/admin/_components/AdminFlash";
 import AccountsFiltersClient from "@/app/admin/_components/AccountsFiltersClient";
 import { getCachedPendingBusinessVerificationsCount } from "@/lib/admin/businessVerification";
@@ -29,6 +30,7 @@ type AccountsListProps = {
   basePath: string;
   searchParams: Record<string, string | string[] | undefined>;
   presetRole?: Exclude<AdminUserRoleFilter, "all">;
+  showVerificationQueueBanner?: boolean;
 };
 
 function asString(value: string | string[] | undefined, fallback = "") {
@@ -88,6 +90,7 @@ export default async function AccountsList({
   basePath,
   searchParams,
   presetRole,
+  showVerificationQueueBanner = true,
 }: AccountsListProps) {
   await requireAdminRole("admin_readonly");
   const q = asString(searchParams.q).trim();
@@ -164,7 +167,7 @@ export default async function AccountsList({
   if (q) queryBase.set("q", q);
 
   return (
-    <section className="space-y-4">
+    <AdminPage>
       <header>
         <h2 className="text-xl font-semibold">{title}</h2>
         <p className="text-sm text-neutral-400">{description}</p>
@@ -197,7 +200,7 @@ export default async function AccountsList({
         initialPageSize={pageSize}
       />
 
-      {isBusinessList ? (
+      {isBusinessList && showVerificationQueueBanner ? (
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/admin/verification?status=pending"
@@ -209,83 +212,85 @@ export default async function AccountsList({
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-800 bg-neutral-900">
-        <table className="min-w-full text-sm">
-          <thead>
-            <tr className="text-left text-neutral-400">
-              <th className="px-3 py-2">Name</th>
-              <th className="px-3 py-2">Email</th>
-              <th className="px-3 py-2">Role</th>
-              {isBusinessList ? <th className="px-3 py-2">Verification status</th> : null}
-              <th className="px-3 py-2">Internal</th>
-              <th className="px-3 py-2">City</th>
-              <th className="px-3 py-2">Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((user) => (
-              <tr key={user.id} className="border-t border-neutral-800">
-                <td className="px-3 py-2">
-                  <Link href={getAdminUserUrl(user)} className="text-sky-300 hover:text-sky-200">
-                    {user.full_name || user.business_name || user.id}
-                  </Link>
-                  <div className="mt-1 flex items-center gap-2">
-                    <code className="rounded border border-neutral-700 bg-neutral-950 px-2 py-0.5 text-xs text-neutral-300">
-                      usr_{user.public_id || user.id.slice(0, 8)}
-                    </code>
-                    <details className="text-xs text-neutral-500">
-                      <summary className="cursor-pointer">Internal ID</summary>
-                      <code className="mt-1 block break-all text-neutral-400">{user.id}</code>
-                    </details>
-                  </div>
-                </td>
-                <td className="px-3 py-2">{user.email || "-"}</td>
-                <td className="px-3 py-2">
-                  <span
-                    className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${roleBadgeClass(
-                      user.account_role
-                    )}`}
-                  >
-                    {user.account_role}
-                  </span>
-                </td>
-                {isBusinessList ? (
+      <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="text-left text-neutral-400">
+                <th className="px-3 py-2">Name</th>
+                <th className="px-3 py-2">Email</th>
+                <th className="px-3 py-2">Role</th>
+                {isBusinessList ? <th className="px-3 py-2">Verification status</th> : null}
+                <th className="px-3 py-2">Internal</th>
+                <th className="px-3 py-2">City</th>
+                <th className="px-3 py-2">Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((user) => (
+                <tr key={user.id} className="border-t border-neutral-800">
+                  <td className="px-3 py-2">
+                    <Link href={getAdminUserUrl(user)} className="text-sky-300 hover:text-sky-200">
+                      {user.full_name || user.business_name || user.id}
+                    </Link>
+                    <div className="mt-1 flex items-center gap-2">
+                      <code className="rounded border border-neutral-700 bg-neutral-950 px-2 py-0.5 text-xs text-neutral-300">
+                        usr_{user.public_id || user.id.slice(0, 8)}
+                      </code>
+                      <details className="text-xs text-neutral-500">
+                        <summary className="cursor-pointer">Internal ID</summary>
+                        <code className="mt-1 block break-all text-neutral-400">{user.id}</code>
+                      </details>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2">{user.email || "-"}</td>
                   <td className="px-3 py-2">
                     <span
-                      className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${verificationBadgeClass(
-                        businessVerificationByOwnerId.get(user.id) || "pending"
+                      className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${roleBadgeClass(
+                        user.account_role
                       )}`}
                     >
-                      {businessVerificationByOwnerId.get(user.id) || "pending"}
+                      {user.account_role}
                     </span>
                   </td>
-                ) : null}
-                <td className="px-3 py-2">
-                  <span
-                    className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${
-                      user.is_internal
-                        ? "border-amber-700/60 bg-amber-950/70 text-amber-200"
-                        : "border-neutral-700 bg-neutral-950 text-neutral-300"
-                    }`}
-                  >
-                    {user.is_internal ? "Yes" : "No"}
-                  </span>
-                </td>
-                <td className="px-3 py-2">{user.city || "-"}</td>
-                <td className="px-3 py-2">
-                  {user.created_at ? new Date(user.created_at).toLocaleDateString() : "-"}
-                </td>
-              </tr>
-            ))}
-            {!rows.length ? (
-              <tr>
-                <td colSpan={isBusinessList ? 7 : 6} className="px-3 py-4 text-neutral-400">
-                  No accounts found.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+                  {isBusinessList ? (
+                    <td className="px-3 py-2">
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${verificationBadgeClass(
+                          businessVerificationByOwnerId.get(user.id) || "pending"
+                        )}`}
+                      >
+                        {businessVerificationByOwnerId.get(user.id) || "pending"}
+                      </span>
+                    </td>
+                  ) : null}
+                  <td className="px-3 py-2">
+                    <span
+                      className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${
+                        user.is_internal
+                          ? "border-amber-700/60 bg-amber-950/70 text-amber-200"
+                          : "border-neutral-700 bg-neutral-950 text-neutral-300"
+                      }`}
+                    >
+                      {user.is_internal ? "Yes" : "No"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">{user.city || "-"}</td>
+                  <td className="px-3 py-2">
+                    {user.created_at ? new Date(user.created_at).toLocaleDateString() : "-"}
+                  </td>
+                </tr>
+              ))}
+              {!rows.length ? (
+                <tr>
+                  <td colSpan={isBusinessList ? 7 : 6} className="px-3 py-4 text-neutral-400">
+                    No accounts found.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="flex items-center justify-between">
@@ -317,6 +322,6 @@ export default async function AccountsList({
           ) : null}
         </div>
       </div>
-    </section>
+    </AdminPage>
   );
 }

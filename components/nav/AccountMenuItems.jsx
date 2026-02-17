@@ -90,7 +90,7 @@ export default function AccountMenuItems({
 
             {isBusiness ? (
               <Link
-                href="/business/dashboard"
+                href="/go/dashboard"
                 onClick={onNavigate}
                 className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 transition hover:bg-white/10 touch-manipulation text-left"
                 data-safe-nav="1"
@@ -188,7 +188,7 @@ export default function AccountMenuItems({
           </p>
           <div className="mt-3">
             <Link
-              href="/business/dashboard"
+              href="/go/dashboard"
               onClick={onNavigate}
               className="yb-sidebar-item flex w-full items-start gap-3 px-3 py-3 text-left transition"
               data-safe-nav="1"

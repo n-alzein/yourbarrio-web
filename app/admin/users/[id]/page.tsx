@@ -5,6 +5,7 @@ import {
   startImpersonationAction,
   toggleUserInternalAction,
 } from "@/app/admin/actions";
+import AdminPage from "@/app/admin/_components/AdminPage";
 import AdminFlash from "@/app/admin/_components/AdminFlash";
 import BusinessVerificationActionsClient from "@/app/admin/verification/_components/BusinessVerificationActionsClient";
 import AdminUserDetailLayout from "@/app/admin/users/[id]/_components/AdminUserDetailLayout";
@@ -75,7 +76,7 @@ export default async function AdminUserDetailPage({
 
   if (userError) {
     return (
-      <section className="space-y-4">
+      <AdminPage>
         <h2 className="text-xl font-semibold">Unable to load account</h2>
         <p className="text-sm text-neutral-400">
           There was a problem loading this account. Try again in a moment.
@@ -83,18 +84,18 @@ export default async function AdminUserDetailPage({
         <Link href="/admin/accounts" className="text-sm text-sky-300 hover:text-sky-200">
           Back to accounts
         </Link>
-      </section>
+      </AdminPage>
     );
   }
 
   if (!user) {
     return (
-      <section className="space-y-4">
+      <AdminPage>
         <h2 className="text-xl font-semibold">Account not found</h2>
         <Link href="/admin/accounts" className="text-sm text-sky-300 hover:text-sky-200">
           Back to accounts
         </Link>
-      </section>
+      </AdminPage>
     );
   }
 

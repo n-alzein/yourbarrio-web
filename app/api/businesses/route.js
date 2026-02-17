@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
 
 function normalizeWebsite(value) {
   const trimmed = (value || "").trim();
@@ -38,9 +38,25 @@ async function geocodeAddress(address) {
 
 export async function POST(req) {
   try {
+    const response = NextResponse.next();
+    const supabase = createSupabaseRouteHandlerClient(req, response);
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Server is missing Supabase credentials" },
+        { status: 500 }
+      );
+    }
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const {
-      userId,
       name,
       category,
       description,
@@ -55,15 +71,12 @@ export async function POST(req) {
       longitude,
     } = body || {};
 
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-    }
-
-    const supabase = getSupabaseServerClient();
-    if (!supabase) {
+    const trimmedName = String(name || "").trim();
+    const trimmedCategory = String(category || "").trim();
+    if (!trimmedName || !trimmedCategory) {
       return NextResponse.json(
-        { error: "Server is missing Supabase credentials" },
-        { status: 500 }
+        { error: "Business name and category are required" },
+        { status: 400 }
       );
     }
 
@@ -82,73 +95,42 @@ export async function POST(req) {
         : null;
     const geo = prefilledGeo || (await geocodeAddress(addressForGeocode));
 
-    const payload = {
-      id: userId,
-      role: "business",
-      business_name: name,
-      full_name: name,
-      category,
-      description,
-      address,
-      address_2,
-      city,
-      state,
-      postal_code,
-      phone,
-      website: normalizedWebsite,
+    const rpcPayload = {
+      name: trimmedName,
+      category: trimmedCategory,
+      description: description || "",
+      address: address || "",
+      address_2: address_2 || "",
+      city: city || "",
+      state: state || "",
+      postal_code: postal_code || "",
+      phone: phone || "",
+      website: normalizedWebsite || "",
       latitude: geo?.lat ?? null,
       longitude: geo?.lng ?? null,
     };
 
-    const { data, error } = await supabase
-      .from("users")
-      .upsert(payload, { onConflict: "id" })
-      .select("id, public_id, is_internal")
-      .single();
+    const { data, error } = await supabase.rpc("create_business_from_onboarding", {
+      p_payload: rpcPayload,
+    });
 
     if (error) {
-      console.error("Business upsert failed", error);
+      console.error("create_business_from_onboarding failed", error);
       return NextResponse.json(
-        { error: error.message || "Upsert failed" },
+        { error: error.message || "Failed to create business profile" },
         { status: 400 }
       );
     }
 
-    const businessPayload = {
-      owner_user_id: userId,
-      public_id: data?.public_id || null,
-      business_name: name || null,
-      category: category || null,
-      description: description || null,
-      website: normalizedWebsite || null,
-      phone: phone || null,
-      profile_photo_url: null,
-      cover_photo_url: null,
-      address: address || null,
-      address_2: address_2 || null,
-      city: city || null,
-      state: state || null,
-      postal_code: postal_code || null,
-      latitude: geo?.lat ?? null,
-      longitude: geo?.lng ?? null,
-      is_internal: data?.is_internal === true,
-      verification_status: "pending",
-      stripe_connected: false,
-    };
-
-    const { error: businessError } = await supabase
-      .from("businesses")
-      .upsert(businessPayload, { onConflict: "owner_user_id", ignoreDuplicates: false });
-
-    if (businessError) {
-      console.error("Business profile upsert failed", businessError);
-      return NextResponse.json(
-        { error: businessError.message || "Business profile upsert failed" },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({ id: data.id, public_id: data.public_id || null, geo });
+    const row = Array.isArray(data) ? data[0] : data;
+    return NextResponse.json(
+      {
+        id: row?.business_id || null,
+        public_id: row?.public_id || null,
+        geo,
+      },
+      { status: 200 }
+    );
   } catch (err) {
     console.error("Business create API error", err);
     return NextResponse.json(

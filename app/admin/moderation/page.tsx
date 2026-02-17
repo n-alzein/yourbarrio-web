@@ -6,6 +6,7 @@ import {
   updateModerationFlagAction,
 } from "@/app/admin/actions";
 import ActionButtonClient from "@/app/admin/_components/ActionButtonClient";
+import AdminPage from "@/app/admin/_components/AdminPage";
 import AdminFlash from "@/app/admin/_components/AdminFlash";
 import CopyIdButtonClient from "@/app/admin/_components/CopyIdButtonClient";
 import DangerConfirmClient from "@/app/admin/_components/DangerConfirmClient";
@@ -255,7 +256,7 @@ export default async function AdminModerationPage({
   const selectedContext = selectedRow ? await loadSelectedTargetContext(client, selectedRow) : null;
 
   return (
-    <section className="space-y-4">
+    <AdminPage>
       <header>
         <h2 className="text-xl font-semibold">Moderation queue</h2>
         <p className="text-sm text-neutral-400">
@@ -265,19 +266,19 @@ export default async function AdminModerationPage({
 
       <AdminFlash searchParams={params} />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(340px,1fr)]">
-        <div className="space-y-4">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(340px,1fr)]">
+        <div className="space-y-6">
           <form className="grid gap-2 rounded-lg border border-neutral-800 bg-neutral-900 p-3 md:grid-cols-4">
             <input
               name="q"
               defaultValue={q}
               placeholder="Search reporter, target, reason"
-              className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm md:col-span-2"
+              className="h-10 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm md:col-span-2"
             />
             <select
               name="type"
               defaultValue={type}
-              className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+              className="h-10 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm"
             >
               <option value="all">Type: all</option>
               <option value="user">Users</option>
@@ -288,7 +289,7 @@ export default async function AdminModerationPage({
             <select
               name="status"
               defaultValue={status}
-              className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+              className="h-10 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm"
             >
               <option value="">Status: any</option>
               <option value="open">open</option>
@@ -298,7 +299,7 @@ export default async function AdminModerationPage({
             </select>
             <button
               type="submit"
-              className="rounded bg-sky-600 px-3 py-2 text-sm font-medium hover:bg-sky-500 md:col-span-4"
+              className="h-10 rounded bg-sky-600 px-3 text-sm font-medium hover:bg-sky-500 md:col-span-4"
             >
               Apply filters
             </button>
@@ -785,6 +786,6 @@ export default async function AdminModerationPage({
           )}
         </aside>
       </div>
-    </section>
+    </AdminPage>
   );
 }

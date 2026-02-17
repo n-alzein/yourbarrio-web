@@ -65,6 +65,7 @@ export default function AccountSidebar({
   email,
   avatar,
   children,
+  shieldActive = false,
 }) {
   const reactId = useId();
   const panelId = `account-sidebar-${reactId}`;
@@ -180,6 +181,29 @@ export default function AccountSidebar({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const backgroundRoot =
+      document.querySelector('[data-testid="customer-page-root"]') ||
+      document.querySelector(".app-shell-root") ||
+      document.querySelector("main");
+    if (!backgroundRoot) return undefined;
+
+    const shouldInertBackground = open || shieldActive;
+    if (shouldInertBackground) {
+      backgroundRoot.setAttribute("inert", "");
+      backgroundRoot.setAttribute("aria-hidden", "true");
+      return () => {
+        backgroundRoot.removeAttribute("inert");
+        backgroundRoot.removeAttribute("aria-hidden");
+      };
+    }
+
+    backgroundRoot.removeAttribute("inert");
+    backgroundRoot.removeAttribute("aria-hidden");
+    return undefined;
+  }, [open, shieldActive]);
+
   if (!isClient || typeof document === "undefined") return null;
   void portalStoreVersion;
   const portalHost = document.querySelector("div[data-account-sidebar=\"1\"]");
@@ -187,18 +211,20 @@ export default function AccountSidebar({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[9999] ${open ? "pointer-events-auto" : "pointer-events-none"}`}
+      className={`fixed inset-0 z-[9999] ${
+        open || shieldActive ? "pointer-events-auto" : "pointer-events-none"
+      }`}
       aria-hidden={!open}
     >
       <div
-        className={`absolute inset-0 z-0 pointer-events-auto bg-black/60 md:bg-black/0 transition-opacity duration-200 ${
+        className={`absolute inset-0 bg-black/60 md:bg-black/0 transition-opacity duration-200 ${
           open ? "opacity-100" : "opacity-0"
         }`}
         data-testid="account-sidebar-overlay"
         onClick={() => onOpenChange?.(false)}
       />
       <div
-        className={`absolute inset-y-0 right-0 z-10 w-[380px] max-w-[90vw] transform transition-transform duration-300 ease-out ${
+        className={`absolute inset-y-0 right-0 w-[380px] max-w-[90vw] transform transition-transform duration-300 ease-out ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
         onClick={(event) => event.stopPropagation()}

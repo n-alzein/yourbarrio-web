@@ -8,6 +8,7 @@ import { requireEffectiveRole } from "@/lib/auth/requireEffectiveRole";
 import { PATHS } from "@/lib/auth/paths";
 import CustomerRealtimeProvider from "@/app/(customer)/customer/CustomerRealtimeProvider";
 import { getAdminDataClient } from "@/lib/supabase/admin";
+import { isRscPrefetchRequest } from "@/lib/next/isRscPrefetchRequest";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,14 +19,32 @@ export const metadata = {
 };
 
 function CustomerRouteShell({ children = null, className = "" }) {
+  const lightThemeVars = {
+    "--bg-solid": "#ffffff",
+    "--bg-gradient-start": "#f7f7f8",
+    "--bg-gradient-end": "#eef2ff",
+    "--glow-1": "rgba(79, 70, 229, 0.1)",
+    "--glow-2": "rgba(14, 165, 233, 0.08)",
+  };
+
   return (
-    <div className={`pt-0 md:pt-12 min-h-screen${className ? ` ${className}` : ""}`}>
+    <div
+      className={`pt-0 md:pt-12 min-h-screen bg-[var(--yb-bg)] text-[var(--yb-text)]${className ? ` ${className}` : ""}`}
+      data-theme="light"
+      data-route-theme="light"
+      style={lightThemeVars}
+    >
       {children}
     </div>
   );
 }
 
 export default async function CustomerLayout({ children }) {
+  const isRsc = await isRscPrefetchRequest();
+  if (isRsc) {
+    return <>{children}</>;
+  }
+
   const headerList = await headers();
   const userAgent = headerList.get("user-agent") || "";
   const isSafari =
@@ -134,8 +153,8 @@ export default async function CustomerLayout({ children }) {
         <CustomerRouteShell className={`customer-shell${isSafari ? " yb-safari" : ""}`}>
           <Suspense
             fallback={
-              <div className="min-h-screen px-6 md:px-10 pt-24 text-white">
-                <div className="max-w-5xl mx-auto rounded-2xl border border-white/10 bg-white/5 p-8">
+              <div className="min-h-screen px-6 md:px-10 pt-24 text-[var(--yb-text)] bg-[var(--yb-bg)]">
+                <div className="max-w-5xl mx-auto rounded-2xl border border-[var(--yb-border)] bg-white p-8">
                   Loading your account...
                 </div>
               </div>

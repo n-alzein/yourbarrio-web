@@ -1,8 +1,8 @@
 import "server-only";
 
-import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/server";
 import { getRequestPath } from "@/lib/url/getRequestPath";
+import { redirectIfAllowed } from "@/lib/next/redirectIfAllowed";
 
 type SupportedRole = "business" | "customer";
 
@@ -48,7 +48,7 @@ export async function requireEffectiveRole(
         effectiveUserId: context.effectiveUserId,
       });
     }
-    redirect("/admin/impersonation?error=resolver-bug");
+    await redirectIfAllowed("/admin/impersonation?error=resolver-bug");
   }
 
   return {

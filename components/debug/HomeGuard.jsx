@@ -33,7 +33,7 @@ export default function HomeGuard({ children, fallback = null }) {
       redirectOnce("/");
     }
     if (blocker === "ROLE_MISMATCH") {
-      redirectOnce("/business/dashboard");
+      redirectOnce("/go/dashboard");
     }
   }, [blocker, pathname, router, searchParams]);
 

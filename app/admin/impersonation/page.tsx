@@ -1,4 +1,5 @@
 import { startImpersonationAction, stopImpersonationAction } from "@/app/admin/actions";
+import AdminPage from "@/app/admin/_components/AdminPage";
 import AdminFlash from "@/app/admin/_components/AdminFlash";
 import { requireAdminAnyRole } from "@/lib/admin/permissions";
 import { getAdminDataClient } from "@/lib/supabase/admin";
@@ -19,7 +20,7 @@ export default async function AdminImpersonationPage({
     .limit(50);
 
   return (
-    <section className="space-y-4">
+    <AdminPage>
       <header>
         <h2 className="text-xl font-semibold">Support mode / view-as</h2>
         <p className="text-sm text-neutral-400">Creates a safe session cookie for admin-only view context.</p>
@@ -28,10 +29,10 @@ export default async function AdminImpersonationPage({
       <AdminFlash searchParams={params} />
 
       <form action={startImpersonationAction} className="grid gap-2 rounded-lg border border-neutral-800 bg-neutral-900 p-3 md:grid-cols-3">
-        <input name="targetUserId" required placeholder="target_user_id" className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
-        <input name="minutes" type="number" min={1} max={480} defaultValue={30} className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
-        <input name="reason" required placeholder="Reason" className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
-        <button type="submit" className="rounded bg-amber-500 px-3 py-2 text-sm font-medium text-black hover:bg-amber-400 md:col-span-3">
+        <input name="targetUserId" required placeholder="target_user_id" className="h-10 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm" />
+        <input name="minutes" type="number" min={1} max={480} defaultValue={30} className="h-10 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm" />
+        <input name="reason" required placeholder="Reason" className="h-10 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm" />
+        <button type="submit" className="h-10 rounded bg-amber-500 px-3 text-sm font-medium text-black hover:bg-amber-400 md:col-span-3">
           Start support mode
         </button>
       </form>
@@ -39,9 +40,9 @@ export default async function AdminImpersonationPage({
       <form action={stopImpersonationAction} className="rounded-lg border border-neutral-800 bg-neutral-900 p-3">
         <h3 className="mb-2 text-sm font-semibold text-neutral-300">Stop by session id (optional)</h3>
         <div className="flex flex-wrap gap-2">
-          <input name="sessionId" placeholder="session_id (optional, defaults to cookie session)" className="min-w-80 rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
+          <input name="sessionId" placeholder="session_id (optional, defaults to cookie session)" className="h-10 min-w-80 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm" />
           <input type="hidden" name="returnTo" value="/admin/impersonation" />
-          <button type="submit" className="rounded bg-neutral-100 px-3 py-2 text-sm font-medium text-black hover:bg-neutral-300">
+          <button type="submit" className="h-10 rounded bg-neutral-100 px-3 text-sm font-medium text-black hover:bg-neutral-300">
             Stop support mode
           </button>
         </div>
@@ -104,6 +105,6 @@ export default async function AdminImpersonationPage({
           </table>
         </div>
       </div>
-    </section>
+    </AdminPage>
   );
 }

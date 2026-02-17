@@ -36,6 +36,9 @@ async function parseResponse(response) {
 
 const REFRESH_COOLDOWN_MS = 3000;
 const CACHE_TTL_MS = 5000;
+const FAILURE_WINDOW_MS = 10000;
+const FAILURE_MAX_ATTEMPTS = 2;
+const FAILURE_BLOCK_MS = 30000;
 
 let globalRefreshInFlight = null;
 let globalLastSuccessAt = 0;
@@ -45,6 +48,8 @@ let globalMountCount = 0;
 let globalUnmountCount = 0;
 let globalStackHintEvery = 10;
 let globalCache = { ts: 0, payload: null };
+let globalFailureTimestamps = [];
+let globalRefreshBlockedUntil = 0;
 
 const getPerfDebug = () => {
   if (typeof window === "undefined") return false;
@@ -71,6 +76,7 @@ export function CartProvider({ children }) {
   const [error, setError] = useState(null);
   const abortRef = useRef(null);
   const lastRefreshKeyRef = useRef(null);
+  const didRunMountRefreshRef = useRef(false);
   const perfDebug = getPerfDebug();
   const mountStartedAtRef = useRef(0);
 
@@ -140,6 +146,20 @@ export function CartProvider({ children }) {
         }
         return { skipped: true, skip: "in_flight" };
       }
+      if (reason === "mount" && now < globalRefreshBlockedUntil) {
+        if (perfDebug) {
+          console.log("[cart] refresh:skip", {
+            reason,
+            skip: "failure_cooldown",
+            blockedMsRemaining: globalRefreshBlockedUntil - now,
+          });
+        }
+        return {
+          skipped: true,
+          skip: "failure_cooldown",
+          blockedMsRemaining: globalRefreshBlockedUntil - now,
+        };
+      }
       if (
         reason === "mount" &&
         lastAttemptAgoMs != null &&
@@ -193,6 +213,14 @@ export function CartProvider({ children }) {
           if (err?.name === "AbortError" || /aborted/i.test(message)) {
             return { aborted: true };
           }
+          const nowFail = Date.now();
+          globalFailureTimestamps = globalFailureTimestamps.filter(
+            (ts) => nowFail - ts < FAILURE_WINDOW_MS
+          );
+          globalFailureTimestamps.push(nowFail);
+          if (globalFailureTimestamps.length >= FAILURE_MAX_ATTEMPTS) {
+            globalRefreshBlockedUntil = nowFail + FAILURE_BLOCK_MS;
+          }
           if (process.env.NEXT_PUBLIC_DEBUG_NAV_PERF === "1") {
             console.log("[cart] refresh:error", { message });
           }
@@ -236,6 +264,8 @@ export function CartProvider({ children }) {
       }
     }
     mountStartedAtRef.current = Date.now();
+    if (didRunMountRefreshRef.current) return undefined;
+    didRunMountRefreshRef.current = true;
     const key = `${user.id}:${authStatus}`;
     if (lastRefreshKeyRef.current === key) return undefined;
     lastRefreshKeyRef.current = key;
@@ -268,6 +298,11 @@ export function CartProvider({ children }) {
       }
     };
   }, [authStatus, refreshCart, syncCart, user?.id, perfDebug]);
+
+  useEffect(() => {
+    didRunMountRefreshRef.current = false;
+    lastRefreshKeyRef.current = null;
+  }, [user?.id, authStatus]);
 
   const addItem = useCallback(
     async ({ listingId, quantity = 1, clearExisting }) => {

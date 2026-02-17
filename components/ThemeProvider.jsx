@@ -33,10 +33,17 @@ export function ThemeProvider({ children, forcedTheme = "light" }) {
 
   useEffect(() => {
     const root = document.documentElement;
+    const nextThemeClass = `theme-${resolvedTheme}`;
+    const alreadyApplied =
+      root.classList.contains(nextThemeClass) && root.dataset.theme === resolvedTheme;
+    if (hasForcedTheme && alreadyApplied) return;
     THEMES.forEach((name) => root.classList.remove(`theme-${name}`));
-    root.classList.add(`theme-${resolvedTheme}`);
-    localStorage.setItem(STORAGE_KEY, resolvedTheme);
-  }, [resolvedTheme]);
+    root.classList.add(nextThemeClass);
+    root.dataset.theme = resolvedTheme;
+    if (!hasForcedTheme) {
+      localStorage.setItem(STORAGE_KEY, resolvedTheme);
+    }
+  }, [hasForcedTheme, resolvedTheme]);
 
   useEffect(() => {
     if (hasForcedTheme) return undefined;

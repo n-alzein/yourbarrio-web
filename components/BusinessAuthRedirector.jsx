@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-const DEFAULT_TARGET = "/business/dashboard";
+const DEFAULT_TARGET = "/go/dashboard";
 
 export default function BusinessAuthRedirector() {
   const redirectingRef = useRef(false);

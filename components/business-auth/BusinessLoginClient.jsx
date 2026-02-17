@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getSupabaseAuthCookieName } from "@/lib/supabase/cookieName";
-import { PATHS } from "@/lib/auth/paths";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { withTimeout } from "@/lib/withTimeout";
 import { signOutLocalSession } from "@/lib/auth/logout";
@@ -134,7 +133,7 @@ function BusinessLoginInner({ isPopup }) {
   }, []);
 
   const finishBusinessAuth = useCallback(
-    (target = PATHS.business.dashboard) => {
+    (target = "/go/dashboard") => {
       if (redirectingRef.current) return;
       redirectingRef.current = true;
       authDiagLog("redirect:start", { target, isPopup });
@@ -463,7 +462,7 @@ function BusinessLoginInner({ isPopup }) {
       }
 
       const origin =
-        typeof window !== "undefined" ? window.location.origin : "";
+        typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
       const redirectTo = `${origin}/api/auth/callback`;
 
       const { error } = await supabase.auth.signInWithOAuth({

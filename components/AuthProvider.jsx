@@ -154,10 +154,96 @@ let handledTokenInvalidAt = 0;
 const authDiagEnabled =
   process.env.NEXT_PUBLIC_AUTH_DIAG === "1" &&
   process.env.NODE_ENV !== "production";
+const autoRefreshDisabled =
+  process.env.NEXT_PUBLIC_DISABLE_AUTO_REFRESH === "1" ||
+  process.env.NEXT_PUBLIC_DISABLE_AUTO_REFRESH === "true";
 export const AUTH_UI_RESET_EVENT = "yb-auth-ui-reset";
+const AUTO_REFRESH_BLOCKED_EVENT = "yb-auto-refresh-blocked";
+const AUTO_REFRESH_RETRY_EVENT = "yb-auto-refresh-retry";
+const AUTO_REFRESH_WINDOW_MS = 10_000;
+const AUTO_REFRESH_MAX_ATTEMPTS = 2;
+const AUTO_REFRESH_COOLDOWN_MS = 30_000;
+const AUTO_REFRESH_MIN_INTERVAL_MS = 2_500;
+const PROFILE_RETRY_WINDOW_MS = 10_000;
+const PROFILE_MAX_FAILURES = 2;
+const PROFILE_COOLDOWN_MS = 30_000;
 
 let authClickTracerRefs = 0;
 let authClickTracerCleanup = null;
+let autoRefreshAttemptTimestamps = [];
+let autoRefreshBlockedUntil = 0;
+let lastAutoRefreshAt = 0;
+let profileFetchFailureTimestamps = [];
+let profileFetchBlockedUntil = 0;
+let profileFetchInFlight = null;
+let profileFetchInFlightUserId = null;
+const AUTO_REFRESH_GUARD_KEY = "yb_auto_refresh_guard";
+
+function readRefreshGuardState() {
+  if (typeof window === "undefined") {
+    return {
+      attempts: autoRefreshAttemptTimestamps,
+      blockedUntil: autoRefreshBlockedUntil,
+      lastRefreshAt: lastAutoRefreshAt,
+    };
+  }
+  try {
+    const raw = window.sessionStorage.getItem(AUTO_REFRESH_GUARD_KEY);
+    if (!raw) {
+      return {
+        attempts: autoRefreshAttemptTimestamps,
+        blockedUntil: autoRefreshBlockedUntil,
+        lastRefreshAt: lastAutoRefreshAt,
+      };
+    }
+    const parsed = JSON.parse(raw);
+    return {
+      attempts: Array.isArray(parsed?.attempts)
+        ? parsed.attempts.filter((n) => typeof n === "number")
+        : [],
+      blockedUntil:
+        typeof parsed?.blockedUntil === "number" ? parsed.blockedUntil : 0,
+      lastRefreshAt:
+        typeof parsed?.lastRefreshAt === "number" ? parsed.lastRefreshAt : 0,
+    };
+  } catch {
+    return {
+      attempts: autoRefreshAttemptTimestamps,
+      blockedUntil: autoRefreshBlockedUntil,
+      lastRefreshAt: lastAutoRefreshAt,
+    };
+  }
+}
+
+function writeRefreshGuardState(next) {
+  const normalized = {
+    attempts: Array.isArray(next?.attempts)
+      ? next.attempts.filter((n) => typeof n === "number")
+      : [],
+    blockedUntil: typeof next?.blockedUntil === "number" ? next.blockedUntil : 0,
+    lastRefreshAt: typeof next?.lastRefreshAt === "number" ? next.lastRefreshAt : 0,
+  };
+  autoRefreshAttemptTimestamps = normalized.attempts;
+  autoRefreshBlockedUntil = normalized.blockedUntil;
+  lastAutoRefreshAt = normalized.lastRefreshAt;
+  if (typeof window === "undefined") return;
+  try {
+    if (
+      normalized.attempts.length === 0 &&
+      normalized.blockedUntil === 0 &&
+      normalized.lastRefreshAt === 0
+    ) {
+      window.sessionStorage.removeItem(AUTO_REFRESH_GUARD_KEY);
+      return;
+    }
+    window.sessionStorage.setItem(
+      AUTO_REFRESH_GUARD_KEY,
+      JSON.stringify(normalized)
+    );
+  } catch {
+    // best effort
+  }
+}
 
 function emitAuthState() {
   authStore.listeners.forEach((listener) => listener());
@@ -321,6 +407,14 @@ function applySignedOutState(reason = "signed_out", options = {}) {
     extraState = null,
     resetAuthUi = true,
   } = options;
+
+  if (resetGuardState) {
+    writeRefreshGuardState({
+      attempts: [],
+      blockedUntil: 0,
+      lastRefreshAt: 0,
+    });
+  }
 
   if (authStore.bootstrapAbortController?.abort) {
     authStore.bootstrapAbortController.abort();
@@ -539,15 +633,68 @@ function ensureAuthGuardSubscription() {
 }
 
 async function fetchProfile(user) {
-  if (!authStore.supabase || !user?.id) {
+  if (!user?.id) {
     return { profile: null, error: null };
   }
-  const { data, error } = await authStore.supabase
-    .from("users")
-    .select("*")
-    .eq("id", user.id)
-    .maybeSingle();
-  return { profile: data ?? null, error };
+  const now = Date.now();
+  if (profileFetchBlockedUntil > now) {
+    return {
+      profile: null,
+      error: {
+        message: "Profile refresh temporarily paused due to repeated failures.",
+        code: "profile_fetch_cooldown",
+      },
+    };
+  }
+
+  if (profileFetchInFlight && profileFetchInFlightUserId === user.id) {
+    return profileFetchInFlight;
+  }
+
+  profileFetchInFlightUserId = user.id;
+  profileFetchInFlight = (async () => {
+    try {
+      const res = await fetch("/api/me", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status !== 401) {
+          const nowFail = Date.now();
+          profileFetchFailureTimestamps = profileFetchFailureTimestamps.filter(
+            (ts) => nowFail - ts < PROFILE_RETRY_WINDOW_MS
+          );
+          profileFetchFailureTimestamps.push(nowFail);
+          if (profileFetchFailureTimestamps.length >= PROFILE_MAX_FAILURES) {
+            profileFetchBlockedUntil = nowFail + PROFILE_COOLDOWN_MS;
+          }
+        }
+        return {
+          profile: null,
+          error: { message: payload?.error || "Failed to load profile" },
+        };
+      }
+      profileFetchFailureTimestamps = [];
+      profileFetchBlockedUntil = 0;
+      return { profile: payload?.profile ?? null, error: null };
+    } catch (err) {
+      const nowFail = Date.now();
+      profileFetchFailureTimestamps = profileFetchFailureTimestamps.filter(
+        (ts) => nowFail - ts < PROFILE_RETRY_WINDOW_MS
+      );
+      profileFetchFailureTimestamps.push(nowFail);
+      if (profileFetchFailureTimestamps.length >= PROFILE_MAX_FAILURES) {
+        profileFetchBlockedUntil = nowFail + PROFILE_COOLDOWN_MS;
+      }
+      return { profile: null, error: err };
+    } finally {
+      profileFetchInFlight = null;
+      profileFetchInFlightUserId = null;
+    }
+  })();
+  return profileFetchInFlight;
 }
 
 async function getProfileForUser(user) {
@@ -784,6 +931,12 @@ export function AuthProvider({
       process.env.NODE_ENV !== "production",
     []
   );
+  const rscLoopDiagEnabled = useMemo(
+    () =>
+      process.env.NEXT_PUBLIC_RSC_LOOP_DIAG === "1" &&
+      process.env.NODE_ENV !== "production",
+    []
+  );
   const allowBootstrap = !pathname?.startsWith("/business-auth");
   const supabase = useMemo(
     () => (allowBootstrap ? getSupabaseBrowserClient() : null),
@@ -805,6 +958,105 @@ export function AuthProvider({
   const authUiFailsafeTimerRef = useRef(null);
   const router = useRouter();
   const lastKnownRoleRef = useRef(null);
+  const logRefreshAttempt = useCallback(
+    (reason) => {
+      if (!rscLoopDiagEnabled || typeof window === "undefined") return;
+      console.warn("[RSC_LOOP_DIAG] router.refresh_attempt", {
+        reason,
+        pathname: window.location.pathname,
+        ts: Date.now(),
+        stack: new Error().stack,
+      });
+    },
+    [rscLoopDiagEnabled]
+  );
+  const triggerAutoRefreshBlocked = useCallback(
+    (reason, blockedUntil) => {
+      updateAuthState({
+        refreshDisabledReason: reason,
+        refreshDisabledUntil: blockedUntil,
+      });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent(AUTO_REFRESH_BLOCKED_EVENT, {
+            detail: { reason, blockedUntil, ts: Date.now() },
+          })
+        );
+      }
+      if (rscLoopDiagEnabled && typeof window !== "undefined") {
+        console.warn("[RSC_LOOP_DIAG] auto_refresh_blocked", {
+          reason,
+          blockedUntil,
+          pathname: window.location.pathname,
+          stack: new Error().stack,
+        });
+      }
+    },
+    [rscLoopDiagEnabled]
+  );
+  const shouldAllowAutoRefresh = useCallback(
+    (reason) => {
+      const now = Date.now();
+      const guardState = readRefreshGuardState();
+      let attempts = guardState.attempts.filter(
+        (ts) => now - ts < AUTO_REFRESH_WINDOW_MS
+      );
+      let blockedUntil = guardState.blockedUntil;
+      let lastRefreshAt = guardState.lastRefreshAt;
+      if (autoRefreshDisabled) {
+        logAuthDiag("router:refresh:skipped", { reason, gate: "auto_refresh_disabled" });
+        return false;
+      }
+      if (blockedUntil > now) {
+        triggerAutoRefreshBlocked("rsc_loop_guard_cooldown", blockedUntil);
+        return false;
+      }
+      if (now - lastRefreshAt < AUTO_REFRESH_MIN_INTERVAL_MS) {
+        blockedUntil = now + AUTO_REFRESH_COOLDOWN_MS;
+        writeRefreshGuardState({
+          attempts: [],
+          blockedUntil,
+          lastRefreshAt,
+        });
+        triggerAutoRefreshBlocked("rsc_loop_guard_min_interval", blockedUntil);
+        return false;
+      }
+      if (attempts.length >= AUTO_REFRESH_MAX_ATTEMPTS) {
+        blockedUntil = now + AUTO_REFRESH_COOLDOWN_MS;
+        writeRefreshGuardState({
+          attempts: [],
+          blockedUntil,
+          lastRefreshAt,
+        });
+        triggerAutoRefreshBlocked("rsc_loop_guard_rate_limit", blockedUntil);
+        return false;
+      }
+      attempts.push(now);
+      lastRefreshAt = now;
+      writeRefreshGuardState({
+        attempts,
+        blockedUntil: 0,
+        lastRefreshAt,
+      });
+      if (authStore.state.refreshDisabledReason || authStore.state.refreshDisabledUntil) {
+        updateAuthState({
+          refreshDisabledReason: null,
+          refreshDisabledUntil: 0,
+        });
+      }
+      return true;
+    },
+    [triggerAutoRefreshBlocked]
+  );
+  const guardedRouterRefresh = useCallback(
+    (reason) => {
+      if (!shouldAllowAutoRefresh(reason)) return false;
+      logRefreshAttempt(reason);
+      router.refresh();
+      return true;
+    },
+    [logRefreshAttempt, router, shouldAllowAutoRefresh]
+  );
 
   useEffect(() => {
     if (authState.role) {
@@ -822,8 +1074,8 @@ export function AuthProvider({
       return;
     }
     logAuthDiag("router:refresh", { event });
-    router.refresh();
-  }, [authState.lastAuthEvent, isNestedProvider, router]);
+    guardedRouterRefresh(`auth_event:${event}`);
+  }, [authState.lastAuthEvent, guardedRouterRefresh, isNestedProvider]);
 
   useEffect(() => {
     if (isNestedProvider) return;
@@ -939,8 +1191,48 @@ export function AuthProvider({
     params.delete("signedout");
     const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
     window.history.replaceState({}, "", next);
-    router.refresh();
-  }, [isNestedProvider, router, searchParams]);
+    guardedRouterRefresh("signedout_param");
+  }, [guardedRouterRefresh, isNestedProvider, searchParams]);
+
+  useEffect(() => {
+    if (isNestedProvider) return;
+    const now = Date.now();
+    const state = readRefreshGuardState();
+    if (state.blockedUntil > now) {
+      updateAuthState({
+        refreshDisabledReason: "rsc_loop_guard_cooldown",
+        refreshDisabledUntil: state.blockedUntil,
+      });
+    }
+  }, [isNestedProvider]);
+
+  useEffect(() => {
+    if (!rscLoopDiagEnabled || typeof window === "undefined") return undefined;
+    const handleRetry = () => {
+      writeRefreshGuardState({
+        attempts: [],
+        blockedUntil: 0,
+        lastRefreshAt: 0,
+      });
+      updateAuthState({
+        refreshDisabledReason: null,
+        refreshDisabledUntil: 0,
+      });
+      guardedRouterRefresh("manual_retry");
+    };
+    window.addEventListener(AUTO_REFRESH_RETRY_EVENT, handleRetry);
+    window.__YB_DIAG_TRIGGER_REFRESH = (reason = "manual_diag") => {
+      guardedRouterRefresh(String(reason || "manual_diag"));
+    };
+    window.__YB_DIAG_SIMULATE_AUTH_EVENT = (event = "TOKEN_REFRESHED") => {
+      updateAuthState({ lastAuthEvent: String(event) });
+    };
+    return () => {
+      window.removeEventListener(AUTO_REFRESH_RETRY_EVENT, handleRetry);
+      delete window.__YB_DIAG_TRIGGER_REFRESH;
+      delete window.__YB_DIAG_SIMULATE_AUTH_EVENT;
+    };
+  }, [guardedRouterRefresh, rscLoopDiagEnabled]);
 
   useEffect(() => {
     if (isNestedProvider) return undefined;

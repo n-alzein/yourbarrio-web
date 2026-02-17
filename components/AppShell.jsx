@@ -10,6 +10,8 @@ import DevOnlyNavRecorderLoader from "@/components/DevOnlyNavRecorderLoader";
 import DebugToolsClient from "@/components/debug/DebugToolsClient";
 import SafariLayersDebug from "@/components/debug/SafariLayersDebug";
 import StallRecorderClient from "@/components/debug/StallRecorderClient";
+import RscLoopDiagClient from "@/components/debug/RscLoopDiagClient";
+import ThemeDiagnostics from "@/components/debug/ThemeDiagnostics";
 import SafariNavGuardClient from "@/components/nav/SafariNavGuardClient";
 import SafariDesktopClassClient from "@/components/SafariDesktopClassClient";
 import CrashLoggerClient from "@/components/CrashLoggerClient";
@@ -20,17 +22,37 @@ import { CartProvider } from "@/components/cart/CartProvider";
 import { LocationProvider } from "@/components/location/LocationProvider";
 import UrlLocationMigratorClient from "@/components/location/UrlLocationMigratorClient";
 import RealtimeProvider from "@/components/realtime/RealtimeProvider";
+import AutoRefreshGuardBanner from "@/components/auth/AutoRefreshGuardBanner";
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
   const flushFooterOnHome = pathname === "/" || pathname === "/customer/home";
+  const isOnboardingRoute = pathname === "/onboarding";
+  const flushFooterOnBusiness =
+    pathname === "/onboarding" || pathname?.startsWith("/business/");
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+  const shellPaddingTop = isOnboardingRoute
+    ? "0px"
+    : isAdminRoute
+      ? "var(--yb-support-mode-offset, 0px)"
+      : "calc(5rem + var(--yb-support-mode-offset, 0px))";
+  const lightThemeVars = {
+    "--bg-solid": "#ffffff",
+    "--bg-gradient-start": "#f7f7f8",
+    "--bg-gradient-end": "#eef2ff",
+    "--glow-1": "rgba(79, 70, 229, 0.1)",
+    "--glow-2": "rgba(14, 165, 233, 0.08)",
+  };
 
   return (
     <div
-      className="app-shell-root relative min-h-screen overflow-x-hidden w-full antialiased text-white flex flex-col"
-      style={{ paddingTop: "calc(5rem + var(--yb-support-mode-offset, 0px))" }}
+      className="app-shell-root relative min-h-screen overflow-x-hidden w-full antialiased text-[var(--yb-text)] flex flex-col"
+      style={{ paddingTop: shellPaddingTop, ...lightThemeVars }}
+      data-theme-root="1"
+      data-theme="light"
     >
       <CrashLoggerClient />
+      <RscLoopDiagClient />
       <WebVitalsReporter />
       <ScrollToTop />
       <DevOnlyNavRecorderLoader />
@@ -57,11 +79,20 @@ export default function AppShell({ children }) {
           <LocationProvider>
             <UrlLocationMigratorClient />
             <AuthProvider>
+              <AutoRefreshGuardBanner />
               <RealtimeProvider>
                 <CartProvider>
                   <ModalMount>
                     <main className="flex-1 w-full min-h-screen">{children}</main>
-                    <Footer className={flushFooterOnHome ? "mt-0 border-t-0" : undefined} />
+                    <Footer
+                      className={
+                        flushFooterOnHome
+                          ? "mt-0 border-t-0"
+                          : flushFooterOnBusiness
+                            ? "mt-0"
+                            : undefined
+                      }
+                    />
                   </ModalMount>
                 </CartProvider>
               </RealtimeProvider>
@@ -70,6 +101,7 @@ export default function AppShell({ children }) {
         </Suspense>
       </ThemeProvider>
       <DebugToolsClient />
+      <ThemeDiagnostics />
       <SafariLayersDebug />
       <StallRecorderClient />
       <SafariNavGuardClient />

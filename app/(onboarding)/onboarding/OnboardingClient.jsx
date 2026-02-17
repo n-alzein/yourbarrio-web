@@ -277,12 +277,11 @@ export default function BusinessOnboardingPage() {
 
       const normalizedWebsite = normalizeWebsite(form.website);
 
-      // 2) Create or update business entry via server (service role bypasses RLS)
+      // 2) Create or update business entry via authenticated server route
       const res = await fetch("/api/businesses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: verifiedUser.id,
           name: form.businessName,
           category: form.category,
           description: form.description,
@@ -303,12 +302,12 @@ export default function BusinessOnboardingPage() {
         throw new Error(errBody.error || "Failed to save business");
       }
 
-      const payload = await res.json();
+      await res.json();
 
-      // 3) Redirect to business profile
-      router.push(`/customer/b/${payload.public_id || payload.id}`);
+      // 3) Redirect to business workspace
+      router.push(`/business/dashboard`);
     } catch (err) {
-      console.error("Business onboarding failed", err);
+      console.error("Onboarding submit failed", err);
       setMessage(err?.message || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
@@ -316,7 +315,7 @@ export default function BusinessOnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen px-4 sm:px-6 lg:px-10 pt-24 pb-20 relative text-white overflow-hidden">
+    <div className="min-h-screen px-4 sm:px-6 lg:px-10 pt-0 pb-20 relative text-white overflow-hidden bg-slate-950">
       <div className="absolute inset-0 bg-[#05010d]" />
       <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/40 via-slate-950 to-amber-900/30" />
       <div className="absolute -top-32 -left-20 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
@@ -324,15 +323,12 @@ export default function BusinessOnboardingPage() {
 
       <div className="relative max-w-6xl mx-auto">
         <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
-          <div className="space-y-8">
+          <div className="space-y-8 pt-6 md:pt-10">
             <div className="space-y-4">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">
-                Business onboarding
-              </span>
-              <h1 className="text-4xl sm:text-5xl font-semibold leading-tight">
+              <h1 className="text-4xl sm:text-5xl font-semibold leading-tight text-[#fff]">
                 Build a storefront that feels local, modern, and trusted.
               </h1>
-              <p className="text-base sm:text-lg text-white/70 max-w-xl">
+              <p className="text-base sm:text-lg text-slate-200 max-w-xl">
                 Share the essentials now so customers can find you, contact you, and
                 start ordering in minutes.
               </p>
@@ -361,14 +357,14 @@ export default function BusinessOnboardingPage() {
                   key={item.title}
                   className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4"
                 >
-                  <p className="text-sm font-semibold text-white">{item.title}</p>
-                  <p className="mt-2 text-sm text-white/60">{item.detail}</p>
+                  <p className="text-sm font-semibold text-[#fff]">{item.title}</p>
+                  <p className="mt-2 text-sm text-slate-300">{item.detail}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="relative">
+          <div className="relative pt-6 md:pt-10">
             <div className="absolute inset-0 rounded-[28px] bg-gradient-to-br from-emerald-500/10 via-transparent to-amber-500/10" />
             <form
               onSubmit={handleSubmit}
@@ -377,7 +373,7 @@ export default function BusinessOnboardingPage() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-2xl font-semibold">Business details</h2>
-                  <p className="text-sm text-white/60">
+                  <p className="text-sm text-slate-900">
                     Tell us about your business and where customers can find you.
                   </p>
                 </div>

@@ -7,21 +7,23 @@ export default function LogoutButton({
   children,
   className = "",
   mobile,
+  onBeforeLogout,
+  onAfterLogout,
   onSuccess,
 }) {
   const { logout } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleClick(event) {
-    // Prevent click-through to elements behind overlays/drawers.
     event?.preventDefault?.();
     event?.stopPropagation?.();
     event?.nativeEvent?.stopImmediatePropagation?.();
 
     if (isSubmitting) return;
     setIsSubmitting(true);
-    onSuccess?.();
-
+    onBeforeLogout?.();
+    const afterLogout = onAfterLogout || onSuccess;
+    requestAnimationFrame(() => afterLogout?.());
     try {
       await logout();
     } catch (err) {

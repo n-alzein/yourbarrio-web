@@ -1,4 +1,5 @@
 import AdminFlash from "@/app/admin/_components/AdminFlash";
+import AdminPage from "@/app/admin/_components/AdminPage";
 import { requireAdminRole } from "@/lib/admin/permissions";
 import { getAdminDataClient } from "@/lib/supabase/admin";
 
@@ -47,7 +48,7 @@ export default async function AdminAuditPage({
   if (toDate) pageParams.set("to", toDate);
 
   return (
-    <section className="space-y-4">
+    <AdminPage>
       <header>
         <h2 className="text-xl font-semibold">Audit log</h2>
         <p className="text-sm text-neutral-400">All admin mutations and support-mode activity.</p>
@@ -56,12 +57,12 @@ export default async function AdminAuditPage({
       <AdminFlash searchParams={params} />
 
       <form className="grid gap-2 rounded-lg border border-neutral-800 bg-neutral-900 p-3 md:grid-cols-5">
-        <input name="action" defaultValue={action} placeholder="action" className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
-        <input name="actor" defaultValue={actor} placeholder="actor_user_id" className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
-        <input name="target_type" defaultValue={targetType} placeholder="target_type" className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
-        <input type="date" name="from" defaultValue={fromDate} className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
-        <input type="date" name="to" defaultValue={toDate} className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
-        <button type="submit" className="rounded bg-sky-600 px-3 py-2 text-sm font-medium hover:bg-sky-500 md:col-span-5">
+        <input name="action" defaultValue={action} placeholder="action" className="h-10 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm" />
+        <input name="actor" defaultValue={actor} placeholder="actor_user_id" className="h-10 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm" />
+        <input name="target_type" defaultValue={targetType} placeholder="target_type" className="h-10 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm" />
+        <input type="date" name="from" defaultValue={fromDate} className="h-10 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm" />
+        <input type="date" name="to" defaultValue={toDate} className="h-10 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm" />
+        <button type="submit" className="h-10 rounded bg-sky-600 px-3 text-sm font-medium hover:bg-sky-500 md:col-span-5">
           Apply filters
         </button>
       </form>
@@ -119,6 +120,6 @@ export default async function AdminAuditPage({
           ) : null}
         </div>
       </div>
-    </section>
+    </AdminPage>
   );
 }

@@ -947,23 +947,16 @@ html[data-nav-menu-open="1"] [data-sticky-nav-block="1"] * {
   pointer-events: none !important;
 }
 
-/* Drawer open state: keep base page color, disable decorative tint layers. */
-html[data-nav-menu-open="1"] .app-shell-root,
-html[data-nav-menu-open="1"] .app-shell-root main,
-html[data-nav-menu-open="1"] body,
-html[data-sidebar-open="1"] .app-shell-root,
-html[data-sidebar-open="1"] .app-shell-root main,
-html[data-sidebar-open="1"] body {
-  background-color: var(--yb-bg) !important;
-  background-image: none !important;
+/* Background ownership is unconditional; menu state must not own theme colors. */
+.app-shell-root,
+.app-shell-root main,
+body {
+  background-color: var(--yb-bg);
 }
 
 html[data-nav-menu-open="1"] .app-shell-bg-gradient,
 html[data-nav-menu-open="1"] .app-shell-glow,
-html[data-nav-menu-open="1"] .animated-bg,
-html[data-sidebar-open="1"] .app-shell-bg-gradient,
-html[data-sidebar-open="1"] .app-shell-glow,
-html[data-sidebar-open="1"] .animated-bg {
+html[data-nav-menu-open="1"] .animated-bg {
   opacity: 0 !important;
   display: none !important;
   animation: none !important;
@@ -979,4 +972,24 @@ html[data-map-modal-open="1"] [data-home-tiles="1"] * {
 }
 html[data-map-modal-open="1"] [data-listing-tile="1"] {
   pointer-events: none !important;
+}
+
+/* Public/customer route wrappers force light background layers on first paint. */
+[data-route-theme="light"] [class*="absolute"][class*="inset-0"][class*="bg-[#05010d]"],
+[data-route-theme="light"] [class*="absolute"][class*="inset-0"][class*="bg-black"] {
+  background-color: var(--yb-bg) !important;
+}
+
+[data-route-theme="light"] [class*="absolute"][class*="inset-0"][class*="bg-gradient-to-b"][class*="to-black"],
+[data-route-theme="light"] [class*="bg-gradient-to-br"][class*="from-slate-900"][class*="to-black"] {
+  background-image: linear-gradient(
+    to bottom,
+    var(--bg-gradient-start),
+    var(--bg-gradient-end)
+  ) !important;
+}
+
+[data-route-theme="light"] [class*="min-h-screen"][class*="bg-black"] {
+  background-color: var(--yb-bg) !important;
+  color: var(--yb-text) !important;
 }

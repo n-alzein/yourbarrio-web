@@ -45,7 +45,7 @@ function BusinessRegisterInner({ isPopup }) {
     if (redirectingRef.current) return;
     redirectingRef.current = true;
 
-    const target = PATHS.business.onboarding || "/business/onboarding";
+    const target = PATHS.business.onboarding || "/onboarding";
 
     if (typeof window !== "undefined") {
       try {
@@ -174,12 +174,13 @@ function BusinessRegisterInner({ isPopup }) {
       return;
     }
     const origin =
-      typeof window !== "undefined" ? window.location.origin : "";
+      typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+    const target = PATHS.business.onboarding || "/onboarding";
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${origin}/api/auth/callback`,
+        redirectTo: `${origin}/api/auth/callback?next=${encodeURIComponent(target)}`,
       },
     });
 

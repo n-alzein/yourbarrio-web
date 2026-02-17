@@ -51,7 +51,7 @@ export default function BusinessAccountMenuItems({
         </p>
         <div className="mt-3 space-y-1">
           <Link
-            href="/business/settings"
+            href="/go/account"
             onClick={onNavigate}
             className="yb-sidebar-item flex w-full items-start gap-3 px-3 py-3 text-left transition"
             data-safe-nav="1"

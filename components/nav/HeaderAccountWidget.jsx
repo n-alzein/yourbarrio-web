@@ -559,7 +559,7 @@ export default function HeaderAccountWidget({
         <div className="flex items-center gap-3">
         {isBusiness ? (
           <Link
-            href="/business/dashboard"
+            href="/go/dashboard"
             className="px-4 py-2 rounded-lg text-sm font-semibold text-white/90 border border-white/20 hover:bg-white/10 transition"
           >
             Dashboard
@@ -874,7 +874,7 @@ export default function HeaderAccountWidget({
             <>
               {isBusiness ? (
                 <Link
-                  href="/business/dashboard"
+                  href="/go/dashboard"
                   onClick={() => onCloseMobileMenu?.()}
                   className="text-left yb-dropdown-muted hover:text-[var(--yb-text)]"
                   data-safe-nav="1"

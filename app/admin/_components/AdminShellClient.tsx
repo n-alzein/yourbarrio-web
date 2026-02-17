@@ -60,16 +60,16 @@ export default function AdminShellClient({
       </aside>
 
       <div
-        className={`min-w-0 overflow-x-hidden ${
+        className={`min-h-screen min-w-0 overflow-x-hidden bg-neutral-950 ${
           sidebarCollapsed ? "md:pl-16" : "md:pl-64"
         }`}
         style={{ paddingTop: "calc(var(--admin-nav-h) + var(--yb-support-mode-offset, 0px))" }}
       >
-        <div className="mx-auto w-full max-w-7xl px-4 pb-4 sm:px-6 lg:px-8">
-          <main className="space-y-4 min-w-0">
+        <div className="mx-auto w-full max-w-7xl bg-neutral-950 px-4 pb-6 pt-4 sm:px-6 sm:pt-5 lg:px-8">
+          <div className="min-h-screen min-w-0 space-y-6 bg-neutral-950">
             {statusContent}
             {children}
-          </main>
+          </div>
         </div>
       </div>
 
