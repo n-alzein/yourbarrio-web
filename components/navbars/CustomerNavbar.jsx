@@ -185,8 +185,9 @@ function CustomerNavbarInner({ pathname, searchParams }) {
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
-    const isOpen = profileMenuOpen || mobileMenuOpen;
-    document.documentElement.dataset.navMenuOpen = isOpen ? "1" : "0";
+    // Customer account menus should not toggle global menu-open html state.
+    // Global background rules react to this attribute and tint the page.
+    delete document.documentElement.dataset.navMenuOpen;
     return () => {
       delete document.documentElement.dataset.navMenuOpen;
     };
@@ -1662,7 +1663,7 @@ function CustomerNavbarInner({ pathname, searchParams }) {
             </>
           )}
 
-          {hasAuth ? <LogoutButton mobile /> : null}
+          {hasAuth ? <LogoutButton mobile onSuccess={() => setMobileMenuOpen(false)} /> : null}
         </div>
       </MobileSidebarDrawer>
     </nav>

@@ -189,13 +189,14 @@ export default function MobileSidebarDrawer({
       aria-hidden={!open}
     >
       <div
-        className={`absolute inset-0 yb-overlay transition-opacity duration-200 ${
+        className={`absolute inset-0 z-0 pointer-events-auto bg-black/60 md:bg-black/0 transition-opacity duration-200 ${
           open ? "opacity-100" : "opacity-0"
         }`}
+        data-testid="mobile-sidebar-overlay"
         onClick={onClose}
       />
       <div
-        className={`absolute inset-y-0 left-0 w-[88vw] max-w-[360px] transform transition-transform duration-300 ease-out ${
+        className={`absolute inset-y-0 left-0 z-10 w-[88vw] max-w-[360px] transform transition-transform duration-300 ease-out ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
         onClick={(event) => event.stopPropagation()}
