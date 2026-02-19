@@ -9,80 +9,6 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
-DO $do$
-BEGIN
-  IF to_regprocedure('public.set_row_updated_at()') IS NULL THEN
-    EXECUTE $sql$
-      CREATE FUNCTION public.set_row_updated_at()
-      RETURNS trigger
-      LANGUAGE plpgsql
-      AS $set_row_updated_at$
-      BEGIN
-        NEW.updated_at := now();
-        RETURN NEW;
-      END;
-      $set_row_updated_at$;
-    $sql$;
-  END IF;
-END
-$do$;
-
-ALTER TABLE public.admin_user_notes
-  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
-
-DROP TRIGGER IF EXISTS set_admin_user_notes_updated_at ON public.admin_user_notes;
-CREATE TRIGGER set_admin_user_notes_updated_at
-BEFORE UPDATE ON public.admin_user_notes
-FOR EACH ROW
-EXECUTE FUNCTION public.set_row_updated_at();
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_policies
-    WHERE schemaname = 'public'
-      AND tablename = 'admin_user_notes'
-      AND policyname = 'Support ops super can update own notes'
-  ) THEN
-    CREATE POLICY "Support ops super can update own notes"
-      ON public.admin_user_notes
-      FOR UPDATE
-      TO authenticated
-      USING (
-        public.is_admin_any_role(auth.uid(), ARRAY['admin_support','admin_ops','admin_super']::text[])
-        AND actor_user_id = auth.uid()
-      )
-      WITH CHECK (
-        public.is_admin_any_role(auth.uid(), ARRAY['admin_support','admin_ops','admin_super']::text[])
-        AND actor_user_id = auth.uid()
-      );
-  END IF;
-END $$;
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_policies
-    WHERE schemaname = 'public'
-      AND tablename = 'admin_user_notes'
-      AND policyname = 'Support ops super can delete own notes; super can delete any'
-  ) THEN
-    CREATE POLICY "Support ops super can delete own notes; super can delete any"
-      ON public.admin_user_notes
-      FOR DELETE
-      TO authenticated
-      USING (
-        public.is_admin_any_role(auth.uid(), ARRAY['admin_support','admin_ops','admin_super']::text[])
-        AND (
-          actor_user_id = auth.uid()
-          OR public.is_admin_any_role(auth.uid(), ARRAY['admin_super']::text[])
-        )
-      );
-  END IF;
-END $$;
-
 CREATE OR REPLACE FUNCTION public.admin_update_user_note(
   p_note_id uuid,
   p_note text
@@ -219,9 +145,3 @@ BEGIN
   SELECT v_row.id, v_row.target_user_id, v_row.actor_user_id, v_row.note, v_row.created_at, v_row.updated_at;
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.admin_update_user_note(uuid, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.admin_update_user_note(uuid, text) TO authenticated;
-
-REVOKE ALL ON FUNCTION public.admin_delete_user_note(uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.admin_delete_user_note(uuid) TO authenticated;

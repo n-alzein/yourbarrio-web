@@ -24,21 +24,20 @@ type RecentAuditActivityProps = {
   pageSize: number;
 };
 
-const auditTimeFormatter = new Intl.DateTimeFormat("en-US", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: false,
-  timeZone: "UTC",
-});
+function pad2(value: number) {
+  return String(value).padStart(2, "0");
+}
 
 function formatAuditTimestamp(value: string) {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "-";
-  return `${auditTimeFormatter.format(date)} UTC`;
+  const yyyy = date.getUTCFullYear();
+  const mm = pad2(date.getUTCMonth() + 1);
+  const dd = pad2(date.getUTCDate());
+  const hh = pad2(date.getUTCHours());
+  const min = pad2(date.getUTCMinutes());
+  const ss = pad2(date.getUTCSeconds());
+  return `${mm}/${dd}/${yyyy}, ${hh}:${min}:${ss} UTC`;
 }
 
 export default function RecentAuditActivity({
