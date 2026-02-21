@@ -1512,12 +1512,12 @@ function CustomerNavbarInner({ pathname, searchParams }) {
       </div>
 
       <div
-        className="md:hidden px-5 sm:px-6 pt-2 pb-4 border-t border-white/10"
+        className="md:hidden px-0 pt-2 pb-4 border-t border-white/10"
         data-nav-guard="1"
       >
         <form
           onSubmit={handleSubmitSearch}
-          className="relative flex w-full items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2"
+          className="relative mx-auto flex w-[92%] items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 md:w-full md:mx-0"
         >
           <Search className="h-4 w-4 text-white/70" />
           <input

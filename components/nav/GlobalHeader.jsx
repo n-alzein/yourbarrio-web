@@ -603,10 +603,10 @@ export default function GlobalHeader({
         </div>
 
         {showSearch ? (
-          <div className="md:hidden flex-1" data-nav-guard="1">
+          <div className="md:hidden flex flex-1 justify-center" data-nav-guard="1">
             <form
               onSubmit={handleSubmitSearch}
-              className="relative flex w-full items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2"
+              className="relative flex w-[92%] items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 md:w-full"
             >
               <Search className="h-4 w-4 text-white/70" />
               <input
