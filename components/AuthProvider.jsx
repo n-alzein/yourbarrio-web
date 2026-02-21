@@ -58,7 +58,7 @@ const AuthContext = createContext({
   authActionStartedAt: 0,
   providerInstanceId: null,
   refreshProfile: async () => {},
-  logout: async () => {},
+  logout: async (_options = {}) => {},
   beginAuthAttempt: () => 0,
   endAuthAttempt: () => false,
   resetAuthUiState: () => {},
