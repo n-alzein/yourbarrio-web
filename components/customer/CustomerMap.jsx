@@ -63,6 +63,7 @@ function CustomerMap({
       preferredCenter,
       activeBusinessId,
       hoveredBusinessId,
+      selectedBusiness,
       selectedBusinessId:
         selectedBusinessId ??
         (selectedBusiness && (selectedBusiness.id || selectedBusiness.public_id)) ??

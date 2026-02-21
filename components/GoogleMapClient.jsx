@@ -136,6 +136,7 @@ export default function GoogleMapClient({
   activeBusinessId = null,
   hoveredBusinessId = null,
   selectedBusinessId = null,
+  selectedBusiness = null,
   onMarkerHover,
   onMarkerLeave,
   onMarkerClick,
@@ -1492,7 +1493,7 @@ export default function GoogleMapClient({
       .setLngLat([preferred.lng, preferred.lat])
       .addTo(map);
 
-    if (selectedBusinessId != null) {
+    if (selectedBusinessId != null || selectedBusiness) {
       return;
     }
 
@@ -1516,7 +1517,47 @@ export default function GoogleMapClient({
       map.getZoom(),
       computeVisibleRadiusMeters(radiusKm * 1000)
     );
-  }, [preferredCenter, mapReady, radiusKm, selectedBusinessId]);
+  }, [preferredCenter, mapReady, radiusKm, selectedBusiness, selectedBusinessId]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !mapReady || !selectedBusiness) return;
+
+    const latRaw = selectedBusiness.lat ?? selectedBusiness.latitude;
+    const lngRaw = selectedBusiness.lng ?? selectedBusiness.longitude;
+    const lat = typeof latRaw === "number" ? latRaw : Number.parseFloat(latRaw);
+    const lng = typeof lngRaw === "number" ? lngRaw : Number.parseFloat(lngRaw);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    map.flyTo({
+      center: [lng, lat],
+      zoom: Math.max(map.getZoom(), 15),
+      duration: 450,
+    });
+
+    window.requestAnimationFrame(() => {
+      try {
+        map.resize();
+      } catch {
+        /* ignore transient resize errors */
+      }
+      map.flyTo({
+        center: [lng, lat],
+        zoom: Math.max(map.getZoom(), 15),
+        duration: 300,
+      });
+      const selectedKey =
+        selectedBusiness.id ??
+        selectedBusiness.public_id ??
+        selectedBusinessId ??
+        null;
+      const rec = selectedKey == null ? null : markerIndexRef.current.get(selectedKey);
+      if (rec?.popup) {
+        rec.popup.addTo(map);
+        activePopupRef.current = rec.popup;
+      }
+    });
+  }, [mapReady, selectedBusiness, selectedBusinessId]);
 
   useEffect(() => {
     if (!mapInstanceRef.current) return;

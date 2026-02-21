@@ -26,6 +26,7 @@ export default function NearbyResultsPane({
   onCardHover,
   onCardLeave,
   onCardClick,
+  onCardMapFocusClick,
   registerCard,
   onResetFilters,
 }) {
@@ -71,6 +72,7 @@ export default function NearbyResultsPane({
           onHover={onCardHover}
           onLeave={onCardLeave}
           onClick={onCardClick}
+          onMapFocusClick={onCardMapFocusClick}
           isMobile={isMobile}
           registerCard={registerCard}
         />

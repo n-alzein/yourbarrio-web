@@ -32,6 +32,22 @@ const normalizeNum = (value) => {
 const normalizeCity = (value) => (value || "").trim().toLowerCase();
 
 const NAV_OFFSET = 88;
+const getBusinessSelection = (business) => {
+  if (!business) return null;
+  const lat = normalizeNum(
+    business.coords?.lat ?? business.latitude ?? business.lat ?? business.location?.lat
+  );
+  const lng = normalizeNum(
+    business.coords?.lng ?? business.longitude ?? business.lng ?? business.location?.lng
+  );
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const id = business.id || business.public_id || null;
+  return {
+    id,
+    lat,
+    lng,
+  };
+};
 
 export default function NearbyBusinessesClient() {
   const router = useRouter();
@@ -58,6 +74,7 @@ export default function NearbyBusinessesClient() {
 
   const [hoveredBusinessId, setHoveredBusinessId] = useState(null);
   const [selectedBusinessId, setSelectedBusinessId] = useState(null);
+  const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [mapControls, setMapControls] = useState(null);
 
   const cardRefs = useRef(new Map());
@@ -198,7 +215,10 @@ export default function NearbyBusinessesClient() {
               address: row.city
                 ? `${row.address || ""}${row.address ? ", " : ""}${row.city}`
                 : row.address || "",
+              neighborhood:
+                row.neighborhood || row.neighbourhood || row.district || row.area || "",
               city: row.city || "",
+              state: row.state || row.state_code || row.region || "",
               zip_code: row.zip_code || row.zip || "",
               description: row.description || row.bio || "",
               website: row.website || "",
@@ -299,6 +319,7 @@ export default function NearbyBusinessesClient() {
   useEffect(() => {
     if (!filteredBusinesses.length) {
       setSelectedBusinessId(null);
+      setSelectedBusiness(null);
       setHoveredBusinessId(null);
       return;
     }
@@ -306,6 +327,7 @@ export default function NearbyBusinessesClient() {
     const stillExists = filteredBusinesses.some((biz) => biz.id === selectedBusinessId);
     if (!stillExists) {
       setSelectedBusinessId(null);
+      setSelectedBusiness(null);
     }
   }, [filteredBusinesses, selectedBusinessId]);
 
@@ -326,6 +348,7 @@ export default function NearbyBusinessesClient() {
       }
       if (!business?.id) return;
       setSelectedBusinessId(business.id);
+      setSelectedBusiness(getBusinessSelection(business));
       setHoveredBusinessId(business.id);
       if (mapControls?.focusBusiness) {
         mapControls.focusBusiness(business);
@@ -338,12 +361,27 @@ export default function NearbyBusinessesClient() {
     if (!businessId) return;
     setSelectedBusinessId(businessId);
     setHoveredBusinessId(businessId);
+    const selected = filteredBusinesses.find((biz) => String(biz.id) === String(businessId));
+    setSelectedBusiness(getBusinessSelection(selected));
     const node = cardRefs.current.get(businessId);
     if (node) {
       node.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
     }
     setMobileView("list");
-  }, []);
+  }, [filteredBusinesses]);
+
+  const onCardMapFocusClick = useCallback(
+    (business) => {
+      if (!business?.id) return;
+      const selected = getBusinessSelection(business);
+      if (!selected) return;
+      setSelectedBusinessId(business.id);
+      setSelectedBusiness(selected);
+      setHoveredBusinessId(business.id);
+      setMobileView("map");
+    },
+    []
+  );
 
   useEffect(() => {
     if (!isMobile || mobileView !== "map" || !mapControls?.resize) return undefined;
@@ -484,6 +522,7 @@ export default function NearbyBusinessesClient() {
                 onCardHover={setHoveredBusinessId}
                 onCardLeave={() => setHoveredBusinessId(null)}
                 onCardClick={onCardClick}
+                onCardMapFocusClick={onCardMapFocusClick}
                 isMobile={isMobile}
                 registerCard={registerCard}
                 onResetFilters={() => {
@@ -509,6 +548,7 @@ export default function NearbyBusinessesClient() {
                   onControlsReady={setMapControls}
                   activeBusinessId={activeBusinessId}
                   hoveredBusinessId={hoveredBusinessId}
+                  selectedBusiness={selectedBusiness}
                   selectedBusinessId={selectedBusinessId}
                   markerClickBehavior="select"
                   onMarkerHover={setHoveredBusinessId}
