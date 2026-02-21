@@ -20,6 +20,7 @@ export default function NearbyResultsPane({
   businesses,
   loading,
   error,
+  isMobile = false,
   activeBusinessId,
   selectedBusinessId,
   onCardHover,
@@ -70,6 +71,7 @@ export default function NearbyResultsPane({
           onHover={onCardHover}
           onLeave={onCardLeave}
           onClick={onCardClick}
+          isMobile={isMobile}
           registerCard={registerCard}
         />
       ))}

@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { useLocation } from "@/components/location/LocationProvider";
 import CustomerMap from "@/components/customer/CustomerMap";
+import { getCustomerBusinessUrl } from "@/lib/ids/publicRefs";
 import {
   BUSINESS_CATEGORIES,
   normalizeCategoryName,
@@ -33,6 +34,7 @@ const normalizeCity = (value) => (value || "").trim().toLowerCase();
 const NAV_OFFSET = 88;
 
 export default function NearbyBusinessesClient() {
+  const router = useRouter();
   const { user, loadingUser } = useAuth();
   const searchParams = useSearchParams();
   const { location, hydrated: locationHydrated, requestGpsLocation } = useLocation();
@@ -47,6 +49,7 @@ export default function NearbyBusinessesClient() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [mobileView, setMobileView] = useState("list");
+  const [isMobile, setIsMobile] = useState(false);
 
   const [ybBusinesses, setYbBusinesses] = useState([]);
   const [ybBusinessesLoading, setYbBusinessesLoading] = useState(true);
@@ -99,6 +102,19 @@ export default function NearbyBusinessesClient() {
         document.documentElement.removeAttribute("data-route");
       }
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const media = window.matchMedia("(max-width: 767px)");
+    const handleChange = (event) => setIsMobile(event.matches);
+    setIsMobile(media.matches);
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", handleChange);
+      return () => media.removeEventListener("change", handleChange);
+    }
+    media.addListener(handleChange);
+    return () => media.removeListener(handleChange);
   }, []);
 
   useEffect(() => {
@@ -304,6 +320,10 @@ export default function NearbyBusinessesClient() {
 
   const onCardClick = useCallback(
     (business) => {
+      if (isMobile) {
+        router.push(getCustomerBusinessUrl(business));
+        return;
+      }
       if (!business?.id) return;
       setSelectedBusinessId(business.id);
       setHoveredBusinessId(business.id);
@@ -311,7 +331,7 @@ export default function NearbyBusinessesClient() {
         mapControls.focusBusiness(business);
       }
     },
-    [mapControls]
+    [isMobile, mapControls, router]
   );
 
   const onMarkerClick = useCallback((businessId) => {
@@ -325,10 +345,24 @@ export default function NearbyBusinessesClient() {
     setMobileView("list");
   }, []);
 
+  useEffect(() => {
+    if (!isMobile || mobileView !== "map" || !mapControls?.resize) return undefined;
+    let rafId = 0;
+    const timerId = window.setTimeout(() => {
+      rafId = window.requestAnimationFrame(() => {
+        mapControls.resize?.();
+      });
+    }, 80);
+    return () => {
+      window.clearTimeout(timerId);
+      if (rafId) window.cancelAnimationFrame(rafId);
+    };
+  }, [isMobile, mapControls, mobileView]);
+
   const controls = (
     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:p-3.5">
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px_auto] sm:items-center">
-        <label className="block">
+      <div className="flex flex-col gap-2 md:grid md:grid-cols-[minmax(0,1fr)_220px_auto] md:items-center md:gap-3">
+        <label className="block w-full min-w-0">
           <span className="sr-only">Search nearby businesses</span>
           <input
             type="search"
@@ -340,7 +374,48 @@ export default function NearbyBusinessesClient() {
           />
         </label>
 
-        <label className="block">
+        <div className="flex items-center gap-2 md:hidden">
+          <div className="inline-flex shrink-0 rounded-xl border border-white/15 bg-black/35 p-1">
+            {[
+              { key: "list", label: "List" },
+              { key: "map", label: "Map" },
+            ].map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setMobileView(item.key)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                  mobileView === item.key
+                    ? "bg-violet-500/70 text-white shadow"
+                    : "text-white/75 hover:text-white"
+                }`}
+                aria-pressed={mobileView === item.key}
+                data-testid={`nearby-toggle-${item.key}`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          <label className="block min-w-0 flex-1">
+            <span className="sr-only">Filter by category</span>
+            <select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              data-testid="nearby-category-select"
+              className="h-11 w-full min-w-0 rounded-xl border border-white/15 bg-white px-3 text-sm font-normal text-[var(--yb-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70 focus:border-violet-300/60"
+            >
+              <option value="All">All categories</option>
+              {BUSINESS_CATEGORIES.map((category) => (
+                <option key={category.id || category.name} value={category.name}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <label className="hidden md:block">
           <span className="sr-only">Filter by category</span>
           <select
             value={categoryFilter}
@@ -357,7 +432,7 @@ export default function NearbyBusinessesClient() {
           </select>
         </label>
 
-        <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70 sm:justify-self-end">
+        <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70 md:justify-self-end">
           {filteredBusinesses.length} results
         </div>
       </div>
@@ -397,6 +472,7 @@ export default function NearbyBusinessesClient() {
           <NearbySplitViewShell
             mobileView={mobileView}
             onMobileViewChange={setMobileView}
+            renderMobileToggle={false}
             controls={controls}
             resultsPane={
               <NearbyResultsPane
@@ -408,6 +484,7 @@ export default function NearbyBusinessesClient() {
                 onCardHover={setHoveredBusinessId}
                 onCardLeave={() => setHoveredBusinessId(null)}
                 onCardClick={onCardClick}
+                isMobile={isMobile}
                 registerCard={registerCard}
                 onResetFilters={() => {
                   setSearch("");
@@ -416,7 +493,10 @@ export default function NearbyBusinessesClient() {
               />
             }
             mapPane={
-              <div className="relative h-full min-h-0" data-testid="nearby-map-canvas">
+              <div
+                className="relative h-[60vh] min-h-[360px] md:h-full md:min-h-0"
+                data-testid="nearby-map-canvas"
+              >
                 <CustomerMap
                   mapEnabled={mapAvailable}
                   mapBusinesses={businessesForMap}

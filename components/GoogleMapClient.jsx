@@ -1387,6 +1387,13 @@ export default function GoogleMapClient({
         search: performSearch,
         focusBusiness,
         focusBusinessById,
+        resize: () => {
+          try {
+            map.resize();
+          } catch {
+            /* ignore transient resize errors */
+          }
+        },
         recenterToUser: handleRecenterClick,
         enablePlaces,
         disablePlaces,

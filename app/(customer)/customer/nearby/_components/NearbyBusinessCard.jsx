@@ -16,6 +16,7 @@ const formatRating = (rating) => {
 
 export default function NearbyBusinessCard({
   business,
+  isMobile = false,
   active,
   selected,
   onHover,
@@ -58,7 +59,11 @@ export default function NearbyBusinessCard({
         onClick={() => onClick(business)}
         aria-pressed={selected}
         data-selected={selected ? "true" : "false"}
-        aria-label={`Focus ${business.name || "business"} on map`}
+        aria-label={
+          isMobile
+            ? `Open ${business.name || "business"} profile`
+            : `Focus ${business.name || "business"} on map`
+        }
       >
         <div className="relative h-[92px] w-[92px] overflow-hidden rounded-xl border border-white/10 bg-white/10">
           <FastImage
@@ -90,9 +95,9 @@ export default function NearbyBusinessCard({
 
           {business.description ? (
             <p className="line-clamp-2 text-xs leading-relaxed text-white/65">{business.description}</p>
-          ) : (
+          ) : !isMobile ? (
             <p className="line-clamp-1 text-xs text-white/50">Tap to focus on map</p>
-          )}
+          ) : null}
         </div>
       </button>
     </article>
