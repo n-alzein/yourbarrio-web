@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 type AdminMobileSidebarDrawerProps = {
@@ -15,6 +15,8 @@ export default function AdminMobileSidebarDrawer({
   onOpenChange,
   children,
 }: AdminMobileSidebarDrawerProps) {
+  const perfEnabled = process.env.NODE_ENV !== "production";
+  const [instantClose, setInstantClose] = useState(false);
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -51,7 +53,7 @@ export default function AdminMobileSidebarDrawer({
     >
       <button
         type="button"
-        className={`absolute inset-0 bg-black/60 transition-opacity duration-200 ${
+        className={`absolute inset-0 bg-black/60 ${instantClose ? "transition-none duration-0" : "transition-opacity duration-200"} ${
           open ? "opacity-100" : "opacity-0"
         }`}
         aria-label="Close admin menu"
@@ -61,7 +63,7 @@ export default function AdminMobileSidebarDrawer({
         role="dialog"
         aria-modal="true"
         aria-label="Admin menu"
-        className={`absolute right-0 top-0 h-full w-[88vw] max-w-[320px] border-l border-neutral-800 bg-neutral-950 p-2 shadow-2xl transition-transform duration-200 ${
+        className={`absolute right-0 top-0 h-full w-[88vw] max-w-[320px] border-l border-neutral-800 bg-neutral-950 p-2 shadow-2xl ${instantClose ? "transition-none duration-0" : "transition-transform duration-200"} ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -79,6 +81,19 @@ export default function AdminMobileSidebarDrawer({
           onClickCapture={(event) => {
             const target = event.target as HTMLElement | null;
             if (target?.closest("a[href]")) onOpenChange(false);
+            if (target?.closest('button[data-admin-logout="1"]')) {
+              if (perfEnabled) {
+                console.info("[ADMIN_LOGOUT_PERF] menu_close_start");
+              }
+              setInstantClose(true);
+              onOpenChange(false);
+              requestAnimationFrame(() => {
+                if (perfEnabled) {
+                  console.info("[ADMIN_LOGOUT_PERF] menu_close_end");
+                }
+                setInstantClose(false);
+              });
+            }
           }}
         >
           {children}

@@ -9,6 +9,7 @@ import AdminFlash from "@/app/admin/_components/AdminFlash";
 import BusinessVerificationActionsClient from "@/app/admin/verification/_components/BusinessVerificationActionsClient";
 import AdminUserDetailLayout from "@/app/admin/users/[id]/_components/AdminUserDetailLayout";
 import AdminUserHeaderBar from "@/app/admin/users/[id]/_components/AdminUserHeaderBar";
+import AdminUserActivityPanel from "@/app/admin/users/[id]/_components/AdminUserActivityPanel";
 import AdminUserNotesPanel from "@/app/admin/users/[id]/_components/AdminUserNotesPanel";
 import AdminUserProfileEditor from "@/app/admin/users/[id]/_components/AdminUserProfileEditor";
 import AdminUserRoleEditor from "@/app/admin/users/[id]/_components/AdminUserRoleEditor";
@@ -167,6 +168,32 @@ export default async function AdminUserDetailPage({
   }
 
   const initialNotes = Array.isArray(notesRows) ? notesRows : [];
+  const { data: activityRows, error: activityError } = authedClient
+    ? await authedClient.rpc("admin_list_user_audit_activity", {
+        p_user_id: user.id,
+        p_include_actor: true,
+        p_include_target: true,
+        p_q: null,
+        p_action: null,
+        p_offset: 0,
+        p_limit: 20,
+      })
+    : { data: [], error: null };
+
+  if (activityError && diagEnabled) {
+    console.warn("[admin] admin_list_user_audit_activity failed", {
+      userId: user.id,
+      message: activityError?.message,
+      details: activityError?.details,
+      hint: activityError?.hint,
+      code: activityError?.code,
+    });
+  }
+
+  const initialActivityRows = Array.isArray(activityRows) ? activityRows : [];
+  const initialActivityTotal = initialActivityRows.length
+    ? Number(initialActivityRows[0]?.total_count || 0)
+    : 0;
 
   return (
     <AdminUserDetailLayout
@@ -341,14 +368,15 @@ export default async function AdminUserDetailPage({
         </div>
 
         <div className="space-y-3">
-          <SectionCard title="Audit activity">
-            <p className="text-sm text-neutral-400">
-              Detailed per-user audit timeline is not available in this view yet.
-            </p>
-            <Link href="/admin/audit" className="mt-2 inline-block text-sm text-sky-300 hover:text-sky-200">
-              Open global audit log
-            </Link>
-          </SectionCard>
+          {activityError ? (
+            <PlaceholderMessage message="Activity is temporarily unavailable. Apply the latest database migrations and refresh." />
+          ) : (
+            <AdminUserActivityPanel
+              userId={user.id}
+              initialRows={initialActivityRows}
+              initialTotalCount={initialActivityTotal}
+            />
+          )}
         </div>
 
         <div className="space-y-3">

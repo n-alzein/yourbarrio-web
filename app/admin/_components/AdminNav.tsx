@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { adminLogoutAction } from "@/app/admin/actions";
+import AdminLogoutButton from "@/app/admin/_components/AdminLogoutButton";
 import { ADMIN_ROLES, canAdmin, getHighestAdminRole, type AdminRole } from "@/lib/admin/permissions";
 import { formatAdminRoleLabel } from "@/lib/admin/roleLabels";
 
@@ -84,23 +84,20 @@ export default function AdminNav({
             ) : null}
           </Link>
         ))}
-        <form action={adminLogoutAction}>
-          <button
-            type="submit"
-            title={collapsed && !isHorizontal ? "Log out" : undefined}
-            aria-label={collapsed && !isHorizontal ? "Log out" : undefined}
-            className={
-              isHorizontal
-                ? "inline-flex rounded-full border border-red-900 bg-red-950 px-3 py-1.5 text-sm text-red-100 hover:border-red-700"
-                : collapsed
-                  ? "inline-flex h-11 w-11 items-center justify-center rounded-md border border-red-900 bg-red-950 text-red-100 hover:border-red-700"
-                  : "inline-flex w-full items-center gap-2 rounded-md border border-red-900 bg-red-950 px-3 py-2 text-left text-sm text-red-100 hover:border-red-700"
-            }
-          >
-            <NavIcon name="logout" />
-            {!collapsed || isHorizontal ? <span>Log out</span> : null}
-          </button>
-        </form>
+        <AdminLogoutButton
+          title={collapsed && !isHorizontal ? "Log out" : undefined}
+          ariaLabel={collapsed && !isHorizontal ? "Log out" : undefined}
+          className={
+            isHorizontal
+              ? "inline-flex rounded-full border border-red-900 bg-red-950 px-3 py-1.5 text-sm text-red-100 hover:border-red-700"
+              : collapsed
+                ? "inline-flex h-11 w-11 items-center justify-center rounded-md border border-red-900 bg-red-950 text-red-100 hover:border-red-700"
+                : "inline-flex w-full items-center gap-2 rounded-md border border-red-900 bg-red-950 px-3 py-2 text-left text-sm text-red-100 hover:border-red-700"
+          }
+        >
+          <NavIcon name="logout" />
+          {!collapsed || isHorizontal ? <span>Log out</span> : null}
+        </AdminLogoutButton>
       </div>
     </nav>
   );

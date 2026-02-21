@@ -32,6 +32,8 @@ import {
   performLogout,
   resolveLogoutRedirect,
 } from "@/lib/auth/logout";
+import { getPostLoginRedirect } from "@/lib/auth/redirects";
+import { clearClientRedirectState, readClientRedirectState } from "@/lib/auth/clientRedirectState";
 
 const AuthContext = createContext({
   supabase: null,
@@ -326,6 +328,7 @@ function clearSupabaseCookiesClient() {
   } catch {
     // ignore
   }
+  clearClientRedirectState();
 }
 
 function describeNode(node) {
@@ -956,6 +959,11 @@ export function AuthProvider({
     [reactId]
   );
   const authUiFailsafeTimerRef = useRef(null);
+  const authRouteRedirectRef = useRef({
+    userId: null,
+    target: null,
+    fromPath: null,
+  });
   const router = useRouter();
   const lastKnownRoleRef = useRef(null);
   const logRefreshAttempt = useCallback(
@@ -1063,19 +1071,6 @@ export function AuthProvider({
       lastKnownRoleRef.current = authState.role;
     }
   }, [authState.role]);
-
-  useEffect(() => {
-    if (isNestedProvider) return;
-    if (typeof window === "undefined") return;
-    if (isAuthNavigationSuppressed()) return;
-    const event = authState.lastAuthEvent;
-    if (!event) return;
-    if (!["SIGNED_IN", "TOKEN_REFRESHED"].includes(event)) {
-      return;
-    }
-    logAuthDiag("router:refresh", { event });
-    guardedRouterRefresh(`auth_event:${event}`);
-  }, [authState.lastAuthEvent, guardedRouterRefresh, isNestedProvider]);
 
   useEffect(() => {
     if (isNestedProvider) return;
@@ -1191,8 +1186,12 @@ export function AuthProvider({
     params.delete("signedout");
     const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
     window.history.replaceState({}, "", next);
-    guardedRouterRefresh("signedout_param");
-  }, [guardedRouterRefresh, isNestedProvider, searchParams]);
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[AUTH_REDIRECT_TRACE] signedout_param_cleared", {
+        pathname: window.location.pathname,
+      });
+    }
+  }, [isNestedProvider, searchParams]);
 
   useEffect(() => {
     if (isNestedProvider) return;
@@ -1535,8 +1534,17 @@ export function AuthProvider({
       to: target,
       role: lastKnownRoleRef.current,
     });
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[AUTH_REDIRECT_TRACE] unauthenticated_redirect", {
+        pathname,
+        role: lastKnownRoleRef.current ?? null,
+        hasSession: Boolean(authState.session),
+        hasUser: Boolean(authState.user),
+        destination: target,
+      });
+    }
     redirectWithGuard(target);
-  }, [authState.authStatus, authState.user, isNestedProvider, pathname]);
+  }, [authState.authStatus, authState.session, authState.user, isNestedProvider, pathname]);
 
   useEffect(() => {
     if (isNestedProvider) return;
@@ -1545,12 +1553,36 @@ export function AuthProvider({
     if (authState.authStatus !== "authenticated" || !authState.user) return;
     if (!pathname) return;
     if (!pathname.startsWith("/business-auth")) return;
+    const resolvedRole = authState.profile?.role ?? authState.role;
+    if (!resolvedRole) {
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[AUTH_REDIRECT_TRACE] auth_redirect_waiting_for_role", {
+          pathname,
+          hasSession: Boolean(authState.session),
+          hasUser: Boolean(authState.user),
+          role: null,
+        });
+      }
+      return;
+    }
 
-    const target = (authState.profile?.role ?? authState.role) === "admin"
-      ? "/admin"
-      : authState.role === "business"
-        ? PATHS.business.dashboard
-        : PATHS.customer.home;
+    const requestedPath =
+      searchParams?.get("next") ||
+      searchParams?.get("returnUrl") ||
+      searchParams?.get("callbackUrl") ||
+      null;
+    const target = getPostLoginRedirect({
+      role: resolvedRole,
+      requestedPath,
+      fallbackPath:
+        resolvedRole === "business" ? PATHS.business.dashboard : PATHS.customer.home,
+    });
+    const redirectState = authRouteRedirectRef.current;
+    const sameRedirect =
+      redirectState.userId === authState.user.id &&
+      redirectState.target === target &&
+      redirectState.fromPath === pathname;
+    if (sameRedirect) return;
     if (pathname === target || pathname === `${target}/`) return;
 
     logAuthDiag("route_guard:auth_redirect", {
@@ -1558,15 +1590,31 @@ export function AuthProvider({
       to: target,
       role: authState.role,
     });
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[AUTH_REDIRECT_TRACE] auth_provider_redirect_effect", {
+        role: authState.profile?.role ?? authState.role ?? null,
+        requestedPath,
+        chosenDestination: target,
+        persistedRedirectState: readClientRedirectState(),
+        hasSession: Boolean(authState.session),
+      });
+    }
+    authRouteRedirectRef.current = {
+      userId: authState.user.id,
+      target,
+      fromPath: pathname,
+    };
     router.replace(target);
   }, [
     authState.authStatus,
     authState.profile?.is_internal,
     authState.profile?.role,
     authState.role,
+    authState.session,
     authState.user,
     isNestedProvider,
     pathname,
+    searchParams,
     router,
   ]);
 

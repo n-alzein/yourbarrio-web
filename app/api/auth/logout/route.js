@@ -6,6 +6,35 @@ import {
   logSupabaseCookieDiagnostics,
 } from "@/lib/authCookies";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
+import {
+  IMPERSONATE_SESSION_COOKIE,
+  IMPERSONATE_TARGET_ROLE_COOKIE,
+  IMPERSONATE_USER_COOKIE,
+} from "@/lib/admin/supportMode";
+
+const REDIRECT_COOKIE_KEYS = [
+  "returnTo",
+  "next",
+  "callbackUrl",
+  "postLoginRedirect",
+  "yb:returnTo",
+  "yb:postLoginRedirect",
+];
+
+function clearCookieByName(response, name) {
+  const base = {
+    path: "/",
+    sameSite: "lax",
+    maxAge: 0,
+    expires: new Date(0),
+  };
+  [".yourbarrio.com", "www.yourbarrio.com", undefined].forEach((domain) => {
+    response.cookies.set(name, "", {
+      ...base,
+      ...(domain ? { domain } : {}),
+    });
+  });
+}
 
 export async function GET(request) {
   const isProd = process.env.NODE_ENV === "production";
@@ -47,6 +76,12 @@ export async function GET(request) {
   }
 
   clearSupabaseCookies(response, request, { isProd, debug, log });
+  [
+    IMPERSONATE_USER_COOKIE,
+    IMPERSONATE_SESSION_COOKIE,
+    IMPERSONATE_TARGET_ROLE_COOKIE,
+    ...REDIRECT_COOKIE_KEYS,
+  ].forEach((name) => clearCookieByName(response, name));
 
   return response;
 }

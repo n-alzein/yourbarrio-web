@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import AdminShellClient from "@/app/admin/_components/AdminShellClient";
 import AdminSidebar from "@/app/admin/_components/AdminSidebar";
 import AdminStatusStack from "@/app/admin/_components/AdminStatusStack";
@@ -12,8 +12,7 @@ import { isAdminBypassRlsEnabled } from "@/lib/supabase/admin";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const { role } = await getCurrentUserRole();
-  // Deny by default and hide admin surface existence from non-admin users.
-  if (role !== "admin") notFound();
+  if (role !== "admin") redirect("/");
 
   const guardDiagEnabled =
     String(process.env.AUTH_GUARD_DIAG || "") === "1" ||

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getCookieBaseOptions } from "@/lib/authCookies";
 import { resolveCurrentUserRoleFromClient } from "@/lib/auth/getCurrentUserRole";
+import { getRoleLandingPath } from "@/lib/auth/redirects";
 
 const IMPERSONATE_USER_COOKIE = "yb_impersonate_user_id";
 const IMPERSONATE_SESSION_COOKIE = "yb_impersonate_session_id";
@@ -187,6 +188,12 @@ export async function middleware(request) {
     if (!targetPath || targetPath === pathname || !canRedirect) {
       return withSupabaseCookies(response);
     }
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[AUTH_MW_REDIRECT]", {
+        from: pathname,
+        to: targetPath,
+      });
+    }
     return withSupabaseCookies(NextResponse.redirect(new URL(targetPath, request.url)));
   };
 
@@ -270,8 +277,30 @@ export async function middleware(request) {
   }
 
   if (pathname.startsWith("/admin")) {
-    if (!user || role !== "admin") {
-      return withSupabaseCookies(new NextResponse("Not Found", { status: 404 }));
+    if (!user) {
+      const signinUrl = new URL("/signin", request.url);
+      signinUrl.searchParams.set("modal", "signin");
+      signinUrl.searchParams.set("next", pathname);
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[AUTH_MW_REDIRECT]", {
+          from: pathname,
+          to: `${signinUrl.pathname}${signinUrl.search}`,
+          reason: "admin_requires_auth",
+          role,
+        });
+      }
+      return withSupabaseCookies(NextResponse.redirect(signinUrl));
+    }
+    if (role !== "admin") {
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[AUTH_MW_REDIRECT]", {
+          from: pathname,
+          to: getRoleLandingPath(role),
+          reason: "admin_requires_admin_role",
+          role,
+        });
+      }
+      return redirectSafely(getRoleLandingPath(role));
     }
     return withSupabaseCookies(response);
   }

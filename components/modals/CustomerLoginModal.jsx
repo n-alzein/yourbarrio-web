@@ -9,6 +9,11 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useModal } from "./ModalProvider";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { withTimeout } from "@/lib/withTimeout";
+import { getPostLoginRedirect } from "@/lib/auth/redirects";
+import {
+  getRequestedPathFromCurrentUrl,
+  readClientRedirectState,
+} from "@/lib/auth/clientRedirectState";
 
 export default function CustomerLoginModal({ onClose, next: nextFromModalProps = null }) {
   const {
@@ -57,6 +62,8 @@ export default function CustomerLoginModal({ onClose, next: nextFromModalProps =
     if (typeof nextFromModalProps === "string" && nextFromModalProps.trim()) {
       return nextFromModalProps.trim();
     }
+    const fromUrl = getRequestedPathFromCurrentUrl();
+    if (fromUrl) return fromUrl;
     if (typeof window === "undefined") return null;
     const params =
       searchParams ?? new URLSearchParams(window.location.search || "");
@@ -217,18 +224,30 @@ export default function CustomerLoginModal({ onClose, next: nextFromModalProps =
         }
       }
 
-      let dest = "/customer/home";
-      if (isAdmin) {
-        dest = "/admin";
-      } else if (normalizedRole === "business") {
-        dest = "/business";
-      }
+      const requestedPath = getNextParam();
+      const roleForRedirect = isAdmin
+        ? "admin"
+        : normalizedRole === "business"
+          ? "business"
+          : "customer";
+      const dest = getPostLoginRedirect({
+        role: roleForRedirect,
+        requestedPath,
+      });
       if (authDiagEnabled) {
         console.log("[AUTH_DIAG] customer-login:redirect:resolved", {
           role: normalizedRole || null,
           isInternal: profile?.is_internal === true,
-          next: getNextParam(),
+          next: requestedPath,
           dest,
+        });
+      }
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[AUTH_REDIRECT_TRACE] customer_login_submit", {
+          role: roleForRedirect,
+          requestedPath,
+          chosenDestination: dest,
+          persistedRedirectState: readClientRedirectState(),
         });
       }
 
@@ -304,7 +323,7 @@ export default function CustomerLoginModal({ onClose, next: nextFromModalProps =
 
       onClose?.();
       if (isAdmin) {
-        window.location.replace("/admin");
+        window.location.replace(dest);
         return;
       }
       router.replace(dest);

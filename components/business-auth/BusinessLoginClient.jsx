@@ -6,6 +6,11 @@ import { getSupabaseAuthCookieName } from "@/lib/supabase/cookieName";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { withTimeout } from "@/lib/withTimeout";
 import { signOutLocalSession } from "@/lib/auth/logout";
+import { getPostLoginRedirect } from "@/lib/auth/redirects";
+import {
+  getRequestedPathFromCurrentUrl,
+  readClientRedirectState,
+} from "@/lib/auth/clientRedirectState";
 
 function BusinessLoginInner({ isPopup }) {
   const authDiagEnabled = process.env.NEXT_PUBLIC_AUTH_DIAG === "1";
@@ -132,6 +137,24 @@ function BusinessLoginInner({ isPopup }) {
     return false;
   }, []);
 
+  const resolvePostLoginTarget = useCallback(() => {
+    const requestedPath = getRequestedPathFromCurrentUrl();
+    const target = getPostLoginRedirect({
+      role: "business",
+      requestedPath,
+      fallbackPath: "/go/dashboard",
+    });
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[AUTH_REDIRECT_TRACE] business_login_submit", {
+        role: "business",
+        requestedPath,
+        chosenDestination: target,
+        persistedRedirectState: readClientRedirectState(),
+      });
+    }
+    return target;
+  }, []);
+
   const finishBusinessAuth = useCallback(
     (target = "/go/dashboard") => {
       if (redirectingRef.current) return;
@@ -192,8 +215,8 @@ function BusinessLoginInner({ isPopup }) {
   const redirectToDashboard = useCallback(async () => {
     if (redirectingRef.current) return;
     await waitForAuthCookie();
-    finishBusinessAuth();
-  }, [finishBusinessAuth, waitForAuthCookie]);
+    finishBusinessAuth(resolvePostLoginTarget());
+  }, [finishBusinessAuth, resolvePostLoginTarget, waitForAuthCookie]);
 
   const handleLoginTimeout = useCallback(
     async (attemptId, timeoutController) => {
