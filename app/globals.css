@@ -882,6 +882,25 @@ html, body {
   max-width: 240px;
   margin-left: 8px;
 }
+.yb-marker-active .yb-marker-local,
+.yb-marker-selected .yb-marker-local {
+  border-color: rgba(196, 181, 253, 0.95);
+  box-shadow: 0 12px 30px rgba(124, 58, 237, 0.38);
+}
+.yb-marker-active .yb-marker-icon,
+.yb-marker-selected .yb-marker-icon {
+  background: linear-gradient(145deg, #c4b5fd, #8b5cf6);
+  border-color: #f5f3ff;
+}
+.yb-marker-selected .yb-marker-label {
+  opacity: 1;
+  max-width: 240px;
+  margin-left: 8px;
+}
+.yb-marker:focus-visible .yb-marker-local {
+  outline: 2px solid rgba(196, 181, 253, 0.95);
+  outline-offset: 2px;
+}
 
 .yb-user-marker {
   width: 14px;

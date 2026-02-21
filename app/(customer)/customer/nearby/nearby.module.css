@@ -1,0 +1,11 @@
+.nearbyPage {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+@media (min-width: 768px) {
+  :global(html[data-route="customer-nearby"] .customer-shell-content),
+  :global(html[data-route="customer-nearby"] [data-testid="customer-shell-content"]) {
+    padding-top: 12px !important;
+  }
+}

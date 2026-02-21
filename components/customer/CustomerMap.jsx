@@ -21,6 +21,15 @@ function CustomerMap({
   onBusinessesChange,
   onControlsReady,
   selectedBusiness,
+  activeBusinessId,
+  hoveredBusinessId,
+  selectedBusinessId,
+  onMarkerHover,
+  onMarkerLeave,
+  onMarkerClick,
+  showRecenterControl = false,
+  recenterButtonTestId = "recenter-map",
+  markerClickBehavior = "navigate",
   clickDiagEnabled,
   enableSearch = true,
   preferredCenter = null,
@@ -41,8 +50,8 @@ function CustomerMap({
       showBusinessErrors: false,
       containerClassName: "w-full h-full",
       cardClassName:
-        "h-full rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-xl p-4 text-white flex flex-col gap-3",
-      mapClassName: "h-[40vh] sm:h-[45vh] md:h-[360px] w-full",
+        "h-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-xl p-0 text-white flex flex-col overflow-hidden",
+      mapClassName: "h-full w-full rounded-2xl overflow-hidden",
       title: "",
       enableCategoryFilter: false,
       enableSearch,
@@ -52,8 +61,36 @@ function CustomerMap({
       onBusinessesChange,
       onControlsReady: handleControlsReady,
       preferredCenter,
+      activeBusinessId,
+      hoveredBusinessId,
+      selectedBusinessId:
+        selectedBusinessId ??
+        (selectedBusiness && (selectedBusiness.id || selectedBusiness.public_id)) ??
+        null,
+      onMarkerHover,
+      onMarkerLeave,
+      onMarkerClick,
+      showRecenterControl,
+      recenterButtonTestId,
+      markerClickBehavior,
     }),
-    [enableSearch, mapBusinesses, onBusinessesChange, handleControlsReady, preferredCenter]
+    [
+      enableSearch,
+      mapBusinesses,
+      onBusinessesChange,
+      handleControlsReady,
+      preferredCenter,
+      activeBusinessId,
+      hoveredBusinessId,
+      selectedBusinessId,
+      selectedBusiness,
+      onMarkerHover,
+      onMarkerLeave,
+      onMarkerClick,
+      showRecenterControl,
+      recenterButtonTestId,
+      markerClickBehavior,
+    ]
   );
 
   if (!mapEnabled || !GoogleMapClient) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { markImageFailed, resolveImageSrc } from "@/lib/safeImage";
@@ -74,6 +74,48 @@ const PLACES_MAX_RESULTS =
 
 const LAST_CENTER_KEY = "yb_last_center";
 
+function createRecenterControl({ onRecenter, testId }) {
+  return {
+    onAdd() {
+      const container = document.createElement("div");
+      container.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
+      container.style.marginTop = "8px";
+      container.style.marginRight = "10px";
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.setAttribute("aria-label", "Recenter to my location");
+      button.setAttribute("title", "Recenter to my location");
+      button.setAttribute("data-testid", testId || "recenter-map");
+      button.style.width = "32px";
+      button.style.height = "32px";
+      button.style.display = "flex";
+      button.style.alignItems = "center";
+      button.style.justifyContent = "center";
+      button.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z" />
+          <path d="M12 3v2.5M12 18.5V21M21 12h-2.5M5.5 12H3" stroke-linecap="round" />
+          <circle cx="12" cy="12" r="8.25" stroke-opacity="0.55" />
+        </svg>
+      `;
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onRecenter?.();
+      });
+
+      container.appendChild(button);
+      this._container = container;
+      return container;
+    },
+    onRemove() {
+      this._container?.remove();
+      this._container = null;
+    },
+  };
+}
+
 export default function GoogleMapClient({
   radiusKm = 25,
   containerClassName = "w-full max-w-6xl mx-auto mt-12",
@@ -91,6 +133,15 @@ export default function GoogleMapClient({
   externalSearchTerm,
   externalSearchTrigger,
   preferredCenter = null,
+  activeBusinessId = null,
+  hoveredBusinessId = null,
+  selectedBusinessId = null,
+  onMarkerHover,
+  onMarkerLeave,
+  onMarkerClick,
+  showRecenterControl = false,
+  recenterButtonTestId = "recenter-map",
+  markerClickBehavior = "navigate",
 }) {
   // DEBUG_CLICK_DIAG
   const clickDiagEnabled = process.env.NEXT_PUBLIC_CLICK_DIAG === "1";
@@ -270,6 +321,23 @@ export default function GoogleMapClient({
     }
   };
 
+  const updateMarkerVisualState = useCallback(
+    (businessId, element) => {
+      if (!element) return;
+      const normalizedId = businessId == null ? null : String(businessId);
+      const activeId =
+        hoveredBusinessId != null
+          ? String(hoveredBusinessId)
+          : activeBusinessId == null
+            ? null
+            : String(activeBusinessId);
+      const selectedId = selectedBusinessId == null ? null : String(selectedBusinessId);
+      element.classList.toggle("yb-marker-active", normalizedId === activeId);
+      element.classList.toggle("yb-marker-selected", normalizedId === selectedId);
+    },
+    [activeBusinessId, hoveredBusinessId, selectedBusinessId]
+  );
+
   const clearBusinessMarkers = () => {
     markerIndexRef.current.forEach((rec) => detachMarker(rec.marker));
     businessMarkersRef.current.forEach(detachMarker);
@@ -421,8 +489,26 @@ export default function GoogleMapClient({
         : "";
 
     const wrapper = document.createElement("div");
+    wrapper.dataset.testid = "map-popup-card";
     wrapper.style.color = "#0f172a";
     wrapper.style.maxWidth = "240px";
+    wrapper.style.cursor = biz?.id ? "pointer" : "default";
+    if (biz?.id) {
+      wrapper.tabIndex = 0;
+      wrapper.setAttribute("role", "link");
+      wrapper.setAttribute("aria-label", `View ${safeText(biz.name || "business")} profile`);
+      wrapper.addEventListener("click", (event) => {
+        if (event.target?.closest?.("a")) return;
+        window.location.assign(getCustomerBusinessUrl(biz));
+      });
+      wrapper.addEventListener("keydown", (event) => {
+        if (event.target?.closest?.("a")) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          window.location.assign(getCustomerBusinessUrl(biz));
+        }
+      });
+    }
     const imgContainer = document.createElement("div");
     const resolvedSrc = resolveImageSrc(biz.imageUrl, "/business-placeholder.png");
     if (resolvedSrc) {
@@ -474,6 +560,12 @@ export default function GoogleMapClient({
       desc.style.fontSize = "12px";
       desc.style.marginTop = "6px";
       desc.style.color = "#475569";
+      desc.dataset.testid = "map-popup-description";
+      desc.style.display = "-webkit-box";
+      desc.style.webkitLineClamp = "3";
+      desc.style.webkitBoxOrient = "vertical";
+      desc.style.overflow = "hidden";
+      desc.style.textOverflow = "ellipsis";
       desc.textContent = safeText(biz.description);
       wrapper.appendChild(desc);
     }
@@ -524,12 +616,14 @@ export default function GoogleMapClient({
         if (existing.contentUpdater) {
           existing.contentUpdater(biz);
         }
+        updateMarkerVisualState(key, existing.element);
         return;
       }
 
       const wrapper = document.createElement("div");
       wrapper.className = `yb-marker${isCurated ? " yb-marker-curated" : ""}`;
       wrapper.setAttribute("tabindex", "0");
+      wrapper.dataset.businessId = String(key);
       const localWrap = document.createElement("div");
       localWrap.className = "yb-marker-local";
       const icon = document.createElement("div");
@@ -561,6 +655,11 @@ export default function GoogleMapClient({
       };
 
       const openBusinessProfile = (event) => {
+        if (markerClickBehavior === "select") {
+          popup.addTo(map);
+          onMarkerClick?.(key);
+          return;
+        }
         if (biz?.id) {
           const url = getCustomerBusinessUrl(biz);
           if (event?.metaKey || event?.ctrlKey) {
@@ -580,9 +679,12 @@ export default function GoogleMapClient({
           openBusinessProfile(event);
         }
       });
-      wrapper.addEventListener("mouseenter", () => {
-        popup.addTo(map);
-      });
+      wrapper.addEventListener("mouseenter", () => onMarkerHover?.(key));
+      wrapper.addEventListener("mouseleave", () => onMarkerLeave?.());
+      wrapper.addEventListener("focus", () => onMarkerHover?.(key));
+      wrapper.addEventListener("blur", () => onMarkerLeave?.());
+
+      updateMarkerVisualState(key, wrapper);
 
       businessMarkersRef.current.push(marker);
       markerIndexRef.current.set(key, {
@@ -590,6 +692,7 @@ export default function GoogleMapClient({
         popup,
         coords: biz.coords,
         contentUpdater: updateContent,
+        element: wrapper,
       });
     });
 
@@ -964,10 +1067,18 @@ export default function GoogleMapClient({
 
   const handleRecenterClick = () => {
     const map = mapInstanceRef.current;
-    if (!map) return;
-    const target = userCenterRef.current || FALLBACK_CENTER;
+    if (!map) return false;
+    const target = userCenterRef.current;
+    if (!target) {
+      setSearchError("Your location is unavailable right now.");
+      setSearchMessage(null);
+      return false;
+    }
+    setSearchError(null);
+    setSearchMessage(null);
     suppressNextMoveRef.current = true;
     map.flyTo({ center: [target.lng, target.lat], zoom: Math.max(map.getZoom(), 13) });
+    return true;
   };
 
   const performSearch = async (term) => {
@@ -1139,7 +1250,8 @@ export default function GoogleMapClient({
     if (!biz) return;
     const map = mapInstanceRef.current;
     if (!map) return;
-    const rec = markerIndexRef.current.get(biz.id);
+    const businessKey = biz?.id ?? biz?.public_id ?? biz?.name;
+    const rec = markerIndexRef.current.get(businessKey);
     if (rec?.marker) {
       map.flyTo({
         center: [rec.coords.lng, rec.coords.lat],
@@ -1157,6 +1269,24 @@ export default function GoogleMapClient({
         center: [biz.coords.lng, biz.coords.lat],
         zoom: Math.max(map.getZoom(), 15),
       });
+    }
+  };
+
+  const focusBusinessById = (businessId) => {
+    if (!businessId) return;
+    const rec = markerIndexRef.current.get(businessId);
+    const map = mapInstanceRef.current;
+    if (!rec || !map) return;
+    map.flyTo({
+      center: [rec.coords.lng, rec.coords.lat],
+      zoom: Math.max(map.getZoom(), 15),
+    });
+    if (activePopupRef.current && activePopupRef.current !== rec.popup) {
+      activePopupRef.current.remove();
+    }
+    if (rec.popup) {
+      rec.popup.addTo(map);
+      activePopupRef.current = rec.popup;
     }
   };
 
@@ -1213,6 +1343,15 @@ export default function GoogleMapClient({
 
     mapInstanceRef.current = map;
     map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
+    if (showRecenterControl) {
+      map.addControl(
+        createRecenterControl({
+          onRecenter: handleRecenterClick,
+          testId: recenterButtonTestId,
+        }),
+        "top-right"
+      );
+    }
     const handleLoaded = () => setLoading(false);
     const handleMapError = (event) => {
       const err = event?.error || event;
@@ -1247,6 +1386,8 @@ export default function GoogleMapClient({
       onControlsReady?.({
         search: performSearch,
         focusBusiness,
+        focusBusinessById,
+        recenterToUser: handleRecenterClick,
         enablePlaces,
         disablePlaces,
         placesEnabled: () => placesEnabledRef.current,
@@ -1344,6 +1485,10 @@ export default function GoogleMapClient({
       .setLngLat([preferred.lng, preferred.lat])
       .addTo(map);
 
+    if (selectedBusinessId != null) {
+      return;
+    }
+
     const center = map.getCenter();
     const isAlreadyCentered =
       center &&
@@ -1364,7 +1509,7 @@ export default function GoogleMapClient({
       map.getZoom(),
       computeVisibleRadiusMeters(radiusKm * 1000)
     );
-  }, [preferredCenter, mapReady, radiusKm]);
+  }, [preferredCenter, mapReady, radiusKm, selectedBusinessId]);
 
   useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -1384,7 +1529,56 @@ export default function GoogleMapClient({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCategory, businesses]);
+  }, [activeCategory, businesses, updateMarkerVisualState]);
+
+  useEffect(() => {
+    if (!selectedBusinessId) return;
+    focusBusinessById(selectedBusinessId);
+  }, [selectedBusinessId]);
+
+  useEffect(() => {
+    markerIndexRef.current.forEach((rec, key) => {
+      updateMarkerVisualState(key, rec.element);
+      if (
+        selectedBusinessId != null &&
+        String(selectedBusinessId) === String(key) &&
+        rec.popup &&
+        mapInstanceRef.current
+      ) {
+        rec.popup.addTo(mapInstanceRef.current);
+        activePopupRef.current = rec.popup;
+      }
+    });
+  }, [activeBusinessId, selectedBusinessId, updateMarkerVisualState]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const container = containerRef.current;
+    if (!map || !container) return undefined;
+
+    const triggerResize = () => {
+      try {
+        map.resize();
+      } catch {
+        /* ignore transient resize errors */
+      }
+    };
+
+    const timerId = window.setTimeout(triggerResize, 80);
+    window.addEventListener("resize", triggerResize);
+
+    let observer;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(() => triggerResize());
+      observer.observe(container);
+    }
+
+    return () => {
+      window.clearTimeout(timerId);
+      window.removeEventListener("resize", triggerResize);
+      observer?.disconnect();
+    };
+  }, [mapReady]);
 
   useEffect(() => {
     if (typeof onBusinessesChange === "function") {
@@ -1586,38 +1780,22 @@ export default function GoogleMapClient({
             ) : null}
           </div>
         ) : null}
-        <div className="relative">
-      <div
-        className={mapClassName}
-        ref={mapRef}
-        id="mapbox-map"
-        style={{ pointerEvents: "auto", touchAction: "auto", position: "relative", zIndex: 1 }}
-      />
-          <div className="pointer-events-none absolute bottom-4 right-4">
-            <button
-              type="button"
-              aria-label="Recenter map"
-              onClick={handleRecenterClick}
-              className="pointer-events-auto h-12 w-12 rounded-full bg-white text-black flex items-center justify-center shadow-xl border border-black/10 hover:bg-white/90 active:scale-95 transition"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <path d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z" />
-                <path d="M12 3v2.5M12 18.5V21M21 12h-2.5M5.5 12H3" strokeLinecap="round" />
-                <circle cx="12" cy="12" r="8.25" strokeOpacity="0.5" />
-              </svg>
-            </button>
-          </div>
+        <div className="relative flex-1 min-h-0">
+          <div
+            className={mapClassName}
+            ref={mapRef}
+            id="mapbox-map"
+            style={{ pointerEvents: "auto", touchAction: "auto", position: "relative", zIndex: 1 }}
+          />
         </div>
         {loading && <div className="mt-2 text-sm text-white/70">Loading map...</div>}
         {error && <div className="mt-2 text-sm text-rose-400">{error}</div>}
+        {!enableSearch && searchError ? (
+          <div className="mt-2 text-sm text-rose-300">{searchError}</div>
+        ) : null}
+        {!enableSearch && searchMessage ? (
+          <div className="mt-2 text-sm text-emerald-200">{searchMessage}</div>
+        ) : null}
       </div>
     </div>
   );

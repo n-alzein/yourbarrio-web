@@ -466,6 +466,7 @@ export default function GlobalHeader({
       className="fixed top-0 inset-x-0 z-[5000] theme-lock pointer-events-auto yb-navbar yb-navbar-bordered"
       data-nav-surface={surface}
       data-nav-guard="1"
+      data-testid={surface === "customer" ? "customer-navbar" : "global-navbar"}
     >
       <div className="w-full px-3 sm:px-4 md:px-8 lg:px-10 xl:px-14 flex items-center justify-between h-20 gap-2 md:gap-6">
         <button
