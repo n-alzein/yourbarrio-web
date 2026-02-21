@@ -90,6 +90,7 @@ export default function GoogleMapClient({
   onControlsReady,
   externalSearchTerm,
   externalSearchTrigger,
+  preferredCenter = null,
 }) {
   // DEBUG_CLICK_DIAG
   const clickDiagEnabled = process.env.NEXT_PUBLIC_CLICK_DIAG === "1";
@@ -232,6 +233,16 @@ export default function GoogleMapClient({
       return FALLBACK_CENTER;
     }
     return center;
+  };
+
+  const parseCenter = (candidate) => {
+    if (!candidate || typeof candidate !== "object") return null;
+    const latRaw = candidate.lat;
+    const lngRaw = candidate.lng;
+    const lat = typeof latRaw === "number" ? latRaw : Number.parseFloat(latRaw);
+    const lng = typeof lngRaw === "number" ? lngRaw : Number.parseFloat(lngRaw);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) return null;
+    return { lat, lng };
   };
 
   const getSafeCenter = (lat, lng) => {
@@ -1255,45 +1266,18 @@ export default function GoogleMapClient({
         );
       }
 
-      try {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              const userLat = pos.coords.latitude;
-              const userLng = pos.coords.longitude;
-              userCenterRef.current = { lat: userLat, lng: userLng };
-              persistedCenterRef.current = { lat: userLat, lng: userLng };
-              try {
-                localStorage.setItem(
-                  LAST_CENTER_KEY,
-                  JSON.stringify(persistedCenterRef.current)
-                );
-              } catch (_) {
-                /* ignore */
-              }
-              placeUserMarker(userLat, userLng);
-              startWithCenter(userLat, userLng);
-            },
-            (err) => {
-              console.warn("Geolocation error", err);
-              setError(
-                "Could not get your location. Showing nearby businesses around a default location."
-              );
-              userCenterRef.current = null;
-              const centerToUse = getDefaultCenter();
-              startWithCenter(centerToUse.lat, centerToUse.lng);
-            },
-            { enableHighAccuracy: true, maximumAge: 1000 * 60 * 5 }
-          );
-        } else {
-          setError("Geolocation not supported. Showing default area.");
-          userCenterRef.current = null;
-          const centerToUse = enforceCenter(getDefaultCenter());
-          startWithCenter(centerToUse.lat, centerToUse.lng);
+      const preferred = parseCenter(preferredCenter);
+      if (preferred) {
+        userCenterRef.current = preferred;
+        persistedCenterRef.current = preferred;
+        try {
+          localStorage.setItem(LAST_CENTER_KEY, JSON.stringify(preferred));
+        } catch (_) {
+          /* ignore */
         }
-      } catch (geoErr) {
-        console.warn("Geolocation unavailable", geoErr);
-        userCenterRef.current = null;
+        placeUserMarker(preferred.lat, preferred.lng);
+        startWithCenter(preferred.lat, preferred.lng);
+      } else {
         const centerToUse = enforceCenter(getDefaultCenter());
         startWithCenter(centerToUse.lat, centerToUse.lng);
       }
@@ -1338,6 +1322,49 @@ export default function GoogleMapClient({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [radiusKm]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !mapReady) return;
+    const preferred = parseCenter(preferredCenter);
+    if (!preferred) return;
+
+    userCenterRef.current = preferred;
+    persistedCenterRef.current = preferred;
+    try {
+      localStorage.setItem(LAST_CENTER_KEY, JSON.stringify(preferred));
+    } catch (_) {
+      /* ignore */
+    }
+
+    detachMarker(userMarkerRef.current);
+    const userEl = document.createElement("div");
+    userEl.className = "yb-user-marker";
+    userMarkerRef.current = new mapboxgl.Marker({ element: userEl })
+      .setLngLat([preferred.lng, preferred.lat])
+      .addTo(map);
+
+    const center = map.getCenter();
+    const isAlreadyCentered =
+      center &&
+      Math.abs(center.lat - preferred.lat) < 0.0001 &&
+      Math.abs(center.lng - preferred.lng) < 0.0001;
+
+    if (!isAlreadyCentered) {
+      map.flyTo({
+        center: [preferred.lng, preferred.lat],
+        zoom: Math.max(map.getZoom(), 13),
+        duration: 700,
+      });
+    }
+
+    loadAndPlaceMarkersRef.current?.(
+      preferred.lat,
+      preferred.lng,
+      map.getZoom(),
+      computeVisibleRadiusMeters(radiusKm * 1000)
+    );
+  }, [preferredCenter, mapReady, radiusKm]);
 
   useEffect(() => {
     if (!mapInstanceRef.current) return;

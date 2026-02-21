@@ -30,7 +30,7 @@ export default function NearbyBusinessesClient() {
   const { user, loadingUser } = useAuth();
   const { theme, hydrated } = useTheme();
   const isLight = hydrated ? theme === "light" : true;
-  const { location, hydrated: locationHydrated } = useLocation();
+  const { location, hydrated: locationHydrated, requestGpsLocation } = useLocation();
   // Slightly stronger light-theme tones to preserve contrast on white surfaces.
   const textTone = useMemo(
     () => ({
@@ -88,6 +88,7 @@ export default function NearbyBusinessesClient() {
     dragging: false,
     lastDragAt: 0,
   });
+  const gpsRequestedRef = useRef(false);
 
   const logCrashEvent = useCallback(
     (payload) =>
@@ -142,6 +143,12 @@ export default function NearbyBusinessesClient() {
     if (!mapAvailable) return;
     setUserCity(location.city || "");
   }, [mapAvailable, location.city]);
+
+  useEffect(() => {
+    if (!locationHydrated || gpsRequestedRef.current) return;
+    gpsRequestedRef.current = true;
+    void requestGpsLocation();
+  }, [locationHydrated, requestGpsLocation]);
 
   useEffect(() => {
     const urlQuery = (searchParams?.get("q") || "").trim();
@@ -620,6 +627,11 @@ export default function NearbyBusinessesClient() {
                   mapEnabled={mapAvailable}
                   mapBusinesses={businessesForMap}
                   enableSearch={false}
+                  preferredCenter={
+                    Number.isFinite(location.lat) && Number.isFinite(location.lng)
+                      ? { lat: location.lat, lng: location.lng }
+                      : null
+                  }
                 />
               </div>
             </>

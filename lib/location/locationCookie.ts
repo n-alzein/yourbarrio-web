@@ -1,10 +1,14 @@
 export const LOCATION_COOKIE_NAME = "yb_location";
 export const LEGACY_LOCATION_COOKIE_NAME = "yb-location";
+export const LEGACY_LOCATION_COOKIE_NAME_ALT = "yb-location";
 export const LOCATION_STORAGE_KEY = "yb-location";
 export const LEGACY_CITY_KEY = "yb-city";
 
 export type LocationState = {
+  source?: "ip" | "gps" | "manual";
   city?: string;
+  region?: string;
+  country?: string;
   zip?: string;
   lat?: number;
   lng?: number;
@@ -34,7 +38,13 @@ export const normalizeLocationState = (input: unknown): LocationState | null => 
   const obj = parseObject(input);
   if (!obj) return null;
 
+  const source =
+    obj.source === "ip" || obj.source === "gps" || obj.source === "manual"
+      ? obj.source
+      : undefined;
   const city = compactSpaces(obj.city) || undefined;
+  const region = compactSpaces(obj.region) || undefined;
+  const country = compactSpaces(obj.country) || undefined;
   const zip = compactSpaces(obj.zip) || undefined;
   const label = compactSpaces(obj.label) || undefined;
   const kind = obj.kind === "postcode" || obj.kind === "place" ? obj.kind : undefined;
@@ -47,12 +57,23 @@ export const normalizeLocationState = (input: unknown): LocationState | null => 
     ? parsedUpdatedAt
     : Date.now();
 
-  if (!city && !zip && !placeId && typeof lat !== "number" && typeof lng !== "number") {
+  if (
+    !city &&
+    !region &&
+    !country &&
+    !zip &&
+    !placeId &&
+    typeof lat !== "number" &&
+    typeof lng !== "number"
+  ) {
     return null;
   }
 
   return {
+    source,
     city,
+    region,
+    country,
     zip,
     lat,
     lng,

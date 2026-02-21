@@ -363,7 +363,7 @@ function CustomerNavbarInner({ pathname, searchParams }) {
     if (locationPrefillRef.current) return;
     locationPrefillRef.current = true;
     timeoutId = setTimeout(() => {
-      setLocationInput(locationLabel !== "Your city" ? locationLabel : "");
+      setLocationInput(locationLabel !== "Set location" ? locationLabel : "");
     }, 0);
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
@@ -992,14 +992,14 @@ function CustomerNavbarInner({ pathname, searchParams }) {
       onClickCapture={handleNavCapture}
       data-nav-guard="1"
     >
-      <div className="w-full px-5 sm:px-6 md:px-8 lg:px-10 xl:px-14 flex items-center justify-between h-20 gap-6">
+      <div className="w-full px-3 sm:px-4 md:px-8 lg:px-10 xl:px-14 flex items-center justify-between h-20 gap-2 md:gap-6">
         {/* MOBILE MENU BUTTON */}
         <button
           onClick={() => {
             setProfileMenuOpen(false);
             setMobileMenuOpen((open) => !open);
           }}
-          className="md:hidden text-white mr-1"
+          className="md:hidden text-white mr-0 md:mr-1"
           aria-label="Open menu"
           aria-expanded={mobileMenuOpen}
           aria-controls={mobileDrawerId}
@@ -1517,7 +1517,7 @@ function CustomerNavbarInner({ pathname, searchParams }) {
       >
         <form
           onSubmit={handleSubmitSearch}
-          className="relative flex w-[calc(100%-3rem)] items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2"
+          className="relative flex w-full items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2"
         >
           <Search className="h-4 w-4 text-white/70" />
           <input

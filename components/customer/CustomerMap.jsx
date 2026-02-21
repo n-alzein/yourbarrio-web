@@ -23,6 +23,7 @@ function CustomerMap({
   selectedBusiness,
   clickDiagEnabled,
   enableSearch = true,
+  preferredCenter = null,
 }) {
   const [mapControls, setMapControls] = useState(null);
 
@@ -50,8 +51,9 @@ function CustomerMap({
       prefilledBusinesses: mapBusinesses,
       onBusinessesChange,
       onControlsReady: handleControlsReady,
+      preferredCenter,
     }),
-    [enableSearch, mapBusinesses, onBusinessesChange, handleControlsReady]
+    [enableSearch, mapBusinesses, onBusinessesChange, handleControlsReady, preferredCenter]
   );
 
   if (!mapEnabled || !GoogleMapClient) {

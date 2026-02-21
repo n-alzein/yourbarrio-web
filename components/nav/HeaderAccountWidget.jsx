@@ -206,7 +206,7 @@ export default function HeaderAccountWidget({
     if (mobileLocationPrefillRef.current) return;
     mobileLocationPrefillRef.current = true;
     timeoutId = setTimeout(() => {
-      setMobileLocationInput(locationLabel !== "Your city" ? locationLabel : "");
+      setMobileLocationInput(locationLabel !== "Set location" ? locationLabel : "");
     }, 0);
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
