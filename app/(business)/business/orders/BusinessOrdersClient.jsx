@@ -50,6 +50,7 @@ export default function BusinessOrdersClient() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState("all");
   const [statusMenuOrder, setStatusMenuOrder] = useState(null);
+  const deliveryInstructions = selectedOrder?.delivery_instructions?.trim();
 
   const getConfirmMessage = (fromStatus, toStatus, orderNumber) => {
     const orderLabel = orderNumber ? `Order ${orderNumber}` : "this order";
@@ -763,6 +764,17 @@ export default function BusinessOrdersClient() {
                     Pickup time: {selectedOrder.pickup_time || "ASAP"}
                   </p>
                 )}
+                {selectedOrder.fulfillment_type === "delivery" &&
+                deliveryInstructions ? (
+                  <div className="space-y-1">
+                    <p className="text-xs uppercase tracking-[0.2em] opacity-60">
+                      Delivery instructions
+                    </p>
+                    <p className="text-xs opacity-70 whitespace-pre-wrap">
+                      {deliveryInstructions}
+                    </p>
+                  </div>
+                ) : null}
                 <p className="text-xs opacity-70">
                   {getOrderStatusDescription(selectedOrder.status)}
                 </p>
