@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerClient as getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getBusinessDataClientForRequest } from "@/lib/business/getBusinessDataClientForRequest";
 import { getLowStockThreshold } from "@/lib/inventory";
+import {
+  ORDER_STATUSES,
+  canTransition,
+  isBackward,
+} from "@/lib/orders/statusTransitions";
 
 const STATUS_TABS = {
   new: ["requested"],
@@ -165,6 +170,7 @@ export async function PATCH(request) {
   }
   const supabase = access.client;
   const effectiveUserId = access.effectiveUserId;
+  const actorUserId = access.actorUserId || access.effectiveUserId;
   const serviceClient = getSupabaseServiceClient();
 
   let body = {};
@@ -176,6 +182,8 @@ export async function PATCH(request) {
 
   const orderId = body?.order_id;
   const nextStatus = body?.status;
+  const reasonRaw = body?.reason;
+  const reason = typeof reasonRaw === "string" ? reasonRaw.trim() : "";
 
   if (!orderId || !nextStatus) {
     return jsonError("Missing order_id or status", 400);
@@ -183,7 +191,9 @@ export async function PATCH(request) {
 
   const { data: existingOrder, error: existingOrderError } = await supabase
     .from("orders")
-    .select("id, status, vendor_id, confirmed_at, fulfilled_at, cancelled_at")
+    .select(
+      "id, status, vendor_id, fulfillment_type, confirmed_at, fulfilled_at, cancelled_at"
+    )
     .eq("id", orderId)
     .eq("vendor_id", effectiveUserId)
     .maybeSingle();
@@ -196,20 +206,34 @@ export async function PATCH(request) {
     return jsonError("Order not found", 404);
   }
 
-  const allowed = [
-    "confirmed",
-    "ready",
-    "out_for_delivery",
-    "fulfilled",
-    "cancelled",
-  ];
-
-  if (!allowed.includes(nextStatus)) {
+  if (!ORDER_STATUSES.includes(nextStatus)) {
     return jsonError("Invalid status", 400);
   }
 
+  const currentStatus = existingOrder.status;
+  if (currentStatus === "fulfilled") {
+    return jsonError("Invalid status transition", 400);
+  }
+
+  const isBackwardTransition = isBackward(currentStatus, nextStatus);
+  const isReopenTransition = currentStatus === "cancelled";
+
+  const transitionAllowed = canTransition({
+    from: currentStatus,
+    to: nextStatus,
+    fulfillmentType: existingOrder.fulfillment_type,
+  });
+  if (!transitionAllowed) {
+    return jsonError("Invalid status transition", 400);
+  }
+
+  const needsReason = isBackwardTransition || isReopenTransition;
+  if (needsReason && reason.length < 5) {
+    return jsonError("Reason required", 400);
+  }
+
   const shouldAdjustInventory =
-    nextStatus === "confirmed" && existingOrder.status !== "confirmed";
+    currentStatus === "requested" && nextStatus === "confirmed";
   let orderItems = [];
 
   if (shouldAdjustInventory) {
@@ -231,6 +255,7 @@ export async function PATCH(request) {
     updated_at: timestamp,
   };
 
+  if (nextStatus !== "cancelled") updates.cancelled_at = null;
   if (nextStatus === "confirmed") updates.confirmed_at = timestamp;
   if (nextStatus === "fulfilled") updates.fulfilled_at = timestamp;
   if (nextStatus === "cancelled") updates.cancelled_at = timestamp;
@@ -246,6 +271,24 @@ export async function PATCH(request) {
 
   if (error) {
     return jsonError(error.message || "Failed to update order", 500);
+  }
+
+  const auditClient = serviceClient ?? supabase;
+  const { error: eventError } = await auditClient
+    .from("order_status_events")
+    .insert({
+      order_id: orderId,
+      vendor_id: effectiveUserId,
+      actor_user_id: actorUserId,
+      actor_role: "business",
+      from_status: currentStatus,
+      to_status: nextStatus,
+      reason: reason || null,
+      created_at: timestamp,
+    });
+
+  if (eventError) {
+    return jsonError(eventError.message || "Failed to write status audit", 500);
   }
 
   if (shouldAdjustInventory) {

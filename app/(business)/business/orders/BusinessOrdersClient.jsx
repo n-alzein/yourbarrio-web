@@ -10,6 +10,11 @@ import {
   getOrderStatusDescription,
   getOrderStatusLabel,
 } from "@/lib/orders";
+import {
+  allowedTargets,
+  canTransition,
+  isBackward,
+} from "@/lib/orders/statusTransitions";
 
 const TABS = [
   { id: "new", label: "New" },
@@ -44,6 +49,18 @@ export default function BusinessOrdersClient() {
   const [updatingId, setUpdatingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState("all");
+  const [statusMenuOrder, setStatusMenuOrder] = useState(null);
+
+  const getConfirmMessage = (fromStatus, toStatus, orderNumber) => {
+    const orderLabel = orderNumber ? `Order ${orderNumber}` : "this order";
+    if (fromStatus === "cancelled") {
+      return `Reopen ${orderLabel} to ${getOrderStatusLabel(toStatus)}?`;
+    }
+    const fromLabel = getOrderStatusLabel(fromStatus);
+    const toLabel = getOrderStatusLabel(toStatus);
+    const direction = isBackward(fromStatus, toStatus) ? "back to" : "to";
+    return `Change ${orderLabel} from ${fromLabel} ${direction} ${toLabel}?`;
+  };
 
   const loadOrders = async (tabId) => {
     setLoading(true);
@@ -73,27 +90,42 @@ export default function BusinessOrdersClient() {
     setSelectedOrder(null);
   }, [orderParam]);
 
-  const getOrderActions = (order) => {
-    if (!order) return [];
-    const actions = [];
+  useEffect(() => {
+    setStatusMenuOrder(null);
+  }, [activeTab, orderParam]);
+
+  const getPrimaryAction = (order) => {
+    if (!order) return null;
     if (order.status === "requested") {
-      actions.push({ label: "Confirm", status: "confirmed" });
-      actions.push({ label: "Cancel", status: "cancelled" });
+      return { label: "Confirm", status: "confirmed" };
     }
     if (order.status === "confirmed") {
-      actions.push({ label: "Mark ready", status: "ready" });
-      actions.push({ label: "Cancel", status: "cancelled" });
+      return { label: "Mark ready", status: "ready" };
     }
     if (order.status === "ready") {
       if (order.fulfillment_type === "delivery") {
-        actions.push({ label: "Out for delivery", status: "out_for_delivery" });
+        return { label: "Out for delivery", status: "out_for_delivery" };
       }
-      actions.push({ label: "Mark fulfilled", status: "fulfilled" });
+      return { label: "Mark fulfilled", status: "fulfilled" };
     }
     if (order.status === "out_for_delivery") {
-      actions.push({ label: "Mark fulfilled", status: "fulfilled" });
+      return { label: "Mark fulfilled", status: "fulfilled" };
     }
-    return actions;
+    return null;
+  };
+
+  const getChangeTargets = (order) =>
+    allowedTargets({
+      from: order?.status,
+      fulfillmentType: order?.fulfillment_type,
+    });
+
+  const getOrderActions = (order) => {
+    if (!order) return { primaryAction: null, hasMenu: false };
+    return {
+      primaryAction: getPrimaryAction(order),
+      hasMenu: getChangeTargets(order).length > 0,
+    };
   };
 
   const filteredOrders = useMemo(() => {
@@ -126,19 +158,76 @@ export default function BusinessOrdersClient() {
     return next;
   }, [orders, searchTerm, dateRange]);
 
-  const orderActions = useMemo(
-    () => getOrderActions(selectedOrder),
-    [selectedOrder]
-  );
+  const orderActions = getOrderActions(selectedOrder);
+  const statusMenuTargets = statusMenuOrder
+    ? getChangeTargets(statusMenuOrder)
+    : [];
 
-  const handleStatusUpdate = async (orderId, nextStatus) => {
+  const getStatusMenuLabel = (fromStatus, toStatus) => {
+    if (toStatus === "cancelled") return "Cancel order";
+    if (fromStatus === "cancelled") {
+      return `Reopen (${getOrderStatusLabel(toStatus)})`;
+    }
+    if (isBackward(fromStatus, toStatus)) {
+      return `Move back to ${getOrderStatusLabel(toStatus)}`;
+    }
+    return `Move to ${getOrderStatusLabel(toStatus)}`;
+  };
+
+  const handleStatusUpdate = async (orderId, nextStatus, options = {}) => {
+    const currentOrder =
+      (selectedOrder?.id === orderId ? selectedOrder : null) ||
+      orders.find((order) => order.id === orderId);
+    const currentStatus = options.fromStatus || currentOrder?.status;
+    const isBackwardMove =
+      currentStatus && isBackward(currentStatus, nextStatus);
+    const isReopen = currentStatus === "cancelled";
+    const shouldConfirm =
+      options.confirm !== false &&
+      currentStatus &&
+      (isBackwardMove || isReopen);
+    const needsReason = isBackwardMove || isReopen;
+
+    const transitionAllowed = canTransition({
+      from: currentStatus,
+      to: nextStatus,
+      fulfillmentType: currentOrder?.fulfillment_type,
+    });
+    if (!transitionAllowed) {
+      setError("Invalid status transition");
+      return false;
+    }
+
+    if (shouldConfirm) {
+      const confirmed = window.confirm(
+        getConfirmMessage(currentStatus, nextStatus, currentOrder?.order_number)
+      );
+      if (!confirmed) return false;
+    }
+
+    let reason = (options.reason || "").trim();
+    if (needsReason && reason.length < 5) {
+      const prompted = window.prompt(
+        "Why are you changing this status? (required, min 5 characters)"
+      );
+      reason = (prompted || "").trim();
+      if (reason.length < 5) {
+        setError("Reason required");
+        return false;
+      }
+    }
+
     setUpdatingId(orderId);
     try {
       const response = await fetch("/api/business/orders", {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order_id: orderId, status: nextStatus }),
+        body: JSON.stringify({
+          order_id: orderId,
+          status: nextStatus,
+          reason: reason || undefined,
+        }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -155,10 +244,28 @@ export default function BusinessOrdersClient() {
         if (!prev || prev.id !== orderId) return prev;
         return { ...prev, ...payload.order };
       });
+      setStatusMenuOrder((prev) => {
+        if (!prev || prev.id !== orderId) return prev;
+        return { ...prev, ...payload.order };
+      });
+      return true;
     } catch (err) {
       setError(err?.message || "Failed to update order");
+      return false;
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleStatusMenuSelect = async (targetStatus) => {
+    if (!statusMenuOrder) return;
+    const changed = await handleStatusUpdate(
+      statusMenuOrder.id,
+      targetStatus,
+      { fromStatus: statusMenuOrder.status }
+    );
+    if (changed !== false) {
+      setStatusMenuOrder(null);
     }
   };
 
@@ -379,8 +486,7 @@ export default function BusinessOrdersClient() {
                         order.fulfillment_type === "delivery"
                           ? order.delivery_time
                           : order.pickup_time;
-                      const actions = getOrderActions(order);
-                      const primaryAction = actions[0];
+                      const { primaryAction, hasMenu } = getOrderActions(order);
                       return (
                         <tr key={order.id} className="hover:bg-[var(--overlay)]">
                           <td className="py-4 px-4">
@@ -431,6 +537,22 @@ export default function BusinessOrdersClient() {
                               >
                                 View
                               </button>
+                              {hasMenu ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setStatusMenuOrder(order)}
+                                  disabled={updatingId === order.id}
+                                  className={`${baseButton} border`}
+                                  style={{
+                                    borderColor: "var(--border)",
+                                    background: "transparent",
+                                    color: "var(--text)",
+                                    opacity: updatingId === order.id ? 0.7 : 1,
+                                  }}
+                                >
+                                  Change status
+                                </button>
+                              ) : null}
                               {primaryAction ? (
                                 <button
                                   type="button"
@@ -466,8 +588,7 @@ export default function BusinessOrdersClient() {
                   order.fulfillment_type === "delivery"
                     ? order.delivery_time
                     : order.pickup_time;
-                const actions = getOrderActions(order);
-                const primaryAction = actions[0];
+                const { primaryAction, hasMenu } = getOrderActions(order);
                 return (
                   <div
                     key={order.id}
@@ -522,6 +643,22 @@ export default function BusinessOrdersClient() {
                         >
                           View
                         </button>
+                        {hasMenu ? (
+                          <button
+                            type="button"
+                            onClick={() => setStatusMenuOrder(order)}
+                            disabled={updatingId === order.id}
+                            className={`${baseButton} border`}
+                            style={{
+                              borderColor: "var(--border)",
+                              background: "transparent",
+                              color: "var(--text)",
+                              opacity: updatingId === order.id ? 0.7 : 1,
+                            }}
+                          >
+                            Change status
+                          </button>
+                        ) : null}
                         {primaryAction ? (
                           <button
                             type="button"
@@ -678,33 +815,107 @@ export default function BusinessOrdersClient() {
               />
             </div>
 
-            {orderActions.length > 0 ? (
+            {orderActions.primaryAction || orderActions.hasMenu ? (
               <div className="mt-5 flex flex-wrap gap-2">
-                {orderActions.map((action) => {
-                  const isDestructive = action.status === "cancelled";
-                  return (
-                    <button
-                      key={action.status}
-                      type="button"
-                      onClick={() =>
-                        handleStatusUpdate(selectedOrder.id, action.status)
-                      }
-                      disabled={updatingId === selectedOrder.id}
-                      className={baseButton}
-                      style={{
-                        background: isDestructive ? "#e11d48" : "var(--text)",
-                        color: "var(--background)",
-                        opacity: updatingId === selectedOrder.id ? 0.7 : 1,
-                      }}
-                    >
-                      {updatingId === selectedOrder.id
-                        ? "Updating..."
-                        : action.label}
-                    </button>
-                  );
-                })}
+                {orderActions.hasMenu ? (
+                  <button
+                    type="button"
+                    onClick={() => setStatusMenuOrder(selectedOrder)}
+                    disabled={updatingId === selectedOrder.id}
+                    className={`${baseButton} border`}
+                    style={{
+                      borderColor: "var(--border)",
+                      background: "transparent",
+                      color: "var(--text)",
+                      opacity: updatingId === selectedOrder.id ? 0.7 : 1,
+                    }}
+                  >
+                    Change status
+                  </button>
+                ) : null}
+                {orderActions.primaryAction ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleStatusUpdate(
+                        selectedOrder.id,
+                        orderActions.primaryAction.status
+                      )
+                    }
+                    disabled={updatingId === selectedOrder.id}
+                    className={baseButton}
+                    style={{
+                      background: "var(--text)",
+                      color: "var(--background)",
+                      opacity: updatingId === selectedOrder.id ? 0.7 : 1,
+                    }}
+                  >
+                    {updatingId === selectedOrder.id
+                      ? "Updating..."
+                      : orderActions.primaryAction.label}
+                  </button>
+                ) : null}
               </div>
             ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {statusMenuOrder ? (
+        <div
+          className="fixed inset-0 z-[6100] flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="change-status-title"
+        >
+          <div
+            className="w-full max-w-lg rounded-3xl p-6 space-y-4"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-xs uppercase tracking-[0.2em] opacity-70">
+                  Status management
+                </p>
+                <h3 id="change-status-title" className="text-xl font-semibold">
+                  Change status
+                </h3>
+                <p className="text-xs opacity-70">
+                  Order {statusMenuOrder.order_number}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStatusMenuOrder(null)}
+                className="rounded-full p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 focus-visible:ring-offset-2"
+                aria-label="Close change status"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {statusMenuTargets.map((target) => {
+                const destructive = target === "cancelled";
+                return (
+                  <button
+                    key={target}
+                    type="button"
+                    onClick={() => handleStatusMenuSelect(target)}
+                    disabled={updatingId === statusMenuOrder.id}
+                    className={`${baseButton} border justify-start text-left`}
+                    style={{
+                      borderColor: destructive ? "#e11d48" : "var(--border)",
+                      color: destructive ? "#e11d48" : "var(--text)",
+                      background: "transparent",
+                      opacity: updatingId === statusMenuOrder.id ? 0.7 : 1,
+                    }}
+                  >
+                    {getStatusMenuLabel(statusMenuOrder.status, target)}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       ) : null}
