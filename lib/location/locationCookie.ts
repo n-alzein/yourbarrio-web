@@ -1,3 +1,5 @@
+import { decodeHumanLocationString } from "@/lib/location/decodeHumanLocation";
+
 export const LOCATION_COOKIE_NAME = "yb_location";
 export const LEGACY_LOCATION_COOKIE_NAME = "yb-location";
 export const LEGACY_LOCATION_COOKIE_NAME_ALT = "yb-location";
@@ -19,6 +21,7 @@ export type LocationState = {
 };
 
 const compactSpaces = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
+const normalizeHuman = (value: unknown) => decodeHumanLocationString(value) || undefined;
 
 const normalizeNumber = (value: unknown) => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -42,11 +45,11 @@ export const normalizeLocationState = (input: unknown): LocationState | null => 
     obj.source === "ip" || obj.source === "gps" || obj.source === "manual"
       ? obj.source
       : undefined;
-  const city = compactSpaces(obj.city) || undefined;
-  const region = compactSpaces(obj.region) || undefined;
-  const country = compactSpaces(obj.country) || undefined;
+  const city = normalizeHuman(obj.city);
+  const region = normalizeHuman(obj.region);
+  const country = normalizeHuman(obj.country);
   const zip = compactSpaces(obj.zip) || undefined;
-  const label = compactSpaces(obj.label) || undefined;
+  const label = normalizeHuman(obj.label);
   const kind = obj.kind === "postcode" || obj.kind === "place" ? obj.kind : undefined;
   const placeId = compactSpaces(obj.placeId ?? obj.place_id) || undefined;
   const lat = normalizeNumber(obj.lat);

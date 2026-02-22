@@ -6,6 +6,9 @@ import { requireAdminRole } from "@/lib/admin/permissions";
 import { getAdminDataClient } from "@/lib/supabase/admin";
 
 const PAGE_SIZE = 30;
+const STAGING_AUDIT_LOGS_ENABLED =
+  process.env.NEXT_PUBLIC_VERCEL_ENV === "preview" ||
+  process.env.VERCEL_ENV !== "production";
 
 function asString(value: string | string[] | undefined, fallback = "") {
   return typeof value === "string" ? value : fallback;
@@ -24,16 +27,104 @@ export default async function AdminAuditPage({
   const toDate = asString(params.to).trim();
   const page = Math.max(1, Number(asString(params.page, "1")) || 1);
   const offset = (page - 1) * PAGE_SIZE;
+  const userId = asString(params.userId).trim() || asString(params.user_id).trim();
+  const targetId = asString(params.targetId).trim() || asString(params.target_id).trim();
+  const actorId = asString(params.actorId).trim() || asString(params.actor_id).trim();
 
-  const { client } = await getAdminDataClient();
-  const { data, error } = await client.rpc("admin_list_audit_logs", {
+  const rpcParams = {
     p_q: q || null,
     p_action: action || null,
     p_from: fromDate ? `${fromDate}T00:00:00.000Z` : null,
     p_to: toDate ? `${toDate}T23:59:59.999Z` : null,
     p_offset: offset,
     p_limit: PAGE_SIZE,
-  });
+  };
+
+  const debugContext = {
+    route: "/admin/audit",
+    isServer: typeof window === "undefined",
+    q,
+    action,
+    from: fromDate,
+    to: toDate,
+    userId,
+    targetId,
+    actorId,
+    offset,
+    limit: PAGE_SIZE,
+  };
+
+  if (STAGING_AUDIT_LOGS_ENABLED) {
+    console.warn("[audit-debug] /admin/audit incoming search params", {
+      route: "/admin/audit",
+      isServer: typeof window === "undefined",
+      raw: {
+        q: asString(params.q),
+        action: asString(params.action),
+        from: asString(params.from),
+        to: asString(params.to),
+        userId: asString(params.userId),
+        user_id: asString(params.user_id),
+        targetId: asString(params.targetId),
+        target_id: asString(params.target_id),
+        actorId: asString(params.actorId),
+        actor_id: asString(params.actor_id),
+        page: asString(params.page, "1"),
+      },
+      derived: {
+        userId,
+        targetId,
+        actorId,
+      },
+    });
+  }
+
+  const { client } = await getAdminDataClient();
+  let data: unknown = null;
+  let error: { message?: string } | null = null;
+
+  try {
+    if (STAGING_AUDIT_LOGS_ENABLED) {
+      const emptyUuidFields = [
+        ["userId", userId],
+        ["targetId", targetId],
+        ["actorId", actorId],
+      ]
+        .filter(([, value]) => value === "")
+        .map(([name]) => name);
+
+      console.warn("[audit-debug] before rpc admin_list_audit_logs", {
+        ...debugContext,
+        rpc: "admin_list_audit_logs",
+        rpcParams,
+        emptyUuidFields,
+      });
+    }
+
+    const result = await client.rpc("admin_list_audit_logs", rpcParams);
+    data = result.data;
+    error = result.error;
+
+    if (STAGING_AUDIT_LOGS_ENABLED && result.error) {
+      console.error("[audit-debug] rpc admin_list_audit_logs returned error", {
+        ...debugContext,
+        rpc: "admin_list_audit_logs",
+        params: rpcParams,
+        errorMessage: result.error.message || "Unknown error",
+        errorCode: result.error.code || null,
+      });
+    }
+  } catch (caughtError: any) {
+    if (STAGING_AUDIT_LOGS_ENABLED) {
+      console.error("[audit-debug] rpc admin_list_audit_logs threw", {
+        ...debugContext,
+        rpc: "admin_list_audit_logs",
+        params: rpcParams,
+        errorMessage: caughtError?.message || "Unknown error",
+      });
+    }
+    error = { message: caughtError?.message || "Unknown error" };
+  }
 
   const rows = (Array.isArray(data) ? data : []) as AdminAuditRow[];
   const totalRows = rows.length ? Number(rows[0]?.total_count || 0) : 0;

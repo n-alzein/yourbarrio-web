@@ -8,16 +8,24 @@ import {
   LOCATION_STORAGE_KEY,
 } from "@/lib/location";
 import { readLocationClient, setLocationCookieClient } from "@/lib/location/setLocationCookieClient";
+import { decodeHumanLocationString } from "@/lib/location/decodeHumanLocation";
 
 const IP_REFRESH_TTL_MS = 24 * 60 * 60 * 1000;
 const GPS_REFRESH_TTL_MS = 6 * 60 * 60 * 1000;
+const LOCATION_USER_SET_KEY = "location_user_set";
+const LOCATION_USER_SET_COOKIE = "location_user_set";
+const USER_SET_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+const DEBUG_LOCATION_BOOTSTRAP =
+  process.env.NEXT_PUBLIC_DEBUG_LOCATION_BOOTSTRAP === "1";
 
 const LocationContext = createContext(null);
 export const LOCATION_CHANGED_EVENT = "yb:location-changed";
 
 const buildLabel = (city, region) => {
-  if (!city) return null;
-  return region ? `${city}, ${region}` : city;
+  const normalizedCity = decodeHumanLocationString(city);
+  const normalizedRegion = decodeHumanLocationString(region);
+  if (!normalizedCity) return null;
+  return normalizedRegion ? `${normalizedCity}, ${normalizedRegion}` : normalizedCity;
 };
 
 const isFresh = (location) => {
@@ -27,10 +35,74 @@ const isFresh = (location) => {
   return Date.now() - Number(location.updatedAt) <= ttl;
 };
 
-const normalizeForState = (next) => normalizeLocation(next || {});
+const normalizeForState = (next) => {
+  const base = next && typeof next === "object" ? next : {};
+  return normalizeLocation({
+    ...base,
+    city: decodeHumanLocationString(base.city),
+    region: decodeHumanLocationString(base.region),
+    country: decodeHumanLocationString(base.country),
+    label: decodeHumanLocationString(base.label),
+  });
+};
+
+const readCookie = (name) => {
+  if (typeof document === "undefined") return "";
+  const escaped = name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+  const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : "";
+};
+
+const writeCookie = (name, value, maxAge) => {
+  if (typeof document === "undefined") return;
+  const secure = typeof window !== "undefined" && window.location.protocol === "https:";
+  const secureToken = secure ? "; secure" : "";
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; samesite=lax${secureToken}`;
+};
+
+const clearCookie = (name) => {
+  if (typeof document === "undefined") return;
+  document.cookie = `${name}=; path=/; max-age=0; samesite=lax`;
+};
+
+const readUserSetFlagClient = () => {
+  if (typeof window === "undefined") return false;
+  try {
+    const stored = window.localStorage.getItem(LOCATION_USER_SET_KEY);
+    if (stored === "1") return true;
+  } catch {
+    // Ignore storage read failures.
+  }
+  return readCookie(LOCATION_USER_SET_COOKIE) === "1";
+};
+
+const setUserSetFlagClient = (enabled) => {
+  if (typeof window === "undefined") return;
+  try {
+    if (enabled) {
+      window.localStorage.setItem(LOCATION_USER_SET_KEY, "1");
+    } else {
+      window.localStorage.removeItem(LOCATION_USER_SET_KEY);
+    }
+  } catch {
+    // Ignore storage write failures.
+  }
+  if (enabled) {
+    writeCookie(LOCATION_USER_SET_COOKIE, "1", USER_SET_COOKIE_MAX_AGE_SECONDS);
+  } else {
+    clearCookie(LOCATION_USER_SET_COOKIE);
+  }
+};
+
+const logBootstrap = (...args) => {
+  if (!DEBUG_LOCATION_BOOTSTRAP) return;
+  // eslint-disable-next-line no-console
+  console.info("[LocationProvider/bootstrap]", ...args);
+};
 
 export function LocationProvider({ children }) {
-  const [location, setLocationState] = useState(() => normalizeForState(readLocationClient()));
+  // Keep initial render deterministic between server and client to avoid hydration mismatches.
+  const [location, setLocationState] = useState(() => normalizeForState({}));
   const [hydrated, setHydrated] = useState(false);
   const locationRef = useRef(location);
 
@@ -59,12 +131,13 @@ export function LocationProvider({ children }) {
 
   const refreshIpLocation = useCallback(async () => {
     try {
-      const res = await fetch("/api/geo/ip", { cache: "no-store" });
+      const res = await fetch("/api/location/ip", { cache: "no-store" });
       if (!res.ok) return null;
       const data = await res.json();
-      const city = typeof data?.city === "string" ? data.city.trim() : "";
-      const region = typeof data?.region === "string" ? data.region.trim() : "";
-      const country = typeof data?.country === "string" ? data.country.trim() : "";
+      const rawCity = typeof data?.city === "string" ? data.city : null;
+      const city = decodeHumanLocationString(rawCity);
+      const region = decodeHumanLocationString(data?.region);
+      const country = decodeHumanLocationString(data?.country);
       const lat = Number.isFinite(Number(data?.lat)) ? Number(data.lat) : null;
       const lng = Number.isFinite(Number(data?.lng)) ? Number(data.lng) : null;
       if (!city && !region && !country && lat == null && lng == null) return null;
@@ -79,8 +152,15 @@ export function LocationProvider({ children }) {
         updatedAt: Date.now(),
       };
       applyLocation(next);
+      logBootstrap("branch=ip", {
+        rawCity,
+        city: next.city,
+        region: next.region,
+        country: next.country,
+      });
       return next;
     } catch {
+      logBootstrap("branch=ip_error");
       return null;
     }
   }, [applyLocation]);
@@ -142,12 +222,16 @@ export function LocationProvider({ children }) {
         next?.source === "ip" || next?.source === "gps" || next?.source === "manual"
           ? next.source
           : "manual";
-      return applyLocation({
+      const resolved = applyLocation({
         ...normalized,
         source,
         label: normalized.label || buildLabel(normalized.city, normalized.region),
         updatedAt: Date.now(),
       });
+      if (source === "manual") {
+        setUserSetFlagClient(Boolean(resolved?.city));
+      }
+      return resolved;
     },
     [applyLocation]
   );
@@ -165,14 +249,29 @@ export function LocationProvider({ children }) {
     let cancelled = false;
     const bootstrap = async () => {
       const stored = readLocationClient();
+      const explicitUserSet = readUserSetFlagClient();
+      const hasStoredManual = stored?.source === "manual" && Boolean(stored?.city);
+
       if (stored && !cancelled) {
         const normalized = normalizeForState(stored);
         if (!isSameLocation(normalized, locationRef.current)) {
           setLocationState(normalized);
         }
       }
-      if (!stored || !isFresh(stored)) {
-        await refreshIpLocation();
+
+      if (hasStoredManual) {
+        setUserSetFlagClient(true);
+      }
+
+      if ((explicitUserSet && stored?.city) || hasStoredManual) {
+        logBootstrap("branch=stored_manual", { city: stored.city, source: stored.source });
+      } else if (stored?.source === "ip" && isFresh(stored)) {
+        logBootstrap("branch=stored_ip_fresh", { city: stored.city });
+      } else {
+        const inferred = await refreshIpLocation();
+        if (!inferred) {
+          logBootstrap("branch=none");
+        }
       }
       if (!cancelled) {
         setHydrated(true);
@@ -235,4 +334,3 @@ export function useLocation() {
   }
   return ctx;
 }
-
