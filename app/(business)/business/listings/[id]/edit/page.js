@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import RichTextDescriptionEditor from "@/components/editor/RichTextDescriptionEditor";
 import { extractPhotoUrls } from "@/lib/listingPhotos";
+import { stripHtmlToText } from "@/lib/listingDescription";
 import { retry } from "@/lib/retry";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
@@ -249,6 +251,10 @@ export default function EditListingPage() {
         alert("Please select a category.");
         return;
       }
+      if (!stripHtmlToText(form.description || "").trim()) {
+        alert("Please add a description.");
+        return;
+      }
 
       const selectedCategory = categories.find(
         (category) => category.id === form.categoryId
@@ -448,18 +454,16 @@ export default function EditListingPage() {
             </div>
 
             <div>
-              <label className={labelBase} htmlFor="listing-description">
-                Description
-              </label>
-              <textarea
-                id="listing-description"
-                className={`${inputBase} min-h-[160px]`}
-                placeholder="Share materials, flavors, or what makes it special."
+              <RichTextDescriptionEditor
+                label="Description"
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                required
+                onChange={(nextDescription) =>
+                  setForm({ ...form, description: nextDescription })
+                }
+                minHeight={180}
+                placeholder="Share materials, flavors, or what makes it special."
+                helpText="Use headings, bullets, and links to make details easy to scan."
               />
-              <p className={helperBase}>Aim for 1-3 sentences.</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">

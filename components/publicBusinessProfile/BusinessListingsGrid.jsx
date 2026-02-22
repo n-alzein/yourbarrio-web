@@ -4,6 +4,7 @@ import Link from "next/link";
 import FastImage from "@/components/FastImage";
 import { ArrowUpRight } from "lucide-react";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
+import { descriptionSnippet } from "@/lib/listingDescription";
 import { getListingUrl } from "@/lib/ids/publicRefs";
 
 function formatPrice(value) {
@@ -57,6 +58,11 @@ export default function BusinessListingsGrid({ listings, className = "" }) {
                   <h3 className="text-base font-semibold text-white line-clamp-2">
                     {item.title || "Untitled listing"}
                   </h3>
+                  {item.description ? (
+                    <p className="text-xs leading-relaxed text-white/70 line-clamp-2">
+                      {descriptionSnippet(item.description, 110)}
+                    </p>
+                  ) : null}
                   <div className="mt-auto flex items-center justify-between">
                     <span className="text-lg font-semibold text-white">
                       {formatPrice(item.price)}

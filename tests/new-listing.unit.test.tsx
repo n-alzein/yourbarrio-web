@@ -37,6 +37,17 @@ vi.mock("next/image", () => ({
   },
 }));
 
+vi.mock("@/components/editor/RichTextDescriptionEditor", () => ({
+  __esModule: true,
+  default: ({ value, onChange, label }) => (
+    <textarea
+      aria-label={label || "Description"}
+      value={value || ""}
+      onChange={(event) => onChange?.(event.target.value)}
+    />
+  ),
+}));
+
 function makeSupabaseMock({ insertError } = {}) {
   const upload = vi.fn(async () => ({
     data: { path: "listing-photos/1.jpg", fullPath: "listing-photos/1.jpg" },
@@ -49,8 +60,8 @@ function makeSupabaseMock({ insertError } = {}) {
   const categoryQuery = {
     select: vi.fn(() => categoryQuery),
     eq: vi.fn(() => categoryQuery),
-    maybeSingle: vi.fn(async () => ({
-      data: { id: "cat-1", name: "Food & Drink", slug: "food-and-drink" },
+    order: vi.fn(async () => ({
+      data: [{ id: "cat-1", name: "Food & Drink", slug: "food-and-drink" }],
       error: null,
     })),
   };
@@ -80,15 +91,16 @@ function makeSupabaseMock({ insertError } = {}) {
   };
 }
 
-function fillRequiredFields() {
+async function fillRequiredFields() {
   fireEvent.change(screen.getByLabelText("Listing title"), {
     target: { value: "Cold brew" },
   });
   fireEvent.change(screen.getByLabelText("Description"), {
     target: { value: "Small batch concentrate." },
   });
+  await screen.findByRole("option", { name: "Food & Drink" });
   fireEvent.change(screen.getByLabelText("Category"), {
-    target: { value: "Food & Drink" },
+    target: { value: "cat-1" },
   });
   fireEvent.change(screen.getByLabelText("Price"), {
     target: { value: "12" },
@@ -133,7 +145,7 @@ describe("NewListingPage", () => {
 
     const { container } = render(<NewListingPage />);
 
-    fillRequiredFields();
+    await fillRequiredFields();
     addPhoto(container);
 
     fireEvent.click(screen.getByRole("button", { name: "Publish listing" }));
@@ -156,7 +168,7 @@ describe("NewListingPage", () => {
 
     const { container } = render(<NewListingPage />);
 
-    fillRequiredFields();
+    await fillRequiredFields();
     addPhoto(container);
 
     fireEvent.click(screen.getByRole("button", { name: "Publish listing" }));

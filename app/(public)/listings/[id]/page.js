@@ -24,7 +24,9 @@ import { getAvailabilityBadgeStyle, normalizeInventory } from "@/lib/inventory";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { useCart } from "@/components/cart/CartProvider";
 import ReportModal from "@/components/moderation/ReportModal";
+import ListingDescription from "@/components/listings/ListingDescription";
 import { isUuid } from "@/lib/ids/isUuid";
+import { descriptionSnippet } from "@/lib/listingDescription";
 import { getCustomerBusinessUrl, getListingUrl } from "@/lib/ids/publicRefs";
 
 export default function ListingDetails({ params }) {
@@ -365,7 +367,7 @@ export default function ListingDetails({ params }) {
       if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({
           title: listing.title || "Listing",
-          text: listing.description || "",
+          text: descriptionSnippet(listing.description || "", 160),
           url,
         });
       } else if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
@@ -555,9 +557,11 @@ export default function ListingDetails({ params }) {
                     </>
                   ) : null}
               </div>
-                <p className="text-sm leading-relaxed opacity-90">
-                  {listing.description || "A local item from YourBarrio businesses."}
-                </p>
+                <ListingDescription
+                  htmlOrText={listing.description}
+                  fallback="A local item from YourBarrio businesses."
+                  className="mt-1"
+                />
               </div>
             </div>
 

@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import RichTextDescriptionEditor from "@/components/editor/RichTextDescriptionEditor";
 import { useAuth } from "@/components/AuthProvider";
+import { stripHtmlToText } from "@/lib/listingDescription";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export default function NewListingPage() {
@@ -182,6 +184,10 @@ export default function NewListingPage() {
 
     if (!form.categoryId) {
       setSubmitError("Please select a category.");
+      return;
+    }
+    if (!stripHtmlToText(form.description || "").trim()) {
+      setSubmitError("Please add a description.");
       return;
     }
 
@@ -370,18 +376,16 @@ export default function NewListingPage() {
             </div>
 
             <div>
-              <label className={labelBase} htmlFor="listing-description">
-                Description
-              </label>
-              <textarea
-                id="listing-description"
-                className={`${inputBase} min-h-[160px]`}
-                placeholder="Share materials, flavors, or what makes it special."
+              <RichTextDescriptionEditor
+                label="Description"
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                required
+                onChange={(nextDescription) =>
+                  setForm({ ...form, description: nextDescription })
+                }
+                minHeight={180}
+                placeholder="Share materials, flavors, or what makes it special."
+                helpText="Use headings, bullets, and links to make details easy to scan."
               />
-              <p className={helperBase}>Aim for 1-3 sentences.</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
