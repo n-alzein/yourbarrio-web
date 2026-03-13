@@ -6,6 +6,10 @@ import { createServerClient } from "@supabase/ssr";
 import { normalizeAppRole } from "@/lib/auth/redirects";
 import { getCookieBaseOptions } from "@/lib/authCookies";
 import { ensureBusinessProvisionedForUser } from "@/lib/auth/ensureBusinessProvisioning";
+import {
+  isBlockedAccountStatus,
+  normalizeAccountStatus,
+} from "@/lib/accountDeletion/status";
 
 const AUTH_CALLBACK_HANDLER_MARKER = "app/api/auth/callback/route.js";
 
@@ -369,13 +373,34 @@ export async function GET(request) {
     }
 
     let resolvedRole = normalizeAppRole(user?.app_metadata?.role);
+    let accountStatus = null;
     if (!resolvedRole) {
       const { data: profile } = await supabase
         .from("users")
-        .select("role,is_internal")
+        .select("role,is_internal,account_status")
         .eq("id", user.id)
         .maybeSingle();
       resolvedRole = profile?.is_internal === true ? "admin" : normalizeAppRole(profile?.role);
+      accountStatus = normalizeAccountStatus(profile?.account_status);
+    } else {
+      const { data: profile } = await supabase
+        .from("users")
+        .select("account_status")
+        .eq("id", user.id)
+        .maybeSingle();
+      accountStatus = normalizeAccountStatus(profile?.account_status);
+    }
+
+    if (isBlockedAccountStatus(accountStatus)) {
+      try {
+        await supabase.auth.signOut({ scope: "local" });
+      } catch {
+        // best effort
+      }
+      return buildLoginRedirectResponse({
+        reason: "blocked_account_login",
+        authError: "invalid_credentials",
+      });
     }
     const destination = safeNext ?? "/onboarding";
 

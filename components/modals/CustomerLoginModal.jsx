@@ -10,6 +10,12 @@ import { useModal } from "./ModalProvider";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { withTimeout } from "@/lib/withTimeout";
 import { getPostLoginRedirect } from "@/lib/auth/redirects";
+import { isBlockedAccountStatus, normalizeAccountStatus } from "@/lib/accountDeletion/status";
+import {
+  GENERIC_INVALID_CREDENTIALS_MESSAGE,
+  isGenericInvalidCredentialsError,
+  suppressAuthUiResetForCredentialsError,
+} from "@/lib/auth/loginErrors";
 import {
   getRequestedPathFromCurrentUrl,
   readClientRedirectState,
@@ -81,6 +87,11 @@ export default function CustomerLoginModal({ onClose, next: nextFromModalProps =
     }
     return null;
   }, [nextFromModalProps, searchParams]);
+
+  useEffect(() => {
+    if ((searchParams?.get("auth") || "").trim() !== "invalid_credentials") return;
+    setError(GENERIC_INVALID_CREDENTIALS_MESSAGE);
+  }, [searchParams]);
 
   useEffect(() => {
     if (!attemptIdRef.current) return;
@@ -165,6 +176,7 @@ export default function CustomerLoginModal({ onClose, next: nextFromModalProps =
 
       if (isStale()) return;
       if (signInError) throw signInError;
+      suppressAuthUiResetForCredentialsError();
 
       const session = data?.session;
       if (!session) {
@@ -178,7 +190,11 @@ export default function CustomerLoginModal({ onClose, next: nextFromModalProps =
 
       const profileStart = typeof performance !== "undefined" ? performance.now() : Date.now();
       const profileResult = await withTimeout(
-        client.from("users").select("role,is_internal").eq("id", session.user.id).single(),
+        client
+          .from("users")
+          .select("role,is_internal,account_status")
+          .eq("id", session.user.id)
+          .single(),
         profileTimeoutMs,
         `Profile request timed out after ${Math.round(profileTimeoutMs / 1000)}s`
       );
@@ -200,6 +216,17 @@ export default function CustomerLoginModal({ onClose, next: nextFromModalProps =
       if (isStale()) return;
       if (profileError && profileStatus !== 406) {
         console.warn("Customer login role lookup failed", profileError);
+      }
+      const accountStatus = normalizeAccountStatus(profile?.account_status);
+      if (isBlockedAccountStatus(accountStatus)) {
+        suppressAuthUiResetForCredentialsError();
+        setError(GENERIC_INVALID_CREDENTIALS_MESSAGE);
+        try {
+          await client.auth.signOut({ scope: "local" });
+        } catch {
+          // best effort
+        }
+        return;
       }
 
       let isAdmin = profile?.is_internal === true;
@@ -329,11 +356,15 @@ export default function CustomerLoginModal({ onClose, next: nextFromModalProps =
       router.replace(dest);
     } catch (err) {
       if (isStale()) return;
-      console.error("Customer login failed", err);
+      if (!isGenericInvalidCredentialsError(err)) {
+        console.error("Customer login failed", err);
+      }
       setError(
         isTimeoutError(err)
           ? "Login request timed out. Please check your connection and try again."
-          : "Login failed. Please try again."
+          : isGenericInvalidCredentialsError(err)
+            ? GENERIC_INVALID_CREDENTIALS_MESSAGE
+            : "Login failed. Please try again."
       );
     } finally {
       finishAttempt("password");

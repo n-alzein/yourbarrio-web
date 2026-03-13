@@ -14,6 +14,7 @@ import CustomerLoginModal from "./CustomerLoginModal";
 import CustomerSignupModal from "./CustomerSignupModal";
 import ModalRouterClient from "@/components/auth/ModalRouterClient";
 import { AUTH_UI_RESET_EVENT } from "@/components/AuthProvider";
+import { shouldSuppressAuthUiReset } from "@/lib/auth/loginErrors";
 
 const ModalContext = createContext(null);
 
@@ -72,6 +73,7 @@ export default function ModalProviderClient({ children }) {
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     const handleReset = () => {
+      if (shouldSuppressAuthUiReset()) return;
       closeModal();
     };
     window.addEventListener(AUTH_UI_RESET_EVENT, handleReset);

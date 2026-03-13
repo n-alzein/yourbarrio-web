@@ -49,6 +49,9 @@ export default function SettingsPage() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [toast, setToast] = useState(null);
   const [managePasswordOpen, setManagePasswordOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletePending, setDeletePending] = useState(false);
   const toastTimerRef = useRef(null);
 
   const buildInitialForm = (userValue) => ({
@@ -201,14 +204,41 @@ export default function SettingsPage() {
   ----------------------------------------------------------- */
   async function handleDeleteAccount() {
     if (!user) return;
+    setDeleteConfirmText("");
+    setDeleteModalOpen(true);
+  }
 
-    if (!confirm("Are you sure you want to permanently delete your account?"))
-      return;
+  async function confirmDeleteAccount() {
+    if (!user || deletePending) return;
+    setDeletePending(true);
+    try {
+      const response = await fetch("/api/settings/request-account-deletion", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          confirmationText: deleteConfirmText,
+          confirmationEmail: user.email || undefined,
+          reason: "user_initiated",
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to delete account.");
+      }
 
-    await supabase.from("users").delete().eq("id", user.id);
-    await supabase.auth.admin.deleteUser(user.id);
-
-    await logout();
+      showToast("success", "Your account has been deleted.");
+      setDeleteModalOpen(false);
+      await logout({
+        redirectTo: "/account-deleted",
+        reason: "account_deletion_requested",
+      });
+    } catch (error) {
+      showToast("error", error?.message || "Failed to delete account.");
+    } finally {
+      setDeletePending(false);
+    }
   }
 
   /* -----------------------------------------------------------
@@ -622,14 +652,14 @@ export default function SettingsPage() {
           </SettingsSection>
 
           <SettingsSection
-            title="Account"
-            description="Actions that affect your account status."
+            title="Delete account"
+            description="This action is permanent and cannot be undone. Deleting your account will permanently remove your access to YourBarrio and delete your account in accordance with our policies."
           >
             <button
               onClick={handleDeleteAccount}
               className="inline-flex items-center text-sm font-semibold text-rose-300 hover:text-rose-200"
             >
-              Delete account permanently
+              Delete account
             </button>
           </SettingsSection>
         </div>
@@ -656,6 +686,52 @@ export default function SettingsPage() {
         user={user}
         onSuccess={(message) => showToast("success", message)}
       />
+
+      {deleteModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-account-title-customer"
+        >
+          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-gray-900 shadow-xl transition-all duration-150 ease-out">
+            <h2 id="delete-account-title-customer" className="text-xl font-semibold text-gray-900">
+              Delete account permanently?
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-gray-600">
+              This action is permanent and cannot be undone. Once you delete your account, you will immediately lose access to YourBarrio.
+            </p>
+            <p className="mt-3 text-sm font-medium text-red-600">This action cannot be undone.</p>
+            <label className="mt-5 block text-sm font-medium text-gray-800">
+              Type <span className="font-mono font-semibold">DELETE</span> to confirm.
+              <input
+                value={deleteConfirmText}
+                onChange={(event) => setDeleteConfirmText(event.target.value)}
+                className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus-visible:border-red-500 focus-visible:ring-2 focus-visible:ring-red-500/30"
+                autoComplete="off"
+              />
+            </label>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(false)}
+                disabled={deletePending}
+                className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteAccount}
+                disabled={deletePending || deleteConfirmText.trim().toUpperCase() !== "DELETE"}
+                className="rounded-xl border border-red-600 bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/70 disabled:opacity-50"
+              >
+                {deletePending ? "Deleting..." : "Delete account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

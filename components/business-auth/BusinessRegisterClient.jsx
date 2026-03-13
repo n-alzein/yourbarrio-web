@@ -205,31 +205,33 @@ function BusinessRegisterInner() {
             </button>
           </>
         ) : (
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-slate-900">Check your email</h2>
+          <div className="space-y-5">
+            <h2 className="mb-1 text-2xl font-bold text-slate-900">Check your email</h2>
             <div className="rounded-xl border border-[var(--yb-border)] bg-slate-50 px-4 py-3 text-sm text-slate-700">
               We sent a verification link to <span className="font-semibold">{email.trim()}</span>.
               {" "}Open it to finish creating your business account.
             </div>
-            <p className="text-sm text-slate-500">
-              Didn&apos;t get it? Check spam or resend.
+            <p className="pt-1 text-sm text-slate-500">
+              Didn&apos;t get it? Check your spam.
             </p>
-            <button
-              type="button"
-              onClick={handleResend}
-              disabled={loading}
-              className="w-full py-3 rounded-xl font-semibold bg-[#6E34FF] text-white transition hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loading ? "Sending..." : "Resend email"}
-            </button>
-            <button
-              type="button"
-              onClick={handleChangeEmail}
-              disabled={loading}
-              className="w-full py-3 rounded-xl font-semibold border border-[var(--yb-border)] bg-white text-slate-900 transition hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              Change email
-            </button>
+            <div className="pt-1 flex flex-col gap-0">
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={loading}
+                className="w-full py-3 rounded-xl font-semibold bg-[#6E34FF] text-white transition hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {loading ? "Sending..." : "Resend email"}
+              </button>
+              <button
+                type="button"
+                onClick={handleChangeEmail}
+                disabled={loading}
+                className="mt-4 w-full py-3 rounded-xl font-semibold border border-[var(--yb-border)] bg-white text-slate-900 transition hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                Change email
+              </button>
+            </div>
           </div>
         )}
     </div>

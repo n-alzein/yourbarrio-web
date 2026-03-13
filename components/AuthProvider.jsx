@@ -36,6 +36,12 @@ import {
 import { normalizeNextPath } from "@/lib/auth/normalizeNextPath";
 import { getPostLoginRedirect } from "@/lib/auth/redirects";
 import { clearClientRedirectState, readClientRedirectState } from "@/lib/auth/clientRedirectState";
+import {
+  getAccountDeletedRedirectPath,
+  isBlockedAccountStatus,
+  normalizeAccountStatus,
+} from "@/lib/accountDeletion/status";
+import { shouldSuppressAuthUiReset } from "@/lib/auth/loginErrors";
 
 const AuthContext = createContext({
   supabase: null,
@@ -112,6 +118,15 @@ const isAuthCallbackPath = (pathname) => {
     pathname.startsWith("/auth/verify/") ||
     pathname === "/business-auth" ||
     pathname.startsWith("/business-auth/")
+  );
+};
+
+const isPublicLoginSurfacePath = (pathname) => {
+  if (!pathname) return false;
+  return (
+    pathname === "/" ||
+    pathname === "/signin" ||
+    pathname.startsWith("/business-auth")
   );
 };
 
@@ -930,6 +945,31 @@ async function applyUserUpdate(user) {
 
   const { profile } = await getProfileForUser(user);
   if (authStore.state.user?.id !== user.id) return;
+  const accountStatus = normalizeAccountStatus(profile?.account_status);
+  if (isBlockedAccountStatus(accountStatus)) {
+    clearVerifiedUserCache();
+    clearSupabaseAuthStorage();
+    try {
+      await authStore.supabase?.auth?.signOut({ scope: "local" });
+    } catch {
+      // best effort
+    }
+    applySignedOutState("account_lifecycle_blocked", {
+      resetGuardState: true,
+      clearAuthSuppression: true,
+      extraState: {
+        lastAuthEvent: "SIGNED_OUT",
+        lastError: "This account is no longer available.",
+      },
+    });
+    if (typeof window !== "undefined") {
+      const currentPath = window.location.pathname;
+      if (!isPublicLoginSurfacePath(currentPath) && !shouldSuppressAuthUiReset()) {
+        redirectWithGuard(getAccountDeletedRedirectPath());
+      }
+    }
+    return;
+  }
   const nextRole = resolveRole(profile, user, authStore.state.role);
   let business = null;
   if (nextRole === "business") {
@@ -1066,7 +1106,9 @@ function ensureAuthListener() {
       });
 
       if (event === "SIGNED_OUT" || event === "USER_DELETED") {
-        emitAuthUiReset("auth_event:signed_out");
+        if (!shouldSuppressAuthUiReset()) {
+          emitAuthUiReset("auth_event:signed_out");
+        }
         clearVerifiedUserCache();
         applySignedOutState("auth_event:signed_out", {
           resetGuardState: true,
@@ -1576,6 +1618,41 @@ export function AuthProvider({
       redirectWithGuard(normalizedTarget);
     })();
   }, [authState.tokenInvalidAt, isNestedProvider, pathname]);
+
+  useEffect(() => {
+    if (isNestedProvider) return;
+    if (!authState.authInitialized) return;
+    if (!authState.user?.id) return;
+    const status = normalizeAccountStatus(authState.profile?.account_status);
+    if (!isBlockedAccountStatus(status)) return;
+
+    (async () => {
+      clearVerifiedUserCache();
+      clearSupabaseAuthStorage();
+      try {
+        await authStore.supabase?.auth?.signOut({ scope: "local" });
+      } catch {
+        // best effort
+      }
+      applySignedOutState("account_lifecycle_effect_block", {
+        resetGuardState: true,
+        clearAuthSuppression: true,
+        extraState: {
+          lastAuthEvent: "SIGNED_OUT",
+          lastError: "This account is no longer available.",
+        },
+      });
+      const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
+      if (!isPublicLoginSurfacePath(currentPath) && !shouldSuppressAuthUiReset()) {
+        redirectWithGuard(getAccountDeletedRedirectPath());
+      }
+    })();
+  }, [
+    authState.authInitialized,
+    authState.profile?.account_status,
+    authState.user?.id,
+    isNestedProvider,
+  ]);
 
   const refreshProfile = useCallback(async () => {
     if (!mountedRef.current || !authStore.supabase || !authState.user?.id) {

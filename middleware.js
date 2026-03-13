@@ -4,6 +4,11 @@ import { getCookieBaseOptions } from "@/lib/authCookies";
 import { resolveCurrentUserRoleFromClient } from "@/lib/auth/getCurrentUserRole";
 import { getRoleLandingPath } from "@/lib/auth/redirects";
 import { isBusinessOnboardingComplete } from "@/lib/business/onboardingCompletion";
+import {
+  getAccountDeletedRedirectPath,
+  isBlockedAccountStatus,
+  normalizeAccountStatus,
+} from "@/lib/accountDeletion/status";
 
 const IMPERSONATE_USER_COOKIE = "yb_impersonate_user_id";
 const IMPERSONATE_SESSION_COOKIE = "yb_impersonate_session_id";
@@ -391,6 +396,28 @@ export async function middleware(request) {
     pathname.startsWith("/auth")
   ) {
     return withSupabaseCookies(response);
+  }
+
+  if (user?.id) {
+    const { data: lifecycleRow } = await supabase
+      .from("users")
+      .select("account_status")
+      .eq("id", user.id)
+      .maybeSingle();
+    const accountStatus = normalizeAccountStatus(lifecycleRow?.account_status);
+    if (isBlockedAccountStatus(accountStatus)) {
+      try {
+        await supabase.auth.signOut({ scope: "local" });
+      } catch {
+        // best effort
+      }
+      const deletedPath = getAccountDeletedRedirectPath();
+      if (pathname !== deletedPath) {
+        return withSupabaseCookies(
+          NextResponse.redirect(new URL(deletedPath, request.url), 307)
+        );
+      }
+    }
   }
 
   if (isBusinessMarketingRoute || isBusinessAuthRoute) {

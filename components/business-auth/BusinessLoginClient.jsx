@@ -7,6 +7,13 @@ import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { withTimeout } from "@/lib/withTimeout";
 import { signOutLocalSession } from "@/lib/auth/logout";
 import { getPostLoginRedirect } from "@/lib/auth/redirects";
+import { isBlockedAccountStatus, normalizeAccountStatus } from "@/lib/accountDeletion/status";
+import {
+  createBlockedLoginError,
+  GENERIC_INVALID_CREDENTIALS_MESSAGE,
+  isGenericInvalidCredentialsError,
+  suppressAuthUiResetForCredentialsError,
+} from "@/lib/auth/loginErrors";
 import {
   getRequestedPathFromCurrentUrl,
   readClientRedirectState,
@@ -345,7 +352,7 @@ function BusinessLoginInner({ isPopup, callbackError = "" }) {
 
       const profileQuery = supabase
         .from("users")
-        .select("role")
+        .select("role,account_status")
         .eq("id", user.id)
         .maybeSingle();
       const profileStart = typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -377,6 +384,12 @@ function BusinessLoginInner({ isPopup, callbackError = "" }) {
 
       if (profileErr) {
         throw profileErr;
+      }
+      const accountStatus = normalizeAccountStatus(profile?.account_status);
+      if (isBlockedAccountStatus(accountStatus)) {
+        suppressAuthUiResetForCredentialsError();
+        await signOutLocalSession(supabase, "local");
+        throw createBlockedLoginError();
       }
 
       if (profile?.role !== "business") {
@@ -436,12 +449,15 @@ function BusinessLoginInner({ isPopup, callbackError = "" }) {
         return;
       }
       if (!didCompleteRef.current && attemptRef.current === attemptId) {
-        console.error("Business login failed", err);
+        if (!isGenericInvalidCredentialsError(err)) {
+          console.error("Business login failed", err);
+        }
         const message = isTimeoutError(err)
           ? "Login request timed out. Please check your connection and try again."
-          : err?.message ?? "Login failed. Please refresh and try again.";
+          : isGenericInvalidCredentialsError(err)
+            ? GENERIC_INVALID_CREDENTIALS_MESSAGE
+            : err?.message ?? "Login failed. Please refresh and try again.";
         authDiagLog("login:submit:error", { attemptId, message });
-        alert(message);
         if (mountedRef.current) {
           setAuthError(message);
         }
@@ -584,6 +600,11 @@ function BusinessLoginInner({ isPopup, callbackError = "" }) {
           {callbackError === "auth_callback_failed" ? (
             <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               We couldn&apos;t complete sign-in from that link. Please try again.
+            </div>
+          ) : null}
+          {callbackError === "invalid_credentials" ? (
+            <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {GENERIC_INVALID_CREDENTIALS_MESSAGE}
             </div>
           ) : null}
 

@@ -6,6 +6,7 @@ export const revalidate = 0;
 export default async function BusinessLoginPage({ searchParams }) {
   const resolvedSearchParams = await searchParams;
   const isPopup = resolvedSearchParams?.popup === "1";
-  const callbackError = resolvedSearchParams?.error || "";
+  const callbackError =
+    resolvedSearchParams?.error || resolvedSearchParams?.auth || "";
   return <BusinessLoginClient isPopup={isPopup} callbackError={callbackError} />;
 }

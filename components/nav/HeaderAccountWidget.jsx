@@ -13,6 +13,7 @@ import CartNavActionClient from "@/components/nav/CartNavActionClient";
 import AccountMenuItems from "@/components/nav/AccountMenuItems";
 import AccountSidebar from "@/components/nav/AccountSidebar";
 import { fetchUnreadTotal } from "@/lib/messages";
+import { getBusinessDisplayName } from "@/lib/auth/displayName";
 import { resolveImageSrc } from "@/lib/safeImage";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useLocation } from "@/components/location/LocationProvider";
@@ -33,6 +34,7 @@ export default function HeaderAccountWidget({
     supabase,
     user,
     profile,
+    business,
     role,
     authStatus,
     rateLimited,
@@ -78,6 +80,7 @@ export default function HeaderAccountWidget({
   const supportModeActive = Boolean(forcedAuth?.supportMode);
   const accountUser = forcedAuth?.user || user;
   const accountProfile = forcedAuth?.profile || profile;
+  const accountBusiness = forcedAuth?.business || business;
   const effectiveRole = forcedAuth?.role || role;
   const isCustomer = effectiveRole === "customer";
   const isBusiness = effectiveRole === "business";
@@ -95,13 +98,17 @@ export default function HeaderAccountWidget({
     "/customer-placeholder.png"
   );
 
-  const displayName =
-    accountProfile?.full_name ||
-    accountProfile?.business_name ||
-    accountUser?.user_metadata?.full_name ||
-    accountUser?.user_metadata?.name ||
-    accountUser?.email ||
-    "Account";
+  const displayName = isBusiness
+    ? getBusinessDisplayName({
+        business: accountBusiness,
+        profile: accountProfile,
+        user: accountUser,
+      })
+    : accountProfile?.full_name ||
+      accountUser?.user_metadata?.full_name ||
+      accountUser?.user_metadata?.name ||
+      accountUser?.email ||
+      "Account";
 
   const email = accountProfile?.email || accountUser?.email || null;
   const hasAuth = Boolean(accountUser);

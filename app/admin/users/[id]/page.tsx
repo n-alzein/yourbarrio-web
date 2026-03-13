@@ -14,6 +14,7 @@ import AdminUserNotesPanel from "@/app/admin/users/[id]/_components/AdminUserNot
 import AdminUserProfileEditor from "@/app/admin/users/[id]/_components/AdminUserProfileEditor";
 import AdminUserRoleEditor from "@/app/admin/users/[id]/_components/AdminUserRoleEditor";
 import AdminUserSecurityActions from "@/app/admin/users/[id]/_components/AdminUserSecurityActions";
+import AdminRestoreAccountButton from "@/app/admin/users/[id]/_components/AdminRestoreAccountButton";
 import DeleteUserButton from "@/app/admin/users/[ref]/_components/DeleteUserButton";
 import { getActorAdminRoleKeys } from "@/lib/admin/getActorAdminRoleKeys";
 import { getBusinessByUserId } from "@/lib/business/getBusinessByUserId";
@@ -103,7 +104,7 @@ export default async function AdminUserDetailPage({
   const { data: userDetail } = await client
     .from("users")
     .select(
-      "id, public_id, email, full_name, phone, role, is_internal, business_name, category, website, address, address_2, city, state, postal_code, created_at, updated_at"
+      "id, public_id, email, full_name, phone, role, is_internal, business_name, category, website, address, address_2, city, state, postal_code, account_status, deletion_requested_at, scheduled_purge_at, deleted_at, restored_at, created_at, updated_at"
     )
     .eq("id", user.id)
     .maybeSingle();
@@ -204,6 +205,13 @@ export default async function AdminUserDetailPage({
       canSeeSecurityTab={canSuper}
     >
         <div className="space-y-3">
+          {String(mergedUser.account_status || "") === "pending_deletion" ? (
+            <AdminRestoreAccountButton
+              targetUserId={user.id}
+              scheduledPurgeAt={mergedUser.scheduled_purge_at || null}
+              canRestore={canSuper}
+            />
+          ) : null}
           <SectionCard title="Key properties">
             <dl className="space-y-2 text-sm">
               <Field label="Email" value={mergedUser.email} />
@@ -219,6 +227,23 @@ export default async function AdminUserDetailPage({
               <Field label="City" value={mergedUser.city} />
               <Field label="State" value={mergedUser.state} />
               <Field label="Postal" value={mergedUser.postal_code} />
+              <Field label="Account status" value={mergedUser.account_status || "-"} />
+              <Field
+                label="Deletion requested"
+                value={
+                  mergedUser.deletion_requested_at
+                    ? new Date(mergedUser.deletion_requested_at).toLocaleString()
+                    : "-"
+                }
+              />
+              <Field
+                label="Scheduled purge"
+                value={
+                  mergedUser.scheduled_purge_at
+                    ? formatUsDateTime(mergedUser.scheduled_purge_at)
+                    : "-"
+                }
+              />
               <Field label="Internal" value={String(Boolean(mergedUser.is_internal))} />
               <Field label="Verification" value={mergedUser.verification_status || "-"} />
               <Field label="Stripe connected" value={String(Boolean(mergedUser.stripe_connected))} />
@@ -489,4 +514,19 @@ function Field({
       <dd className="break-all">{value || "-"}</dd>
     </div>
   );
+}
+
+function formatUsDateTime(value: string) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date);
 }

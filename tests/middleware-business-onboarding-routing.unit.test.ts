@@ -27,18 +27,37 @@ function makeRequest(pathname: string) {
 
 function buildSupabaseMock({
   businessRow = null,
+  accountStatus = "active",
 }: {
   businessRow?: any;
+  accountStatus?: string;
 } = {}) {
   return {
     rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "missing session" } }),
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          maybeSingle: vi.fn().mockResolvedValue({ data: businessRow, error: null }),
+    auth: {
+      signOut: vi.fn().mockResolvedValue({ error: null }),
+    },
+    from: vi.fn((table) => {
+      if (table === "users") {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { account_status: accountStatus },
+                error: null,
+              }),
+            })),
+          })),
+        };
+      }
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({ data: businessRow, error: null }),
+          })),
         })),
-      })),
-    })),
+      };
+    }),
   };
 }
 
