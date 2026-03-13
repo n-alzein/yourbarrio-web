@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import OnboardingClient from "@/app/(onboarding)/onboarding/OnboardingClient";
 import { getSupabaseServerAuthedClient } from "@/lib/supabaseServer";
 import { resolveCurrentUserRoleFromClient } from "@/lib/auth/getCurrentUserRole";
+import { BUSINESS_CREATE_PASSWORD_PATH } from "@/lib/auth/businessPasswordGate";
 import { isBusinessOnboardingComplete } from "@/lib/business/onboardingCompletion";
 
 const NEXT_ONBOARDING = "/onboarding";
@@ -31,6 +32,18 @@ export default async function OnboardingPage() {
       });
     }
     redirect(`/business-auth/login?next=${encodeURIComponent(NEXT_ONBOARDING)}`);
+  }
+
+  if (role === "business") {
+    const { data: passwordRow } = await supabase
+      .from("users")
+      .select("password_set")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (passwordRow?.password_set !== true) {
+      redirect(BUSINESS_CREATE_PASSWORD_PATH);
+    }
   }
 
   const { data: businessRow, error: businessError } = await supabase

@@ -7,6 +7,10 @@ import { normalizeAppRole } from "@/lib/auth/redirects";
 import { getCookieBaseOptions } from "@/lib/authCookies";
 import { ensureBusinessProvisionedForUser } from "@/lib/auth/ensureBusinessProvisioning";
 import {
+  getBusinessPasswordGateState,
+  getBusinessRedirectDestination,
+} from "@/lib/auth/businessPasswordGate";
+import {
   isBlockedAccountStatus,
   normalizeAccountStatus,
 } from "@/lib/accountDeletion/status";
@@ -372,24 +376,14 @@ export async function GET(request) {
       }
     }
 
-    let resolvedRole = normalizeAppRole(user?.app_metadata?.role);
-    let accountStatus = null;
-    if (!resolvedRole) {
-      const { data: profile } = await supabase
-        .from("users")
-        .select("role,is_internal,account_status")
-        .eq("id", user.id)
-        .maybeSingle();
-      resolvedRole = profile?.is_internal === true ? "admin" : normalizeAppRole(profile?.role);
-      accountStatus = normalizeAccountStatus(profile?.account_status);
-    } else {
-      const { data: profile } = await supabase
-        .from("users")
-        .select("account_status")
-        .eq("id", user.id)
-        .maybeSingle();
-      accountStatus = normalizeAccountStatus(profile?.account_status);
-    }
+    const businessGate = await getBusinessPasswordGateState({
+      supabase,
+      userId: user.id,
+      fallbackRole: normalizeAppRole(user?.app_metadata?.role),
+    });
+
+    const resolvedRole = businessGate.role;
+    const accountStatus = normalizeAccountStatus(businessGate.accountStatus);
 
     if (isBlockedAccountStatus(accountStatus)) {
       try {
@@ -402,7 +396,14 @@ export async function GET(request) {
         authError: "invalid_credentials",
       });
     }
-    const destination = safeNext ?? "/onboarding";
+    const destination =
+      resolvedRole === "business"
+        ? getBusinessRedirectDestination({
+            passwordSet: businessGate.passwordSet,
+            onboardingComplete: businessGate.onboardingComplete,
+            safeNext,
+          })
+        : safeNext ?? "/onboarding";
 
     if (debug || process.env.NODE_ENV !== "production") {
       console.info("[AUTH_CALLBACK_TRACE]", {
@@ -412,10 +413,17 @@ export async function GET(request) {
         businessIntent,
         role: resolvedRole || null,
         destination,
-        reason: safeNext ? "next_param" : "fallback_to_onboarding",
+        reason:
+          resolvedRole === "business"
+            ? "business_password_or_onboarding_gate"
+            : safeNext
+              ? "next_param"
+              : "fallback_to_onboarding",
       });
       console.warn("[AUTH_REDIRECT_TRACE] auth_callback", {
         role: resolvedRole || null,
+        passwordSet: businessGate.passwordSet,
+        onboardingComplete: businessGate.onboardingComplete,
         nextRaw: rawNext,
         nextNormalized,
         nextRewritten: Boolean(rawNext) && nextNormalized !== rawNext,
@@ -437,7 +445,12 @@ export async function GET(request) {
     return buildRedirectResponse({
       destination,
       role: resolvedRole || "",
-      reason: safeNext ? "next_param" : "fallback_to_onboarding",
+      reason:
+        resolvedRole === "business"
+          ? "business_password_or_onboarding_gate"
+          : safeNext
+            ? "next_param"
+            : "fallback_to_onboarding",
     });
   } catch (err) {
     if (process.env.NODE_ENV !== "production") {

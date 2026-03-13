@@ -9,7 +9,7 @@ const requestSchema = z.object({
 });
 
 function getBusinessRedirectTo(siteUrl: string) {
-  return `${siteUrl}/auth/confirm?next=/business/onboarding`;
+  return `${siteUrl}/auth/confirm?next=/onboarding`;
 }
 
 function normalizeVerifyType(input: string) {
@@ -20,7 +20,7 @@ function normalizeVerifyType(input: string) {
 
 function buildTokenHashConfirmLink(siteUrl: string, tokenHash: string, type = "email") {
   const link = new URL("/auth/confirm", siteUrl);
-  link.searchParams.set("next", "/business/onboarding");
+  link.searchParams.set("next", "/onboarding");
   link.searchParams.set("token_hash", tokenHash);
   link.searchParams.set("type", normalizeVerifyType(type));
   return link.toString();

@@ -4,6 +4,7 @@ import BusinessAuthPopupLink from "@/components/business/BusinessAuthPopupLink";
 import BusinessMarketingHeader from "@/components/headers/BusinessMarketingHeader";
 import { getSupabaseServerAuthedClient } from "@/lib/supabaseServer";
 import { resolveCurrentUserRoleFromClient } from "@/lib/auth/getCurrentUserRole";
+import { BUSINESS_CREATE_PASSWORD_PATH } from "@/lib/auth/businessPasswordGate";
 import { PATHS } from "@/lib/auth/paths";
 import { isBusinessOnboardingComplete } from "@/lib/business/onboardingCompletion";
 
@@ -17,6 +18,16 @@ export default async function BusinessHome() {
     const { user, role } = await resolveCurrentUserRoleFromClient(supabase);
 
     if (user?.id && role === "business") {
+      const { data: passwordRow } = await supabase
+        .from("users")
+        .select("password_set")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (passwordRow?.password_set !== true) {
+        redirect(BUSINESS_CREATE_PASSWORD_PATH);
+      }
+
       const { data: businessRow } = await supabase
         .from("businesses")
         .select("business_name,category,address,city,state,postal_code")

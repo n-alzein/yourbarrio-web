@@ -28,9 +28,11 @@ function makeRequest(pathname: string) {
 function buildSupabaseMock({
   businessRow = null,
   accountStatus = "active",
+  passwordSet = true,
 }: {
   businessRow?: any;
   accountStatus?: string;
+  passwordSet?: boolean;
 } = {}) {
   return {
     rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "missing session" } }),
@@ -43,7 +45,7 @@ function buildSupabaseMock({
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
               maybeSingle: vi.fn().mockResolvedValue({
-                data: { account_status: accountStatus },
+                data: { account_status: accountStatus, password_set: passwordSet },
                 error: null,
               }),
             })),
@@ -104,5 +106,23 @@ describe("middleware business onboarding routing", () => {
     const response = await middleware(makeRequest("/business/dashboard"));
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost:3000/onboarding");
+  });
+
+  it("redirects authenticated business without password setup from /onboarding to create-password", async () => {
+    resolveCurrentUserRoleFromClientMock.mockResolvedValue({
+      user: { id: "11111111-1111-4111-8111-111111111111" },
+      role: "business",
+    });
+    createServerClientMock.mockReturnValue(
+      buildSupabaseMock({
+        passwordSet: false,
+      })
+    );
+
+    const response = await middleware(makeRequest("/onboarding"));
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:3000/business-auth/create-password"
+    );
   });
 });

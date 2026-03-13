@@ -1,9 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSafeRedirectPath } from "@/lib/auth/redirects";
 import { ensureBusinessProvisionedForUser } from "@/lib/auth/ensureBusinessProvisioning";
+import {
+  getBusinessPasswordGateState,
+  getBusinessRedirectDestination,
+} from "@/lib/auth/businessPasswordGate";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
 
-const OTP_TYPES = new Set(["email", "recovery", "invite", "email_change"]);
+const OTP_TYPES = new Set([
+  "email",
+  "signup",
+  "magiclink",
+  "recovery",
+  "invite",
+  "email_change",
+]);
+
+function normalizeOtpType(input: string) {
+  const normalized = String(input || "").trim().toLowerCase();
+  if (!normalized || normalized === "magiclink" || normalized === "signup") {
+    return "email";
+  }
+  return OTP_TYPES.has(normalized) ? normalized : "";
+}
 
 function getTargetPath(requestUrl: URL) {
   const safeNext = getSafeRedirectPath(requestUrl.searchParams.get("next"));
@@ -32,16 +51,63 @@ function getFallbackPath(requestUrl: URL, targetPath: string, businessIntent: bo
   return "/auth/forgot-password?error=invalid_or_expired_link";
 }
 
+async function tryRedirectAuthenticatedBusiness({
+  supabase,
+  request,
+  targetPath,
+}: {
+  supabase: ReturnType<typeof createSupabaseRouteHandlerClient>;
+  request: NextRequest;
+  targetPath: string;
+}) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.id) return null;
+
+  try {
+    await ensureBusinessProvisionedForUser({
+      userId: user.id,
+      email: user.email || "",
+      source: "auth_confirm_repeat_click",
+    });
+  } catch {
+    return null;
+  }
+
+  const businessGate = await getBusinessPasswordGateState({
+    supabase,
+    userId: user.id,
+    fallbackRole: "business",
+  });
+
+  if (businessGate.role !== "business") return null;
+
+  return NextResponse.redirect(
+    new URL(
+      getBusinessRedirectDestination({
+        passwordSet: businessGate.passwordSet,
+        onboardingComplete: businessGate.onboardingComplete,
+        safeNext: targetPath,
+      }),
+      request.url
+    )
+  );
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
+  const code = requestUrl.searchParams.get("code") || "";
   const targetPath = getTargetPath(requestUrl);
   const tokenHash = requestUrl.searchParams.get("token_hash") || "";
-  const type = requestUrl.searchParams.get("type") || "";
+  const type = normalizeOtpType(requestUrl.searchParams.get("type") || "");
   const businessIntent = isBusinessIntentPath(targetPath);
   const fallbackPath = getFallbackPath(requestUrl, targetPath, businessIntent);
 
   if (process.env.NODE_ENV !== "production") {
     console.info("[AUTH_CALLBACK_TRACE] confirm_params", {
+      hasCode: Boolean(code),
       hasTokenHash: Boolean(tokenHash),
       type: type || null,
       next: targetPath,
@@ -52,8 +118,67 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(new URL(fallbackPath, request.url));
   const supabase = createSupabaseRouteHandlerClient(request, response);
 
-  if (!tokenHash || !OTP_TYPES.has(type)) {
+  if (code) {
     if (process.env.NODE_ENV !== "production") {
+      console.info("[AUTH_CALLBACK_TRACE] confirm_path", {
+        path: "code_exchange",
+        businessIntent,
+      });
+    }
+
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[AUTH_CALLBACK_TRACE] confirm_fallback", {
+          reason: "exchange_code_failed",
+          destination: fallbackPath,
+          code: error.code || null,
+          message: error.message || null,
+        });
+      }
+      return response;
+    }
+  } else if (tokenHash && type) {
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[AUTH_CALLBACK_TRACE] confirm_path", {
+        path: "token_hash_verify",
+        type,
+        businessIntent,
+      });
+    }
+
+    const { error } = await supabase.auth.verifyOtp({
+      type: type as "email" | "recovery" | "invite" | "email_change",
+      token_hash: tokenHash,
+    });
+
+    if (error) {
+      if (businessIntent) {
+        const authenticatedRedirect = await tryRedirectAuthenticatedBusiness({
+          supabase,
+          request,
+          targetPath,
+        });
+        if (authenticatedRedirect) {
+          return authenticatedRedirect;
+        }
+      }
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[AUTH_CALLBACK_TRACE] confirm_fallback", {
+          reason: "verify_otp_failed",
+          destination: fallbackPath,
+          code: error.code || null,
+          message: error.message || null,
+        });
+      }
+      return response;
+    }
+  } else {
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[AUTH_CALLBACK_TRACE] confirm_path", {
+        path: "invalid_fallback",
+        businessIntent,
+      });
       console.warn("[AUTH_CALLBACK_TRACE] confirm_fallback", {
         reason: "missing_or_invalid_params",
         destination: fallbackPath,
@@ -62,27 +187,11 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
-  const { error } = await supabase.auth.verifyOtp({
-    type: type as "email" | "recovery" | "invite" | "email_change",
-    token_hash: tokenHash,
-  });
-
-  if (error) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[AUTH_CALLBACK_TRACE] confirm_fallback", {
-        reason: "verify_otp_failed",
-        destination: fallbackPath,
-        code: error.code || null,
-        message: error.message || null,
-      });
-    }
-    return response;
-  }
-
   if (process.env.NODE_ENV !== "production") {
     console.info("[AUTH_CALLBACK_TRACE] confirm_verified", {
       destination: targetPath,
-      type,
+      verificationMethod: code ? "code_exchange" : "token_hash_verify",
+      type: type || null,
       businessIntent,
     });
   }
@@ -117,6 +226,25 @@ export async function GET(request: NextRequest) {
       }
       return response;
     }
+
+    const businessGate = await getBusinessPasswordGateState({
+      supabase,
+      userId: user.id,
+      fallbackRole: "business",
+    });
+
+    response.headers.set(
+      "location",
+      new URL(
+        getBusinessRedirectDestination({
+          passwordSet: businessGate.passwordSet,
+          onboardingComplete: businessGate.onboardingComplete,
+          safeNext: targetPath,
+        }),
+        request.url
+      ).toString()
+    );
+    return response;
   }
 
   response.headers.set("location", new URL(targetPath, request.url).toString());

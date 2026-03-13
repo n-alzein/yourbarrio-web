@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getCookieBaseOptions } from "@/lib/authCookies";
 import { resolveCurrentUserRoleFromClient } from "@/lib/auth/getCurrentUserRole";
+import { BUSINESS_CREATE_PASSWORD_PATH } from "@/lib/auth/businessPasswordGate";
 import { getRoleLandingPath } from "@/lib/auth/redirects";
 import { isBusinessOnboardingComplete } from "@/lib/business/onboardingCompletion";
 import {
@@ -335,8 +336,27 @@ export async function middleware(request) {
   const { user, role } = await resolveCurrentUserRoleFromClient(supabase, {
     log: shouldLogRole,
   });
+  let accountStatus = null;
+  let passwordSet = false;
 
   if (isBusinessLandingRoute && user?.id && role === "business") {
+    const { data: businessUserRow } = await supabase
+      .from("users")
+      .select("account_status,password_set")
+      .eq("id", user.id)
+      .maybeSingle();
+    accountStatus = normalizeAccountStatus(businessUserRow?.account_status);
+    passwordSet = businessUserRow?.password_set === true;
+
+    if (!passwordSet) {
+      businessLandingGuardMeta.hit = true;
+      businessLandingGuardMeta.role = "business";
+      businessLandingGuardMeta.destination = BUSINESS_CREATE_PASSWORD_PATH;
+      return withSupabaseCookies(
+        NextResponse.redirect(new URL(BUSINESS_CREATE_PASSWORD_PATH, request.url), 307)
+      );
+    }
+
     businessLandingGuardMeta.hit = true;
     businessLandingGuardMeta.role = "business";
     const { data: businessRow } = await supabase
@@ -399,12 +419,15 @@ export async function middleware(request) {
   }
 
   if (user?.id) {
-    const { data: lifecycleRow } = await supabase
-      .from("users")
-      .select("account_status")
-      .eq("id", user.id)
-      .maybeSingle();
-    const accountStatus = normalizeAccountStatus(lifecycleRow?.account_status);
+    if (accountStatus === null) {
+      const { data: lifecycleRow } = await supabase
+        .from("users")
+        .select("account_status,password_set")
+        .eq("id", user.id)
+        .maybeSingle();
+      accountStatus = normalizeAccountStatus(lifecycleRow?.account_status);
+      passwordSet = lifecycleRow?.password_set === true;
+    }
     if (isBlockedAccountStatus(accountStatus)) {
       try {
         await supabase.auth.signOut({ scope: "local" });
@@ -584,6 +607,10 @@ export async function middleware(request) {
       return withSupabaseCookies(response);
     }
 
+    if (role === "business" && !passwordSet) {
+      return redirectSafely(BUSINESS_CREATE_PASSWORD_PATH);
+    }
+
     // Do NOT restrict /onboarding by role; onboarding flow flips role as needed.
     return withSupabaseCookies(response);
   }
@@ -601,6 +628,10 @@ export async function middleware(request) {
 
     if (role !== "business") {
       return redirectSafely("/");
+    }
+
+    if (!passwordSet) {
+      return redirectSafely(BUSINESS_CREATE_PASSWORD_PATH);
     }
 
     const { data: businessRow, error: businessError } = await supabase
