@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { PATHS } from "@/lib/auth/paths";
 
 const MAX_WAIT_MS = 10_000;
@@ -12,7 +11,6 @@ function sleep(ms) {
 }
 
 export default function BusinessPostConfirmClient() {
-  const router = useRouter();
   const redirectedRef = useRef(false);
   const [statusMessage, setStatusMessage] = useState("Finalizing your account...");
 
@@ -24,6 +22,12 @@ export default function BusinessPostConfirmClient() {
       const supabase = getSupabaseBrowserClient();
       const startedAt = Date.now();
       let attempt = 0;
+      const host =
+        typeof window !== "undefined" ? window.location.host : null;
+      const pathname =
+        typeof window !== "undefined"
+          ? window.location.pathname
+          : PATHS.auth.businessPostConfirm;
 
       while (!cancelled && !redirectedRef.current && Date.now() - startedAt < MAX_WAIT_MS) {
         attempt += 1;
@@ -39,12 +43,14 @@ export default function BusinessPostConfirmClient() {
         const user = userData?.user ?? null;
 
         console.warn("[BUSINESS_REDIRECT_TRACE] post_confirm_attempt", {
-          pathname: PATHS.auth.businessPostConfirm,
+          host,
+          pathname,
           attempt,
           sessionExists: Boolean(session),
           userExists: Boolean(user?.id),
           userId: user?.id || null,
           destinationChosen: null,
+          fellBackToLogin: false,
         });
 
         if (!session || !user?.id) {
@@ -55,30 +61,34 @@ export default function BusinessPostConfirmClient() {
         const destination = PATHS.auth.businessCreatePassword;
 
         console.warn("[BUSINESS_REDIRECT_TRACE] post_confirm_attempt", {
-          pathname: PATHS.auth.businessPostConfirm,
+          host,
+          pathname,
           attempt,
           sessionExists: true,
           userExists: true,
           userId: user.id,
           destinationChosen: destination,
+          fellBackToLogin: false,
         });
 
         redirectedRef.current = true;
-        router.replace(destination);
-        router.refresh();
+        setStatusMessage("Session confirmed. Continuing...");
+        window.location.replace(destination);
         return;
       }
 
       console.warn("[BUSINESS_REDIRECT_TRACE] post_confirm_timeout", {
-        pathname: PATHS.auth.businessPostConfirm,
+        host,
+        pathname,
         elapsedMs: Date.now() - startedAt,
         sessionExists: false,
         userExists: false,
         destinationChosen: `${PATHS.auth.businessLogin}?next=${encodeURIComponent(PATHS.auth.businessCreatePassword)}`,
+        fellBackToLogin: true,
       });
 
       redirectedRef.current = true;
-      router.replace(
+      window.location.replace(
         `${PATHS.auth.businessLogin}?next=${encodeURIComponent(PATHS.auth.businessCreatePassword)}`
       );
     }
@@ -88,7 +98,7 @@ export default function BusinessPostConfirmClient() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, []);
 
   return (
     <div className="w-full max-w-md rounded-2xl border border-[var(--yb-border)] bg-white p-8 shadow-sm animate-fadeIn">

@@ -20,6 +20,33 @@ const IMPERSONATE_TARGET_ROLE_COOKIE = "yb_impersonate_target_role";
 const CUSTOMER_NEARBY_PUBLIC_FLAG_PATH = "/api/flags/customer-nearby-public";
 const NEARBY_PUBLIC_COOKIE_NAME = "yb_nearby_public";
 
+function shouldTraceAuthFlow(pathname) {
+  if (!pathname) return false;
+  return (
+    pathname === "/business" ||
+    pathname === "/business/" ||
+    pathname === "/onboarding" ||
+    pathname.startsWith("/onboarding/") ||
+    pathname.startsWith("/business/")
+  );
+}
+
+function logMiddlewareAuthTrace(request, payload = {}) {
+  const pathname = request?.nextUrl?.pathname || "";
+  if (!shouldTraceAuthFlow(pathname)) return;
+  const authCookieNames = request.cookies
+    .getAll()
+    .map((cookie) => cookie?.name)
+    .filter((name) => typeof name === "string" && name.startsWith("sb-"));
+  console.warn("[BUSINESS_REDIRECT_TRACE] middleware_auth", {
+    host: request.headers.get("host") || request.nextUrl.host,
+    pathname,
+    authCookieNames,
+    requestIncludesAuthCookies: authCookieNames.length > 0,
+    ...payload,
+  });
+}
+
 function isCustomerNearbyPath(pathname) {
   return pathname === "/customer/nearby" || pathname.startsWith("/customer/nearby/");
 }
@@ -284,6 +311,13 @@ export async function middleware(request) {
 
   const redirectSafely = (targetPath) => {
     if (!targetPath || targetPath === pathname || !canRedirect) {
+      logMiddlewareAuthTrace(request, {
+        middlewareCanReadUser: Boolean(user?.id),
+        userId: user?.id || null,
+        role,
+        redirectDestination: null,
+        redirectReason: !canRedirect ? "redirect_suppressed_non_document_or_rsc" : "no_redirect",
+      });
       return withSupabaseCookies(response);
     }
     if (process.env.NODE_ENV !== "production") {
@@ -299,12 +333,26 @@ export async function middleware(request) {
         to: targetPath,
       });
     }
+    logMiddlewareAuthTrace(request, {
+      middlewareCanReadUser: Boolean(user?.id),
+      userId: user?.id || null,
+      role,
+      redirectDestination: targetPath,
+      redirectReason: "redirect_safely",
+    });
     return withSupabaseCookies(NextResponse.redirect(new URL(targetPath, request.url)));
   };
 
   // Redirect chokepoint: suppress redirects for non-document and _rsc requests,
   // except /business where we enforce early business landing redirects.
   if (!canRedirect && !isBusinessLandingRoute) {
+    logMiddlewareAuthTrace(request, {
+      middlewareCanReadUser: false,
+      userId: null,
+      role: null,
+      redirectDestination: null,
+      redirectReason: "redirect_suppressed_non_document_or_rsc",
+    });
     return withSupabaseCookies(response, { redirectSuppressed: true });
   }
 
@@ -339,6 +387,13 @@ export async function middleware(request) {
   const { user, role } = await resolveCurrentUserRoleFromClient(supabase, {
     log: shouldLogRole,
   });
+  logMiddlewareAuthTrace(request, {
+    middlewareCanReadUser: Boolean(user?.id),
+    userId: user?.id || null,
+    role,
+    redirectDestination: null,
+    redirectReason: "resolved_identity",
+  });
   let accountStatus = null;
   let passwordSet = false;
 
@@ -366,6 +421,13 @@ export async function middleware(request) {
         redirectReason: "business_landing_password_setup_required",
         accountStatus,
       });
+      logMiddlewareAuthTrace(request, {
+        middlewareCanReadUser: true,
+        userId: user.id,
+        role,
+        redirectDestination: BUSINESS_CREATE_PASSWORD_PATH,
+        redirectReason: "business_landing_password_setup_required",
+      });
       return withSupabaseCookies(
         NextResponse.redirect(new URL(BUSINESS_CREATE_PASSWORD_PATH, request.url), 307)
       );
@@ -392,6 +454,13 @@ export async function middleware(request) {
         redirectReason: "business_landing_onboarding_required",
         accountStatus,
       });
+      logMiddlewareAuthTrace(request, {
+        middlewareCanReadUser: true,
+        userId: user.id,
+        role,
+        redirectDestination: "/onboarding",
+        redirectReason: "business_landing_onboarding_required",
+      });
       return withSupabaseCookies(
         NextResponse.redirect(new URL("/onboarding", request.url), 307)
       );
@@ -408,6 +477,13 @@ export async function middleware(request) {
       redirectDestination: "/business/dashboard",
       redirectReason: "business_landing_dashboard_ready",
       accountStatus,
+    });
+    logMiddlewareAuthTrace(request, {
+      middlewareCanReadUser: true,
+      userId: user.id,
+      role,
+      redirectDestination: "/business/dashboard",
+      redirectReason: "business_landing_dashboard_ready",
     });
     return withSupabaseCookies(
       NextResponse.redirect(new URL("/business/dashboard", request.url), 307)

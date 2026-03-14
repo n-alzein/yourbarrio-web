@@ -60,6 +60,14 @@ function copyResponseCookies(source: NextResponse, target: NextResponse) {
   return target;
 }
 
+function getResponseCookieSnapshot(response: NextResponse) {
+  const cookies = response.cookies.getAll();
+  return {
+    setCookieCount: cookies.length,
+    setCookieNames: cookies.map((cookie) => cookie.name),
+  };
+}
+
 function buildRedirectResponseWithCookies({
   request,
   cookieSource,
@@ -73,12 +81,10 @@ function buildRedirectResponseWithCookies({
 }) {
   const finalResponse = NextResponse.redirect(new URL(destination, request.url));
   copyResponseCookies(cookieSource, finalResponse);
-  const responseCookies = finalResponse.cookies.getAll();
   logBusinessRedirectTrace("auth_confirm_final_response", {
     ...logPayload,
     finalRedirectDestination: destination,
-    responseCookieCount: responseCookies.length,
-    responseCookieNames: responseCookies.map((cookie) => cookie.name),
+    ...getResponseCookieSnapshot(finalResponse),
   });
   return finalResponse;
 }
@@ -165,14 +171,17 @@ export async function GET(request: NextRequest) {
 
   const response = NextResponse.redirect(new URL(fallbackPath, request.url));
   const supabase = createSupabaseRouteHandlerClient(request, response);
-  let verificationMethod: "code_exchange" | "token_hash_verify" | "invalid" = "invalid";
+  let verificationMethod:
+    | "exchangeCodeForSession"
+    | "verifyOtp"
+    | "invalid" = "invalid";
   let verificationSucceeded = false;
   let verificationSessionExists = false;
   let verificationUserExists = false;
   let verificationUserId = null;
 
   if (code) {
-    verificationMethod = "code_exchange";
+    verificationMethod = "exchangeCodeForSession";
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     verificationSessionExists = Boolean(data?.session);
@@ -183,6 +192,8 @@ export async function GET(request: NextRequest) {
         host,
         pathname: requestUrl.pathname,
         verificationMethod,
+        authMethodPath: verificationMethod,
+        authCallReturnedError: true,
         verificationSucceeded: false,
         verificationSessionExists,
         verificationUserExists,
@@ -191,13 +202,14 @@ export async function GET(request: NextRequest) {
         userExists: null,
         redirectDestination: fallbackPath,
         redirectReason: "exchange_code_failed",
+        ...getResponseCookieSnapshot(response),
         errorCode: error.code || null,
         errorMessage: error.message || null,
       });
       return response;
     }
   } else if (tokenHash && type) {
-    verificationMethod = "token_hash_verify";
+    verificationMethod = "verifyOtp";
 
     const { data, error } = await supabase.auth.verifyOtp({
       type: type as "email" | "recovery" | "invite" | "email_change",
@@ -223,6 +235,8 @@ export async function GET(request: NextRequest) {
         host,
         pathname: requestUrl.pathname,
         verificationMethod,
+        authMethodPath: verificationMethod,
+        authCallReturnedError: true,
         verificationSucceeded: false,
         verificationSessionExists,
         verificationUserExists,
@@ -231,6 +245,7 @@ export async function GET(request: NextRequest) {
         userExists: null,
         redirectDestination: fallbackPath,
         redirectReason: "verify_otp_failed",
+        ...getResponseCookieSnapshot(response),
         errorCode: error.code || null,
         errorMessage: error.message || null,
       });
@@ -241,6 +256,8 @@ export async function GET(request: NextRequest) {
       host,
       pathname: requestUrl.pathname,
       verificationMethod,
+      authMethodPath: verificationMethod,
+      authCallReturnedError: false,
       verificationSucceeded: false,
       verificationSessionExists,
       verificationUserExists,
@@ -249,6 +266,7 @@ export async function GET(request: NextRequest) {
       userExists: null,
       redirectDestination: fallbackPath,
       redirectReason: "missing_or_invalid_params",
+      ...getResponseCookieSnapshot(response),
     });
     return response;
   }
@@ -269,6 +287,8 @@ export async function GET(request: NextRequest) {
         host,
         pathname: requestUrl.pathname,
         verificationMethod,
+        authMethodPath: verificationMethod,
+        authCallReturnedError: false,
         verificationSucceeded,
         verificationSessionExists,
         verificationUserExists,
@@ -277,6 +297,7 @@ export async function GET(request: NextRequest) {
         userExists: false,
         redirectDestination: fallbackPath,
         redirectReason: "verify_succeeded_but_user_missing",
+        ...getResponseCookieSnapshot(response),
       });
       return response;
     }
