@@ -36,16 +36,10 @@ export async function POST(request: NextRequest) {
 
   const email = parsed.data.email.toLowerCase();
   const siteUrl = getSiteUrlFromRequest(request);
-  const host = request.headers.get("host") || null;
 
-  console.warn("[BUSINESS_REDIRECT_TRACE] business_magic_link_route", {
-    host,
-    pathname: request.nextUrl.pathname,
-    siteUrl,
-    email,
-    redirectDestination: getBusinessRedirectTo(siteUrl),
-    redirectReason: "generate_business_magic_link",
-  });
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[invite-flow] PATH=BUSINESS_MAGIC_LINK_ROUTE reached", { email });
+  }
 
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: "magiclink",

@@ -6,7 +6,6 @@ import {
   BUSINESS_CREATE_PASSWORD_PATH,
   logBusinessRedirectTrace,
 } from "@/lib/auth/businessPasswordGate";
-import { getCanonicalRedirectUrlForRequest } from "@/lib/auth/getSiteUrl";
 import { getRoleLandingPath } from "@/lib/auth/redirects";
 import { isBusinessOnboardingComplete } from "@/lib/business/onboardingCompletion";
 import {
@@ -133,7 +132,6 @@ async function resolveSupportModeState({ supabase, request, shouldLogRole, pathn
 
 export async function middleware(request) {
   const pathname = request.nextUrl.pathname;
-  const host = request.headers.get("host") || null;
   const isNearbyRoute = isCustomerNearbyPath(pathname);
   if (
     pathname.startsWith("/_next/") ||
@@ -141,18 +139,6 @@ export async function middleware(request) {
     pathname === "/favicon.ico"
   ) {
     return NextResponse.next();
-  }
-
-  const canonicalRedirectUrl = getCanonicalRedirectUrlForRequest(request);
-  if (canonicalRedirectUrl) {
-    logBusinessRedirectTrace("middleware_canonical_host", {
-      host,
-      pathname,
-      sessionExists: null,
-      redirectDestination: canonicalRedirectUrl.toString(),
-      redirectReason: "canonical_host_redirect",
-    });
-    return NextResponse.redirect(canonicalRedirectUrl, 307);
   }
 
   const mode = (request.headers.get("sec-fetch-mode") || "").toLowerCase();
@@ -296,19 +282,10 @@ export async function middleware(request) {
     return targetResponse;
   };
 
-  const redirectSafely = (targetPath, reason = "middleware_redirect") => {
+  const redirectSafely = (targetPath) => {
     if (!targetPath || targetPath === pathname || !canRedirect) {
       return withSupabaseCookies(response);
     }
-    logBusinessRedirectTrace("middleware_redirect", {
-      host,
-      pathname,
-      sessionExists: Boolean(user?.id),
-      userId: user?.id || null,
-      role: role || null,
-      redirectDestination: targetPath,
-      redirectReason: reason,
-    });
     if (process.env.NODE_ENV !== "production") {
       if (targetPath === "/" && pathname.startsWith("/onboarding")) {
         console.info("[ONBOARDING_REDIRECT_TRACE] source=middleware_redirectSafely", {
@@ -344,10 +321,6 @@ export async function middleware(request) {
     pathname.startsWith("/business/login") ||
     pathname.startsWith("/business/signup") ||
     pathname.startsWith("/business/register");
-  const isBusinessAuthSurfaceRoute =
-    pathname === "/business-auth" || pathname.startsWith("/business-auth/");
-  const isAuthConfirmRoute =
-    pathname === "/auth/confirm" || pathname.startsWith("/auth/confirm/");
 
   const isBusinessOnboardingRoute =
     pathname === "/business/onboarding" || pathname.startsWith("/business/onboarding/");
@@ -446,18 +419,6 @@ export async function middleware(request) {
     businessLandingGuardMeta.role = role || "anon";
   }
 
-  if (isAuthConfirmRoute || isBusinessAuthSurfaceRoute) {
-    logBusinessRedirectTrace("middleware_auth_surface", {
-      host,
-      pathname,
-      sessionExists: Boolean(user?.id),
-      userId: user?.id || null,
-      role: role || null,
-      redirectDestination: null,
-      redirectReason: "pass_through",
-    });
-  }
-
   const supportMode = user?.id
     ? await resolveSupportModeState({
         supabase,
@@ -518,7 +479,7 @@ export async function middleware(request) {
     }
   }
 
-  if (isBusinessMarketingRoute || isBusinessAuthRoute || isBusinessAuthSurfaceRoute) {
+  if (isBusinessMarketingRoute || isBusinessAuthRoute) {
     return withSupabaseCookies(response);
   }
 
@@ -673,8 +634,7 @@ export async function middleware(request) {
   if (isCanonicalOnboardingRoute) {
     if (!user?.id) {
       return redirectSafely(
-        `/business-auth/login?next=${encodeURIComponent("/onboarding")}`,
-        "onboarding_requires_auth"
+        `/business-auth/login?next=${encodeURIComponent("/onboarding")}`
       );
     }
 
@@ -684,10 +644,7 @@ export async function middleware(request) {
     }
 
     if (role === "business" && !passwordSet) {
-      return redirectSafely(
-        BUSINESS_CREATE_PASSWORD_PATH,
-        "onboarding_requires_password_setup"
-      );
+      return redirectSafely(BUSINESS_CREATE_PASSWORD_PATH);
     }
 
     // Do NOT restrict /onboarding by role; onboarding flow flips role as needed.
@@ -697,8 +654,7 @@ export async function middleware(request) {
   if (isBusinessAppRoute) {
     if (!user?.id) {
       return redirectSafely(
-        `/business-auth/login?next=${encodeURIComponent(pathname)}`,
-        "business_app_requires_auth"
+        `/business-auth/login?next=${encodeURIComponent(pathname)}`
       );
     }
 
@@ -707,14 +663,11 @@ export async function middleware(request) {
     }
 
     if (role !== "business") {
-      return redirectSafely("/", "business_app_requires_business_role");
+      return redirectSafely("/");
     }
 
     if (!passwordSet) {
-      return redirectSafely(
-        BUSINESS_CREATE_PASSWORD_PATH,
-        "business_app_requires_password_setup"
-      );
+      return redirectSafely(BUSINESS_CREATE_PASSWORD_PATH);
     }
 
     const { data: businessRow, error: businessError } = await supabase
@@ -727,7 +680,7 @@ export async function middleware(request) {
     const onboardingComplete = hasBusiness && isBusinessOnboardingComplete(businessRow);
 
     if (!hasBusiness || !onboardingComplete) {
-      return redirectSafely("/onboarding", "business_app_requires_onboarding");
+      return redirectSafely("/onboarding");
     }
 
     return withSupabaseCookies(response);

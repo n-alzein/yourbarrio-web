@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import BusinessCreatePasswordClient from "@/components/business-auth/BusinessCreatePasswordClient";
 import {
   BUSINESS_CREATE_PASSWORD_PATH,
@@ -14,9 +13,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function BusinessCreatePasswordPage() {
-  const headerList = await headers();
   const supabase = await getSupabaseServerAuthedClient();
-  const host = headerList.get("host") || null;
   const pathname = BUSINESS_CREATE_PASSWORD_PATH;
 
   if (!supabase) {
@@ -25,10 +22,8 @@ export default async function BusinessCreatePasswordPage() {
     });
     logBusinessRedirectTrace("create_password_page", {
       pathname,
-      host,
       userId: null,
       role: null,
-      serverCanReadSession: false,
       sessionExists: false,
       password_set: null,
       onboardingState: null,
@@ -48,10 +43,8 @@ export default async function BusinessCreatePasswordPage() {
     });
     logBusinessRedirectTrace("create_password_page", {
       pathname,
-      host,
       userId: null,
       role: null,
-      serverCanReadSession: false,
       sessionExists: false,
       password_set: null,
       onboardingState: null,
@@ -88,10 +81,8 @@ export default async function BusinessCreatePasswordPage() {
   if (decision.action === "redirect") {
     logBusinessRedirectTrace("create_password_page", {
       pathname,
-      host,
       userId: user.id,
       role: businessGate.role,
-      serverCanReadSession: true,
       sessionExists: true,
       password_set: businessGate.passwordSet,
       onboardingState: businessGate.onboardingComplete,
@@ -104,10 +95,8 @@ export default async function BusinessCreatePasswordPage() {
 
   logBusinessRedirectTrace("create_password_page", {
     pathname,
-    host,
     userId: user.id,
     role: businessGate.role,
-    serverCanReadSession: true,
     sessionExists: true,
     password_set: businessGate.passwordSet,
     onboardingState: businessGate.onboardingComplete,

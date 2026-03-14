@@ -3,8 +3,6 @@ import "server-only";
 import type { NextRequest } from "next/server";
 
 type HeadersLike = Pick<Headers, "get">;
-const YOURBARRIO_APEX_HOST = "yourbarrio.com";
-const YOURBARRIO_WWW_HOST = "www.yourbarrio.com";
 
 function firstHeaderValue(value: string | null): string {
   return String(value || "")
@@ -17,37 +15,19 @@ function getRequestOriginFromHeaders(headers: HeadersLike): string {
   const host =
     firstHeaderValue(headers.get("x-forwarded-host")) ||
     firstHeaderValue(headers.get("host"));
-  const normalizedHost = host
-    ? host.replace(host.split(":")[0], normalizeYourBarrioHostname(host.split(":")[0]))
-    : "";
 
-  if (!normalizedHost) {
+  if (!host) {
     return "http://localhost:3000";
   }
 
-  return `${proto}://${normalizedHost}`;
-}
-
-function normalizeYourBarrioHostname(hostname: string): string {
-  const normalized = String(hostname || "").trim().toLowerCase();
-  if (normalized === YOURBARRIO_WWW_HOST) {
-    return YOURBARRIO_APEX_HOST;
-  }
-  return normalized;
-}
-
-function isYourBarrioHostname(hostname: string): boolean {
-  const normalized = normalizeYourBarrioHostname(hostname);
-  return normalized === YOURBARRIO_APEX_HOST;
+  return `${proto}://${host}`;
 }
 
 function toNormalizedUrl(value: string): string | null {
   const input = String(value || "").trim();
   if (!input) return null;
   try {
-    const url = new URL(input);
-    url.hostname = normalizeYourBarrioHostname(url.hostname);
-    return url.toString().replace(/\/$/, "");
+    return new URL(input).toString().replace(/\/$/, "");
   } catch {
     return null;
   }
@@ -95,30 +75,4 @@ export function getSiteUrlFromHeaders(headers: HeadersLike): string {
 
 export function getSiteUrlFromRequest(request: NextRequest): string {
   return getSiteUrlFromHeaders(request.headers);
-}
-
-export function getCanonicalRedirectUrlForRequest(request: NextRequest): URL | null {
-  const requestUrl = new URL(request.url);
-  const normalizedRequestHostname = normalizeYourBarrioHostname(requestUrl.hostname);
-  if (normalizedRequestHostname !== requestUrl.hostname) {
-    const normalizedRequestUrl = new URL(request.url);
-    normalizedRequestUrl.hostname = normalizedRequestHostname;
-    return normalizedRequestUrl;
-  }
-
-  const canonicalSiteUrl = getSiteUrlFromRequest(request);
-  const canonicalUrl = new URL(canonicalSiteUrl);
-
-  if (!isYourBarrioHostname(requestUrl.hostname) || !isYourBarrioHostname(canonicalUrl.hostname)) {
-    return null;
-  }
-
-  if (requestUrl.origin === canonicalUrl.origin) {
-    return null;
-  }
-
-  canonicalUrl.pathname = requestUrl.pathname;
-  canonicalUrl.search = requestUrl.search;
-  canonicalUrl.hash = requestUrl.hash;
-  return canonicalUrl;
 }
