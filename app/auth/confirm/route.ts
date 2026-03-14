@@ -4,6 +4,7 @@ import { ensureBusinessProvisionedForUser } from "@/lib/auth/ensureBusinessProvi
 import {
   getBusinessPasswordGateState,
   getBusinessRedirectDestination,
+  logBusinessRedirectTrace,
 } from "@/lib/auth/businessPasswordGate";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
 
@@ -51,14 +52,46 @@ function getFallbackPath(requestUrl: URL, targetPath: string, businessIntent: bo
   return "/auth/forgot-password?error=invalid_or_expired_link";
 }
 
+function copyResponseCookies(source: NextResponse, target: NextResponse) {
+  source.cookies.getAll().forEach((cookie) => {
+    target.cookies.set(cookie);
+  });
+  return target;
+}
+
+function buildRedirectResponseWithCookies({
+  request,
+  cookieSource,
+  destination,
+  logPayload,
+}: {
+  request: NextRequest;
+  cookieSource: NextResponse;
+  destination: string;
+  logPayload: Record<string, unknown>;
+}) {
+  const finalResponse = NextResponse.redirect(new URL(destination, request.url));
+  copyResponseCookies(cookieSource, finalResponse);
+  const responseCookies = finalResponse.cookies.getAll();
+  logBusinessRedirectTrace("auth_confirm_final_response", {
+    ...logPayload,
+    finalRedirectDestination: destination,
+    responseCookieCount: responseCookies.length,
+    responseCookieNames: responseCookies.map((cookie) => cookie.name),
+  });
+  return finalResponse;
+}
+
 async function tryRedirectAuthenticatedBusiness({
   supabase,
   request,
   targetPath,
+  cookieSource,
 }: {
   supabase: ReturnType<typeof createSupabaseRouteHandlerClient>;
   request: NextRequest;
   targetPath: string;
+  cookieSource: NextResponse;
 }) {
   const {
     data: { user },
@@ -84,68 +117,76 @@ async function tryRedirectAuthenticatedBusiness({
 
   if (businessGate.role !== "business") return null;
 
-  return NextResponse.redirect(
-    new URL(
-      getBusinessRedirectDestination({
-        passwordSet: businessGate.passwordSet,
-        onboardingComplete: businessGate.onboardingComplete,
-        safeNext: targetPath,
-      }),
-      request.url
-    )
-  );
+  const destination = getBusinessRedirectDestination({
+    passwordSet: businessGate.passwordSet,
+    onboardingComplete: businessGate.onboardingComplete,
+    safeNext: targetPath,
+  });
+
+  return buildRedirectResponseWithCookies({
+    request,
+    cookieSource,
+    destination,
+    logPayload: {
+      host: request.headers.get("host") || new URL(request.url).host,
+      pathname: new URL(request.url).pathname,
+      sessionExists: true,
+      userExists: true,
+      userId: user.id,
+      password_set: businessGate.passwordSet,
+      onboardingState: businessGate.onboardingComplete,
+      redirectReason: "verify_otp_failed_existing_session_reused",
+    },
+  });
 }
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
+  const host = request.headers.get("host") || requestUrl.host;
   const code = requestUrl.searchParams.get("code") || "";
   const targetPath = getTargetPath(requestUrl);
   const tokenHash = requestUrl.searchParams.get("token_hash") || "";
   const type = normalizeOtpType(requestUrl.searchParams.get("type") || "");
   const businessIntent = isBusinessIntentPath(targetPath);
   const fallbackPath = getFallbackPath(requestUrl, targetPath, businessIntent);
-
-  if (process.env.NODE_ENV !== "production") {
-    console.info("[AUTH_CALLBACK_TRACE] confirm_params", {
+  logBusinessRedirectTrace("auth_confirm_enter", {
+    host,
+    pathname: requestUrl.pathname,
+    query: {
       hasCode: Boolean(code),
       hasTokenHash: Boolean(tokenHash),
       type: type || null,
       next: targetPath,
-      businessIntent,
-    });
-  }
+    },
+    redirectReason: "entered_confirm_route",
+  });
 
   const response = NextResponse.redirect(new URL(fallbackPath, request.url));
   const supabase = createSupabaseRouteHandlerClient(request, response);
+  let verificationMethod: "code_exchange" | "token_hash_verify" | "invalid" = "invalid";
+  let verificationSucceeded = false;
 
   if (code) {
-    if (process.env.NODE_ENV !== "production") {
-      console.info("[AUTH_CALLBACK_TRACE] confirm_path", {
-        path: "code_exchange",
-        businessIntent,
-      });
-    }
+    verificationMethod = "code_exchange";
 
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("[AUTH_CALLBACK_TRACE] confirm_fallback", {
-          reason: "exchange_code_failed",
-          destination: fallbackPath,
-          code: error.code || null,
-          message: error.message || null,
-        });
-      }
+      logBusinessRedirectTrace("auth_confirm_exit", {
+        host,
+        pathname: requestUrl.pathname,
+        verificationMethod,
+        verificationSucceeded: false,
+        sessionExists: null,
+        userExists: null,
+        redirectDestination: fallbackPath,
+        redirectReason: "exchange_code_failed",
+        errorCode: error.code || null,
+        errorMessage: error.message || null,
+      });
       return response;
     }
   } else if (tokenHash && type) {
-    if (process.env.NODE_ENV !== "production") {
-      console.info("[AUTH_CALLBACK_TRACE] confirm_path", {
-        path: "token_hash_verify",
-        type,
-        businessIntent,
-      });
-    }
+    verificationMethod = "token_hash_verify";
 
     const { error } = await supabase.auth.verifyOtp({
       type: type as "email" | "recovery" | "invite" | "email_change",
@@ -158,55 +199,62 @@ export async function GET(request: NextRequest) {
           supabase,
           request,
           targetPath,
+          cookieSource: response,
         });
         if (authenticatedRedirect) {
           return authenticatedRedirect;
         }
       }
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("[AUTH_CALLBACK_TRACE] confirm_fallback", {
-          reason: "verify_otp_failed",
-          destination: fallbackPath,
-          code: error.code || null,
-          message: error.message || null,
-        });
-      }
+      logBusinessRedirectTrace("auth_confirm_exit", {
+        host,
+        pathname: requestUrl.pathname,
+        verificationMethod,
+        verificationSucceeded: false,
+        sessionExists: null,
+        userExists: null,
+        redirectDestination: fallbackPath,
+        redirectReason: "verify_otp_failed",
+        errorCode: error.code || null,
+        errorMessage: error.message || null,
+      });
       return response;
     }
   } else {
-    if (process.env.NODE_ENV !== "production") {
-      console.info("[AUTH_CALLBACK_TRACE] confirm_path", {
-        path: "invalid_fallback",
-        businessIntent,
-      });
-      console.warn("[AUTH_CALLBACK_TRACE] confirm_fallback", {
-        reason: "missing_or_invalid_params",
-        destination: fallbackPath,
-      });
-    }
+    logBusinessRedirectTrace("auth_confirm_exit", {
+      host,
+      pathname: requestUrl.pathname,
+      verificationMethod,
+      verificationSucceeded: false,
+      sessionExists: null,
+      userExists: null,
+      redirectDestination: fallbackPath,
+      redirectReason: "missing_or_invalid_params",
+    });
     return response;
   }
+  verificationSucceeded = true;
 
-  if (process.env.NODE_ENV !== "production") {
-    console.info("[AUTH_CALLBACK_TRACE] confirm_verified", {
-      destination: targetPath,
-      verificationMethod: code ? "code_exchange" : "token_hash_verify",
-      type: type || null,
-      businessIntent,
-    });
-  }
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let destination = targetPath;
 
   if (businessIntent) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     if (!user?.id) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("[AUTH_CALLBACK_TRACE] confirm_fallback", {
-          reason: "verify_succeeded_but_user_missing",
-          destination: fallbackPath,
-        });
-      }
+      logBusinessRedirectTrace("auth_confirm_exit", {
+        host,
+        pathname: requestUrl.pathname,
+        verificationMethod,
+        verificationSucceeded,
+        sessionExists: Boolean(session),
+        userExists: false,
+        redirectDestination: fallbackPath,
+        redirectReason: "verify_succeeded_but_user_missing",
+      });
       return response;
     }
     try {
@@ -232,21 +280,44 @@ export async function GET(request: NextRequest) {
       userId: user.id,
       fallbackRole: "business",
     });
+    destination = getBusinessRedirectDestination({
+      passwordSet: businessGate.passwordSet,
+      onboardingComplete: businessGate.onboardingComplete,
+      safeNext: targetPath,
+    });
 
-    response.headers.set(
-      "location",
-      new URL(
-        getBusinessRedirectDestination({
-          passwordSet: businessGate.passwordSet,
-          onboardingComplete: businessGate.onboardingComplete,
-          safeNext: targetPath,
-        }),
-        request.url
-      ).toString()
-    );
-    return response;
+    return buildRedirectResponseWithCookies({
+      request,
+      cookieSource: response,
+      destination,
+      logPayload: {
+        host,
+        pathname: requestUrl.pathname,
+        verificationMethod,
+        verificationSucceeded,
+        sessionExists: Boolean(session),
+        userExists: true,
+        userId: user.id,
+        password_set: businessGate.passwordSet,
+        onboardingState: businessGate.onboardingComplete,
+        redirectReason: "business_post_confirm_redirect",
+      },
+    });
   }
 
-  response.headers.set("location", new URL(targetPath, request.url).toString());
-  return response;
+  return buildRedirectResponseWithCookies({
+    request,
+    cookieSource: response,
+    destination,
+    logPayload: {
+      host,
+      pathname: requestUrl.pathname,
+      verificationMethod,
+      verificationSucceeded,
+      sessionExists: Boolean(session),
+      userExists: Boolean(user?.id),
+      userId: user?.id || null,
+      redirectReason: "non_business_post_confirm_redirect",
+    },
+  });
 }
