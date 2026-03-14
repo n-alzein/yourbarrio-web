@@ -48,6 +48,9 @@ export default function BusinessCreatePasswordClient({
 
     async function resolveSession() {
       const { getSupabaseBrowserClient } = await import("@/lib/supabase/browser");
+      const { syncBusinessBrowserSessionToServer } = await import(
+        "@/lib/auth/businessSessionSync"
+      );
       const supabase = getSupabaseBrowserClient();
       const startedAt = Date.now();
       const pathname =
@@ -65,6 +68,10 @@ export default function BusinessCreatePasswordClient({
         const {
           data: { user },
         } = await supabase.auth.getUser();
+        const syncResult =
+          session && user?.id
+            ? await syncBusinessBrowserSessionToServer(session)
+            : { ok: false, serverHasUser: false, reason: "session_unavailable" };
 
         console.warn("[BUSINESS_REDIRECT_TRACE] create_password_client_session_check", {
           host,
@@ -72,11 +79,14 @@ export default function BusinessCreatePasswordClient({
           attempt,
           sessionExists: Boolean(session),
           userExists: Boolean(user?.id),
+          serverRefreshOk: syncResult.ok,
+          serverRefreshHasUser: syncResult.serverHasUser,
+          serverRefreshReason: syncResult.reason,
           chosenDestination: user?.id ? null : null,
           timeoutFallback: false,
         });
 
-        if (session && user?.id) {
+        if (session && user?.id && syncResult.serverHasUser) {
           resolvedRef.current = true;
           setReady(true);
           return;
@@ -96,6 +106,8 @@ export default function BusinessCreatePasswordClient({
         attempt,
         sessionExists: false,
         userExists: false,
+        serverRefreshOk: false,
+        serverRefreshHasUser: false,
         chosenDestination: destination,
         timeoutFallback: true,
       });

@@ -5,7 +5,10 @@ import {
   logBusinessRowMissingGate,
   resolveRoleFromUserAndClient,
 } from "@/lib/business/requireBusinessRow";
-import { logBusinessRedirectTrace } from "@/lib/auth/businessPasswordGate";
+import {
+  getBusinessAuthCookieNames,
+  logBusinessRedirectTrace,
+} from "@/lib/auth/businessPasswordGate";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
 
 const LOGIN_PATH = "/signin?modal=signin&next=%2Fgo%2Fdashboard";
@@ -21,6 +24,7 @@ function redirectTo(request: NextRequest, path: string) {
 export async function GET(request: NextRequest) {
   const response = redirectTo(request, HOME_PATH);
   const supabase = createSupabaseRouteHandlerClient(request, response);
+  const authCookieNames = getBusinessAuthCookieNames(request.cookies.getAll());
   if (!supabase) return redirectTo(request, HOME_PATH);
 
   const {
@@ -30,6 +34,7 @@ export async function GET(request: NextRequest) {
   if (!user?.id) {
     logBusinessRedirectTrace("go_dashboard_route", {
       pathname: "/go/dashboard",
+      authCookieNames,
       userId: null,
       role: null,
       sessionExists: false,
@@ -46,6 +51,7 @@ export async function GET(request: NextRequest) {
   if (role !== "business") {
     logBusinessRedirectTrace("go_dashboard_route", {
       pathname: "/go/dashboard",
+      authCookieNames,
       userId: user.id,
       role,
       sessionExists: true,
@@ -62,6 +68,7 @@ export async function GET(request: NextRequest) {
     await getRequiredBusinessId({ supabase, userId: user.id, role });
     logBusinessRedirectTrace("go_dashboard_route", {
       pathname: "/go/dashboard",
+      authCookieNames,
       userId: user.id,
       role,
       sessionExists: true,
@@ -77,6 +84,7 @@ export async function GET(request: NextRequest) {
       logBusinessPasswordSetupGate();
       logBusinessRedirectTrace("go_dashboard_route", {
         pathname: "/go/dashboard",
+        authCookieNames,
         userId: user.id,
         role,
         sessionExists: true,
@@ -92,6 +100,7 @@ export async function GET(request: NextRequest) {
       logBusinessRowMissingGate();
       logBusinessRedirectTrace("go_dashboard_route", {
         pathname: "/go/dashboard",
+        authCookieNames,
         userId: user.id,
         role,
         sessionExists: true,
@@ -105,6 +114,7 @@ export async function GET(request: NextRequest) {
     }
     logBusinessRedirectTrace("go_dashboard_route", {
       pathname: "/go/dashboard",
+      authCookieNames,
       userId: user.id,
       role,
       sessionExists: true,

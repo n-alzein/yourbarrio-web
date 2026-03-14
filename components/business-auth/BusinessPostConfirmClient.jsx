@@ -19,6 +19,9 @@ export default function BusinessPostConfirmClient() {
 
     async function resolveBusinessDestination() {
       const { getSupabaseBrowserClient } = await import("@/lib/supabase/browser");
+      const { syncBusinessBrowserSessionToServer } = await import(
+        "@/lib/auth/businessSessionSync"
+      );
       const supabase = getSupabaseBrowserClient();
       const startedAt = Date.now();
       let attempt = 0;
@@ -58,6 +61,8 @@ export default function BusinessPostConfirmClient() {
           await sleep(RETRY_DELAY_MS);
           continue;
         }
+
+        const syncResult = await syncBusinessBrowserSessionToServer(session);
         const destination = PATHS.auth.businessCreatePassword;
 
         console.warn("[BUSINESS_REDIRECT_TRACE] post_confirm_attempt", {
@@ -67,9 +72,18 @@ export default function BusinessPostConfirmClient() {
           sessionExists: true,
           userExists: true,
           userId: user.id,
+          serverRefreshOk: syncResult.ok,
+          serverRefreshHasUser: syncResult.serverHasUser,
+          serverRefreshReason: syncResult.reason,
           destinationChosen: destination,
           fellBackToLogin: false,
         });
+
+        if (!syncResult.serverHasUser) {
+          setStatusMessage("Still securing your session...");
+          await sleep(RETRY_DELAY_MS);
+          continue;
+        }
 
         redirectedRef.current = true;
         setStatusMessage("Session confirmed. Continuing...");
@@ -83,6 +97,8 @@ export default function BusinessPostConfirmClient() {
         elapsedMs: Date.now() - startedAt,
         sessionExists: false,
         userExists: false,
+        serverRefreshOk: false,
+        serverRefreshHasUser: false,
         destinationChosen: `${PATHS.auth.businessLogin}?next=${encodeURIComponent(PATHS.auth.businessCreatePassword)}`,
         fellBackToLogin: true,
       });
