@@ -388,15 +388,34 @@ export async function middleware(request) {
   });
 
   if (pathname.startsWith("/business-auth/")) {
+    let businessRowFound = null;
+    let passwordSetState = null;
+    if (user?.id) {
+      const [{ data: businessStateRow }, { data: businessRow }] = await Promise.all([
+        supabase
+          .from("users")
+          .select("password_set")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("businesses")
+          .select("owner_user_id")
+          .eq("owner_user_id", user.id)
+          .maybeSingle(),
+      ]);
+      passwordSetState = businessStateRow?.password_set === true;
+      businessRowFound = Boolean(businessRow?.owner_user_id);
+    }
     logBusinessRedirectTrace("middleware_business_auth", {
       host: request.headers.get("host") || request.nextUrl.host,
       pathname,
       authCookieNames: getBusinessAuthCookieNames(request.cookies.getAll()),
       requestIncludesAuthCookies:
         getBusinessAuthCookieNames(request.cookies.getAll()).length > 0,
-      middlewareCanReadUser: Boolean(user?.id),
-      userId: user?.id || null,
+      userPresent: Boolean(user?.id),
       role,
+      businessRowFound,
+      password_set: passwordSetState,
       redirectDestination: null,
       redirectReason: "business_auth_passthrough",
     });
@@ -435,8 +454,9 @@ export async function middleware(request) {
       businessLandingGuardMeta.destination = BUSINESS_CREATE_PASSWORD_PATH;
       logBusinessRedirectTrace("middleware_business_landing", {
         pathname,
-        userId: user.id,
+        userPresent: true,
         role,
+        businessRowFound: null,
         sessionExists: true,
         password_set: passwordSet,
         onboardingState: null,
@@ -468,8 +488,9 @@ export async function middleware(request) {
       businessLandingGuardMeta.destination = "/onboarding";
       logBusinessRedirectTrace("middleware_business_landing", {
         pathname,
-        userId: user.id,
+        userPresent: true,
         role,
+        businessRowFound: Boolean(businessRow?.owner_user_id),
         sessionExists: true,
         password_set: passwordSet,
         onboardingState: false,
@@ -492,8 +513,9 @@ export async function middleware(request) {
     businessLandingGuardMeta.destination = "/business/dashboard";
     logBusinessRedirectTrace("middleware_business_landing", {
       pathname,
-      userId: user.id,
+      userPresent: true,
       role,
+      businessRowFound: Boolean(businessRow?.owner_user_id),
       sessionExists: true,
       password_set: passwordSet,
       onboardingState: true,

@@ -51,7 +51,6 @@ export default function BusinessPostConfirmClient() {
           attempt,
           sessionExists: Boolean(session),
           userExists: Boolean(user?.id),
-          userId: user?.id || null,
           destinationChosen: null,
           fellBackToLogin: false,
         });
@@ -71,7 +70,6 @@ export default function BusinessPostConfirmClient() {
           attempt,
           sessionExists: true,
           userExists: true,
-          userId: user.id,
           serverRefreshOk: syncResult.ok,
           serverRefreshHasUser: syncResult.serverHasUser,
           serverRefreshReason: syncResult.reason,

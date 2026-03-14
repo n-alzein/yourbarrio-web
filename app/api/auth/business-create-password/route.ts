@@ -4,6 +4,7 @@ import {
   BUSINESS_ONBOARDING_PATH,
   BUSINESS_PASSWORD_MIN_LENGTH,
   getBusinessPasswordGateState,
+  isBusinessPasswordSetupCandidate,
 } from "@/lib/auth/businessPasswordGate";
 import { ensureBusinessProvisionedForUser } from "@/lib/auth/ensureBusinessProvisioning";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
@@ -78,7 +79,14 @@ export async function POST(request: NextRequest) {
     fallbackRole,
   });
 
-  if (businessGate.role !== "business") {
+  const allowBusinessPasswordSetup = isBusinessPasswordSetupCandidate({
+    role: businessGate.role,
+    fallbackRole,
+    passwordSet: businessGate.passwordSet,
+    businessRow: businessGate.businessRow,
+  });
+
+  if (businessGate.role !== "business" && !allowBusinessPasswordSetup) {
     return withSupabaseCookies(
       cookieCarrier,
       jsonResponse({ ok: false, error: "forbidden" }, 403)
