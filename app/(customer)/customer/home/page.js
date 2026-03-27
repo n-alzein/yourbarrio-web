@@ -6,13 +6,10 @@ export const revalidate = 300;
 
 export default async function CustomerHomePage() {
   const location = await getLocationFromCookies();
-  const city = (location?.city || "").trim() || null;
-  const zip = (location?.zip || "").trim() || null;
 
   const initialData = await getHomeBrowseData({
     mode: "customer",
-    city,
-    zip,
+    location,
   });
 
   return <HomeBrowse mode="customer" initialData={initialData} />;

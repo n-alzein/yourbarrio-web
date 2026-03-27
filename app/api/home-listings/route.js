@@ -4,18 +4,28 @@ import { getSupabaseServerClient as getSupabaseServiceClient } from "@/lib/supab
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { resolveCategoryIdByName } from "@/lib/categories";
 import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
+import { findBusinessOwnerIdsForLocation } from "@/lib/location/businessLocationSearch";
+import { getNormalizedLocation, hasUsableLocationFilter } from "@/lib/location/filter";
 
-async function runHomeListingsQuery(client, { limit, city, category }) {
+async function runHomeListingsQuery(client, { limit, category, searchQuery, businessIds }) {
+  if (!Array.isArray(businessIds) || businessIds.length === 0) {
+    return { data: [], error: null };
+  }
+
   let query = client
     .from("public_listings_v")
     .select(
       "id,title,price,category,category_id,city,photo_url,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
     )
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .limit(limit)
+    .in("business_id", businessIds);
 
-  if (city) {
-    query = query.ilike("city", city);
+  if (searchQuery) {
+    const safe = searchQuery.replace(/[%_]/g, "").trim();
+    if (safe) {
+      query = query.or(`title.ilike.%${safe}%,description.ilike.%${safe}%,category.ilike.%${safe}%`);
+    }
   }
   if (category) {
     const categoryId = await resolveCategoryIdByName(client, category);
@@ -33,9 +43,19 @@ export async function GET(request) {
   const url = new URL(request.url);
   const limitParam = Number(url.searchParams.get("limit") || 80);
   const limit = Number.isFinite(limitParam) ? Math.max(1, limitParam) : 80;
-  const location = await getLocationFromCookies();
-  const city = (url.searchParams.get("city") || location?.city || "").trim() || null;
+  const cookieLocation = await getLocationFromCookies();
+  const location = getNormalizedLocation({
+    ...(cookieLocation || {}),
+    city: url.searchParams.get("city") || cookieLocation?.city,
+    region:
+      url.searchParams.get("state") ||
+      url.searchParams.get("region") ||
+      cookieLocation?.region,
+    lat: url.searchParams.get("lat") || cookieLocation?.lat,
+    lng: url.searchParams.get("lng") || cookieLocation?.lng,
+  });
   const category = url.searchParams.get("category") || null;
+  const searchQuery = url.searchParams.get("q") || null;
   const supabaseHost = (() => {
     try {
       return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host;
@@ -53,7 +73,7 @@ export async function GET(request) {
   let listings = [];
   let source = "none";
 
-  if (!city) {
+  if (!hasUsableLocationFilter(location)) {
     return NextResponse.json(
       { listings: [], message: "missing_location" },
       {
@@ -67,11 +87,16 @@ export async function GET(request) {
     );
   }
 
+  const businessIds = await findBusinessOwnerIdsForLocation(serviceClient || sessionClient, location, {
+    limit: 1000,
+  });
+
   try {
     const { data, error } = await runHomeListingsQuery(sessionClient, {
       limit,
-      city,
       category,
+      searchQuery,
+      businessIds,
     });
     if (error) {
       errors.push(`session:${error.message || String(error)}`);
@@ -87,8 +112,9 @@ export async function GET(request) {
     try {
       const { data, error } = await runHomeListingsQuery(serviceClient, {
         limit,
-        city,
         category,
+        searchQuery,
+        businessIds,
       });
       if (error) {
         errors.push(`service:${error.message || String(error)}`);
@@ -105,7 +131,7 @@ export async function GET(request) {
     console.warn("[HOME_LISTINGS_PROD] 0 results", {
       supabaseHost,
       limit,
-      city,
+      location,
       category,
       sessionPresent,
       sourceTried: source,

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
+import { findBusinessesForLocation } from "@/lib/location/businessLocationSearch";
+import { getNormalizedLocation, hasUsableLocationFilter } from "@/lib/location/filter";
 
 const CACHE_SECONDS = 120;
 const GEOCODE_KEY = process.env.MAPBOX_GEOCODING_TOKEN || process.env.GOOGLE_GEOCODING_API_KEY || "";
@@ -39,38 +41,22 @@ async function geocodeAddress(address) {
   return null;
 }
 
-async function fetchBusinesses(supabase, { city }) {
-  let query = supabase
-    .from("businesses")
-    .select(
-      "id,owner_user_id,public_id,business_name,category,city,address,description,website,profile_photo_url,latitude,longitude,lat,lng,verification_status"
-    )
-    .in("verification_status", VERIFIED_STATUSES)
-    .limit(400);
-
-  if (city) {
-    query = query.ilike("city", city);
-  }
-
-  const businessesResult = await query;
-  if (businessesResult.error) {
-    console.warn("public-businesses: businesses query failed", businessesResult.error);
-    return [];
-  }
-
-  return businessesResult.data || [];
-}
-
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const city = (searchParams.get("city") || "").trim();
-    if (!city) {
+    const location = getNormalizedLocation({
+      city: searchParams.get("city"),
+      region: searchParams.get("state") || searchParams.get("region"),
+      lat: searchParams.get("lat"),
+      lng: searchParams.get("lng"),
+    });
+
+    if (!hasUsableLocationFilter(location)) {
       return NextResponse.json({ businesses: [], message: "missing_location" }, { status: 200 });
     }
 
     const supabase = await createSupabaseClient();
-    const rows = await fetchBusinesses(supabase, { city });
+    const rows = await findBusinessesForLocation(supabase, location, { limit: 1000 });
 
     const parseNum = (val) => {
       if (typeof val === "number" && Number.isFinite(val)) return val;
@@ -100,7 +86,7 @@ export async function GET(request) {
           };
         }
 
-        const addressParts = [row.address, row.city].filter(Boolean).join(", ");
+        const addressParts = [row.address, row.city, row.state].filter(Boolean).join(", ");
         const coords = GEOCODE_KEY ? await geocodeAddress(addressParts) : null;
 
         return {

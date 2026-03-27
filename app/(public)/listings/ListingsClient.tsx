@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import Link from "next/link";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
 import SafeImage from "@/components/SafeImage";
@@ -13,8 +12,8 @@ import {
   normalizeInventory,
   sortListingsByAvailability,
 } from "@/lib/inventory";
+import { getLocationCacheKey } from "@/lib/location";
 import { installNetTrace } from "@/lib/netTrace";
-import { resolveCategoryIdByName } from "@/lib/categories";
 import { getListingUrl } from "@/lib/ids/publicRefs";
 
 function formatPrice(value) {
@@ -48,9 +47,9 @@ export default function ListingsClient() {
   const category = searchParams.get("category")?.trim();
   const searchTerm = searchParams.get("q")?.trim();
   const showListView = Boolean(category);
-  const locationKey = location.city ? `city:${location.city}` : "none";
+  const locationKey = getLocationCacheKey(location);
   const cacheKey = `${locationKey}::${category || "all"}::${searchTerm || "all"}`;
-  const hasLocation = Boolean(location.city);
+  const hasLocation = locationKey !== "none";
   const showLocationEmpty = locationHydrated && !hasLocation;
   const sortedListings = useMemo(
     () => sortListingsByAvailability(listings),
@@ -112,17 +111,10 @@ export default function ListingsClient() {
   }, [loading]);
 
   useEffect(() => {
-    const client = getSupabaseBrowserClient();
-    // Require a location before hitting Supabase.
     if (!hasLocation) {
       setListings([]);
       setLoadError(null);
       setHasLoaded(true);
-      setLoading(false);
-      return undefined;
-    }
-    if (!client) {
-      setListings([]);
       setLoading(false);
       return undefined;
     }
@@ -131,35 +123,19 @@ export default function ListingsClient() {
 
     async function getListingsSafe({ signal }) {
       try {
-        let query = client
-          .from("public_listings_v")
-          .select("*")
-          .order("created_at", { ascending: false });
-        if (location.city) {
-          query = query.ilike("city", location.city);
+        const params = new URLSearchParams();
+        if (category) params.set("category", category);
+        if (searchTerm) params.set("q", searchTerm);
+        params.set("limit", "120");
+        const response = await fetch(`/api/home-listings?${params.toString()}`, {
+          signal,
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          return { ok: false, error: payload, status: response.status };
         }
-        if (category) {
-          const categoryId = await resolveCategoryIdByName(client, category);
-          if (categoryId) {
-            query = query.eq("category_id", categoryId);
-          } else {
-            query = query.ilike("category", category);
-          }
-        }
-        if (searchTerm) {
-          const escaped = searchTerm.replace(/,/g, "");
-          query = query.or(
-            `title.ilike.%${escaped}%,description.ilike.%${escaped}%`
-          );
-        }
-        if (typeof query.abortSignal === "function") {
-          query = query.abortSignal(signal);
-        }
-        const { data, error } = await query;
-        if (error) {
-          return { ok: false, error, status: error?.status };
-        }
-        return { ok: true, data: Array.isArray(data) ? data : [] };
+        return { ok: true, data: Array.isArray(payload?.listings) ? payload.listings : [] };
       } catch (error) {
         const message = typeof error?.message === "string" ? error.message : "";
         const isAbort =
@@ -177,20 +153,15 @@ export default function ListingsClient() {
       try {
         const result = await getListingsSafe({ signal: controller.signal });
         if (!active) return;
-        if (!result.ok) {
-          if (result.aborted) return;
+          if (!result.ok) {
+            if (result.aborted) return;
           const requestKey = `${category || "all"}::${searchTerm || "all"}`;
-          const session = await client.auth.getSession().catch(() => null);
-          const userState = session?.data?.session?.user?.id
-            ? "signed_in"
-            : "signed_out";
           const loggedKey = loggedErrorRef.current;
           if (loggedKey !== requestKey) {
             loggedErrorRef.current = requestKey;
             console.error("[LISTINGS][load:error]", {
               route: "/listings",
-              userState,
-              request: "supabase:listings",
+              request: "api:home-listings",
               status: result.status,
               message: result.error?.message || "Unknown error",
             });
@@ -225,7 +196,7 @@ export default function ListingsClient() {
       active = false;
       controller.abort();
     };
-  }, [category, cacheKey, hasLoaded, retryKey, searchTerm, hasLocation, location.city]);
+  }, [category, cacheKey, hasLoaded, retryKey, searchTerm, hasLocation]);
 
   return (
     <div className="max-w-6xl mx-auto py-2 md:pt-1">

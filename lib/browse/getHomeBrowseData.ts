@@ -2,6 +2,8 @@ import "server-only";
 
 import { fetchFeaturedCategories, fetchStrapiBanners, type FeaturedCategory } from "@/lib/strapi";
 import { getPublicSupabaseServerClient } from "@/lib/supabasePublicServer";
+import { findBusinessOwnerIdsForLocation } from "@/lib/location/businessLocationSearch";
+import { getNormalizedLocation } from "@/lib/location/filter";
 
 export type BrowseMode = "public" | "customer";
 
@@ -36,8 +38,13 @@ export type HomeBrowseData = {
 
 type GetHomeBrowseDataArgs = {
   mode: BrowseMode;
-  city?: string | null;
-  zip?: string | null;
+  location?: {
+    city?: string | null;
+    region?: string | null;
+    state?: string | null;
+    lat?: number | string | null;
+    lng?: number | string | null;
+  } | null;
   limit?: number;
 };
 
@@ -65,26 +72,23 @@ function normalizeText(value: string | null | undefined) {
 }
 
 async function tryLoadFromPublicListingsView({
-  city,
-  zip,
+  location,
   limit,
 }: {
-  city: string | null;
-  zip: string | null;
+  location: ReturnType<typeof getNormalizedLocation>;
   limit: number;
 }) {
   const supabase = getPublicSupabaseServerClient();
+  const businessIds = await findBusinessOwnerIdsForLocation(supabase, location, { limit: 1000 });
+  if (businessIds.length === 0) {
+    return { data: [] as ListingSummary[], error: null };
+  }
   let query = supabase
     .from("public_listings_v")
     .select(PUBLIC_LISTING_SELECT)
     .order("created_at", { ascending: false })
-    .limit(limit);
-
-  if (city) {
-    query = query.ilike("city", city);
-  } else if (zip) {
-    query = query.eq("zip", zip);
-  }
+    .limit(limit)
+    .in("business_id", businessIds);
 
   const { data, error } = await query;
   if (error) return { data: null, error };
@@ -92,26 +96,23 @@ async function tryLoadFromPublicListingsView({
 }
 
 async function tryLoadFromListingsTable({
-  city,
-  zip,
+  location,
   limit,
 }: {
-  city: string | null;
-  zip: string | null;
+  location: ReturnType<typeof getNormalizedLocation>;
   limit: number;
 }) {
   const supabase = getPublicSupabaseServerClient();
+  const businessIds = await findBusinessOwnerIdsForLocation(supabase, location, { limit: 1000 });
+  if (businessIds.length === 0) {
+    return { data: [] as ListingSummary[], error: null };
+  }
   let query = supabase
     .from("public_listings")
     .select(PUBLIC_LISTING_SELECT)
     .order("created_at", { ascending: false })
-    .limit(limit);
-
-  if (city) {
-    query = query.ilike("city", city);
-  } else if (zip) {
-    query = query.eq("zip", zip);
-  }
+    .limit(limit)
+    .in("business_id", businessIds);
 
   const { data, error } = await query;
   if (error) {
@@ -121,18 +122,16 @@ async function tryLoadFromListingsTable({
 }
 
 async function loadPublicSafeListings({
-  city,
-  zip,
+  location,
   limit,
 }: {
-  city: string | null;
-  zip: string | null;
+  location: ReturnType<typeof getNormalizedLocation>;
   limit: number;
 }) {
-  const fromView = await tryLoadFromPublicListingsView({ city, zip, limit });
+  const fromView = await tryLoadFromPublicListingsView({ location, limit });
   if (!fromView.error && fromView.data) return fromView.data;
 
-  const fromLegacyView = await tryLoadFromListingsTable({ city, zip, limit });
+  const fromLegacyView = await tryLoadFromListingsTable({ location, limit });
   if (!fromLegacyView.error && Array.isArray(fromLegacyView.data)) return fromLegacyView.data;
 
   return [];
@@ -140,13 +139,13 @@ async function loadPublicSafeListings({
 
 export async function getHomeBrowseData({
   mode,
-  city,
-  zip,
+  location,
   limit = 80,
 }: GetHomeBrowseDataArgs): Promise<HomeBrowseData> {
   void mode;
-  const safeCity = normalizeText(city);
-  const safeZip = normalizeText(zip);
+  const normalizedLocation = getNormalizedLocation(location || {});
+  const safeCity = normalizeText(normalizedLocation.city);
+  const safeZip = null;
   const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 120) : 80;
 
   let featuredCategories: FeaturedCategory[] = [];
@@ -162,8 +161,7 @@ export async function getHomeBrowseData({
         };
       }),
     loadPublicSafeListings({
-      city: safeCity,
-      zip: safeZip,
+      location: normalizedLocation,
       limit: safeLimit,
     }),
     fetchStrapiBanners().catch(() => []),

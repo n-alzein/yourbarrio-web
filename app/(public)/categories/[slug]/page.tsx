@@ -11,6 +11,7 @@ import {
 } from "@/lib/categoryListingsCached";
 import { getListingUrl } from "@/lib/ids/publicRefs";
 import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
+import { hasUsableLocationFilter } from "@/lib/location";
 
 export const revalidate = 60;
 
@@ -51,7 +52,6 @@ export default async function CategoryListingsPage({
   const categorySlug = slug?.trim();
   if (!categorySlug) notFound();
   const location = await getLocationFromCookies();
-  const city = (location?.city || "").trim();
   const listingsHref = "/listings";
 
   let listings: SupabaseListing[] = [];
@@ -67,7 +67,7 @@ export default async function CategoryListingsPage({
       notFound();
     }
     categoryName = categoryRow?.name || fallbackCategory?.name || categoryName;
-    if (!city) {
+    if (!hasUsableLocationFilter(location)) {
       listings = [];
       listingsError = null;
     } else {
@@ -75,7 +75,7 @@ export default async function CategoryListingsPage({
         categoryId: categoryRow?.id ?? null,
         categoryName,
         categorySlug,
-        city,
+        location,
         limit: LISTINGS_LIMIT,
       });
       if (listingResult.error) {
@@ -105,7 +105,7 @@ export default async function CategoryListingsPage({
   }
   console.log("[categories]", {
     slug: categorySlug,
-    city,
+    city: location?.city || null,
     limit: LISTINGS_LIMIT,
     rows: listings.length,
     error: listingsError?.message,
@@ -132,7 +132,7 @@ export default async function CategoryListingsPage({
           </p>
         </div>
 
-        {!city ? (
+        {!hasUsableLocationFilter(location) ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
             Select a location to see listings in this category.
           </div>

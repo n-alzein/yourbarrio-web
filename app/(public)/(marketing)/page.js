@@ -51,13 +51,10 @@ export default async function HomePage() {
   // Deny-by-default for unknown role: keep public marketing surface.
 
   const location = await getLocationFromCookies();
-  const city = (location?.city || "").trim() || null;
-  const zip = (location?.zip || "").trim() || null;
 
   const initialData = await getHomeBrowseData({
     mode: "public",
-    city,
-    zip,
+    location,
   });
 
   return <HomeBrowse mode="public" initialData={initialData} />;

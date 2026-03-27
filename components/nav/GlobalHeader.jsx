@@ -24,6 +24,7 @@ import {
 import { AUTH_UI_RESET_EVENT } from "@/components/AuthProvider";
 import { useLocation } from "@/components/location/LocationProvider";
 import {
+  getLocationCacheKey,
   getLocationLabel,
   isZipLike,
   normalizeSelectedLocation,
@@ -175,7 +176,7 @@ export default function GlobalHeader({
       return;
     }
 
-    const locationKey = location.city || "none";
+    const locationKey = getLocationCacheKey(location);
     const normalized = `${term.toLowerCase()}::${selectedCategory.toLowerCase()}::${locationKey.toLowerCase()}`;
     if (normalized === lastQueryRef.current) {
       queueMicrotask(() => {
@@ -246,7 +247,7 @@ export default function GlobalHeader({
       clearTimeout(handle);
       controller.abort();
     };
-  }, [searchTerm, selectedCategory, hasLocation, location.city]);
+  }, [searchTerm, selectedCategory, hasLocation, location]);
 
   // Close AI suggestions when clicking away
   useEffect(() => {

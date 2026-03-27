@@ -1,4 +1,5 @@
 import { decodeHumanLocationString } from "@/lib/location/decodeHumanLocation";
+import { buildLocationLabel, normalizeStateCode } from "@/lib/location/filter";
 
 export const LOCATION_COOKIE_NAME = "yb_location";
 export const LEGACY_LOCATION_COOKIE_NAME = "yb-location";
@@ -46,10 +47,10 @@ export const normalizeLocationState = (input: unknown): LocationState | null => 
       ? obj.source
       : undefined;
   const city = normalizeHuman(obj.city);
-  const region = normalizeHuman(obj.region);
+  const region = normalizeStateCode(normalizeHuman(obj.region));
   const country = normalizeHuman(obj.country);
   const zip = compactSpaces(obj.zip) || undefined;
-  const label = normalizeHuman(obj.label);
+  const label = buildLocationLabel(normalizeHuman(obj.city), region, normalizeHuman(obj.label));
   const kind = obj.kind === "postcode" || obj.kind === "place" ? obj.kind : undefined;
   const placeId = compactSpaces(obj.placeId ?? obj.place_id) || undefined;
   const lat = normalizeNumber(obj.lat);

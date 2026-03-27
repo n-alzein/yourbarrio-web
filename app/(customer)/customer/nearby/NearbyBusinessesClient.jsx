@@ -11,6 +11,8 @@ import {
   BUSINESS_CATEGORIES,
   normalizeCategoryName,
 } from "@/lib/businessCategories";
+import { getLocationCacheKey } from "@/lib/location";
+import { hasCoordinates } from "@/lib/location/filter";
 import NearbySplitViewShell from "./_components/NearbySplitViewShell";
 import NearbyResultsPane from "./_components/NearbyResultsPane";
 import styles from "./nearby.module.css";
@@ -29,8 +31,6 @@ const normalizeNum = (value) => {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
-
-const normalizeCity = (value) => (value || "").trim().toLowerCase();
 
 const NAV_OFFSET = 88;
 const getBusinessSelection = (business) => {
@@ -59,7 +59,7 @@ export default function NearbyBusinessesClient() {
 
   const mapEnabled = process.env.NEXT_PUBLIC_HOME_BISECT_MAP !== "0";
   const mapAvailable = mapEnabled && process.env.NEXT_PUBLIC_DISABLE_MAP !== "1";
-  const locationKey = location.city ? `city:${location.city}` : "";
+  const locationKey = getLocationCacheKey(location);
   const storageKey = locationKey
     ? `yb_customer_nearby_businesses_${locationKey}`
     : "yb_customer_nearby_businesses";
@@ -174,7 +174,14 @@ export default function NearbyBusinessesClient() {
             12000
           );
           const params = new URLSearchParams();
-          if (location.city) params.set("city", location.city);
+          if (location.city && location.region) {
+            params.set("city", location.city);
+            params.set("state", location.region);
+          }
+          if (hasCoordinates(location)) {
+            params.set("lat", String(location.lat));
+            params.set("lng", String(location.lng));
+          }
           const url = params.toString()
             ? `/api/public-businesses?${params.toString()}`
             : "/api/public-businesses";
@@ -271,7 +278,7 @@ export default function NearbyBusinessesClient() {
     return () => {
       active = false;
     };
-  }, [locationHydrated, locationKey, location.city, storageKey]);
+  }, [locationHydrated, locationKey, location, storageKey]);
 
   const showLocationEmpty = locationHydrated && !locationKey;
   const activeBusinessId = hoveredBusinessId || selectedBusinessId || null;
@@ -301,22 +308,7 @@ export default function NearbyBusinessesClient() {
     });
   }, [search, ybBusinesses, categoryFilter]);
 
-  const businessesForMap = useMemo(() => {
-    const normalizedUserCity = normalizeCity(location.city);
-    const withCoords = filteredBusinesses.filter((biz) => {
-      const lat = biz.coords?.lat ?? biz.lat ?? biz.latitude;
-      const lng = biz.coords?.lng ?? biz.lng ?? biz.longitude;
-      const parsedLat = typeof lat === "number" ? lat : Number.parseFloat(lat);
-      const parsedLng = typeof lng === "number" ? lng : Number.parseFloat(lng);
-      return Number.isFinite(parsedLat) && Number.isFinite(parsedLng);
-    });
-
-    if (!normalizedUserCity) return withCoords;
-    const cityMatched = withCoords.filter(
-      (biz) => normalizeCity(biz?.city) === normalizedUserCity
-    );
-    return cityMatched.length ? cityMatched : withCoords;
-  }, [filteredBusinesses, location.city]);
+  const businessesForMap = useMemo(() => filteredBusinesses, [filteredBusinesses]);
 
   useEffect(() => {
     if (!filteredBusinesses.length) {

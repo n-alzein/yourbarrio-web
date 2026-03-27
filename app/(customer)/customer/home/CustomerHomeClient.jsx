@@ -18,7 +18,6 @@ import { useTheme } from "@/components/ThemeProvider";
 import dynamic from "next/dynamic";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
 import FastImage from "@/components/FastImage";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
   getAvailabilityBadgeStyle,
   normalizeInventory,
@@ -29,7 +28,6 @@ import { installHomeNavInstrumentation } from "@/lib/navInstrumentation";
 import { appendCrashLog } from "@/lib/crashlog";
 import { dumpStallRecorder } from "@/lib/stallRecorder";
 import { BUSINESS_CATEGORIES, normalizeCategoryName } from "@/lib/businessCategories";
-import { resolveCategoryIdByName } from "@/lib/categories";
 import { logDataDiag } from "@/lib/dataDiagnostics";
 import CategoryTilesGrid from "@/components/customer/CategoryTilesGrid";
 import { useLocation } from "@/components/location/LocationProvider";
@@ -116,7 +114,7 @@ class CustomerHomeErrorBoundary extends React.Component {
 
 function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesError, initialListings: _initialListings = [] }) {
   const searchParams = useSearchParams();
-  const { user, loadingUser, supabase } = useAuth();
+  const { user, loadingUser } = useAuth();
   const { theme, hydrated } = useTheme();
   const isLight = hydrated ? theme === "light" : true;
   const { location, hasLocation, hydrated: locationHydrated } = useLocation();
@@ -410,9 +408,6 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
       return undefined;
     }
 
-    const client = supabase ?? getSupabaseBrowserClient();
-    if (!client) return undefined;
-
     if (!term) {
       setHybridItems([]);
       setHybridItemsError(null);
@@ -439,41 +434,25 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
       );
 
       try {
-        let query = client
-          .from("public_listings_v")
-          .select(
-            "id,title,description,price,category,category_id,city,photo_url,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
-          )
-          .or(
-            `title.ilike.%${safe}%,description.ilike.%${safe}%,category.ilike.%${safe}%`
-          )
-          .order("created_at", { ascending: false })
-          .limit(8);
-        if (location.city) {
-          query = query.ilike("city", location.city);
-        }
+        const params = new URLSearchParams();
+        params.set("q", safe);
         if (categoryValue && categoryValue !== "All") {
-          const categoryId = await resolveCategoryIdByName(client, categoryValue);
-          if (categoryId) {
-            query = query.eq("category_id", categoryId);
-          } else {
-            query = query.eq("category", categoryValue);
-          }
+          params.set("category", categoryValue);
         }
-        if (typeof query.abortSignal === "function") {
-          query = query.abortSignal(controller.signal);
-        }
-
-        const { data, error } = await query;
+        const response = await fetch(`/api/search?${params.toString()}`, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => ({}));
 
         if (!isActive || requestId !== hybridRequestIdRef.current) return;
 
-        if (error) {
-          console.error("Hybrid item search failed", error);
+        if (!response.ok) {
+          console.error("Hybrid item search failed", payload);
           setHybridItemsError("Could not load item matches right now.");
           setHybridItems([]);
         } else {
-          setHybridItems(Array.isArray(data) ? data : []);
+          setHybridItems(Array.isArray(payload?.items) ? payload.items : []);
         }
       } catch (err) {
         if (!isActive || requestId !== hybridRequestIdRef.current) return;
@@ -506,7 +485,7 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
     return () => {
       isActive = false;
     };
-  }, [search, supabase, logCrashEvent, categoryFilter, hasLocation, location.city]);
+  }, [search, logCrashEvent, categoryFilter, hasLocation]);
 
   if (!isPublicMode && loadingUser && !user) {
     return (

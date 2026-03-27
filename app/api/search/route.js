@@ -3,6 +3,12 @@ import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { resolveCategoryIdByName } from "@/lib/categories";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
 import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
+import { findBusinessOwnerIdsForLocation } from "@/lib/location/businessLocationSearch";
+import {
+  getLocationCacheKey,
+  getNormalizedLocation,
+  hasUsableLocationFilter,
+} from "@/lib/location/filter";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS =
@@ -52,9 +58,10 @@ const setCachedResponse = (key, payload) => {
   });
 };
 
-async function searchListings(supabase, term, category, { city }) {
+async function searchListings(supabase, term, category, { businessIds }) {
   const safe = sanitize(term);
   if (!safe) return [];
+  if (!Array.isArray(businessIds) || businessIds.length === 0) return [];
   const safeCategory = sanitize(category);
 
   let query = supabase
@@ -62,12 +69,10 @@ async function searchListings(supabase, term, category, { city }) {
     .select(
       "id,public_id,title,description,price,category,category_id,city,photo_url,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
     )
+    .in("business_id", businessIds)
     .or(
       `title.ilike.%${safe}%,description.ilike.%${safe}%,category.ilike.%${safe}%`
     );
-  if (city) {
-    query = query.ilike("city", city);
-  }
   if (safeCategory) {
     const categoryId = await resolveCategoryIdByName(supabase, safeCategory);
     if (categoryId) {
@@ -103,23 +108,22 @@ async function searchListings(supabase, term, category, { city }) {
   }));
 }
 
-async function searchBusinesses(supabase, term, category, { city }) {
+async function searchBusinesses(supabase, term, category, { businessIds }) {
   const safe = sanitize(term);
   if (!safe) return [];
+  if (!Array.isArray(businessIds) || businessIds.length === 0) return [];
   const safeCategory = sanitize(category);
 
   let query = supabase
     .from("businesses")
     .select(
-      "id,owner_user_id,public_id,business_name,category,city,address,description,website,profile_photo_url,verification_status"
+      "id,owner_user_id,public_id,business_name,category,city,state,address,description,website,profile_photo_url,verification_status"
     )
     .in("verification_status", ["auto_verified", "manually_verified"])
+    .in("owner_user_id", businessIds)
     .or(
       `business_name.ilike.%${safe}%,category.ilike.%${safe}%,description.ilike.%${safe}%,city.ilike.%${safe}%`
     );
-  if (city) {
-    query = query.ilike("city", city);
-  }
   if (safeCategory) {
     query = query.eq("category", safeCategory);
   }
@@ -136,6 +140,7 @@ async function searchBusinesses(supabase, term, category, { city }) {
     name: row.business_name || "Local business",
     category: row.category,
     city: row.city,
+    state: row.state || null,
     address: row.address,
     description: row.description,
     website: row.website,
@@ -204,8 +209,17 @@ export async function GET(request) {
   const query = (searchParams.get("q") || "").trim();
   const category = (searchParams.get("category") || "").trim();
   const cookieLocation = await getLocationFromCookies();
-  const city = sanitize(searchParams.get("city") || cookieLocation?.city || "");
-  const locationKey = (city || "none").toLowerCase();
+  const location = getNormalizedLocation({
+    ...(cookieLocation || {}),
+    city: searchParams.get("city") || cookieLocation?.city,
+    region:
+      searchParams.get("state") ||
+      searchParams.get("region") ||
+      cookieLocation?.region,
+    lat: searchParams.get("lat") || cookieLocation?.lat,
+    lng: searchParams.get("lng") || cookieLocation?.lng,
+  });
+  const locationKey = getLocationCacheKey(location);
   const cacheKey = `${query.toLowerCase()}::${category.toLowerCase()}::${locationKey}`;
 
   if (!query) {
@@ -217,7 +231,7 @@ export async function GET(request) {
     });
   }
 
-  if (!city) {
+  if (!hasUsableLocationFilter(location)) {
     return NextResponse.json({
       items: [],
       businesses: [],
@@ -249,9 +263,13 @@ export async function GET(request) {
     console.error("Failed to init Supabase client", err);
   }
 
+  const businessIds = supabase
+    ? await findBusinessOwnerIdsForLocation(supabase, location, { limit: 1000 })
+    : [];
+
   const [items, businesses, places] = await Promise.all([
-    supabase ? searchListings(supabase, query, category, { city }) : [],
-    supabase ? searchBusinesses(supabase, query, category, { city }) : [],
+    supabase ? searchListings(supabase, query, category, { businessIds }) : [],
+    supabase ? searchBusinesses(supabase, query, category, { businessIds }) : [],
     searchMapboxPlaces(query),
   ]);
 

@@ -6,6 +6,8 @@ import { primaryPhotoUrl } from "@/lib/listingPhotos";
 import { fetchCategoryBySlug as fetchCategoryBySlugFromDb } from "@/lib/categories";
 import { getCustomerListingUrl } from "@/lib/ids/publicRefs";
 import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
+import { findBusinessOwnerIdsForLocation } from "@/lib/location/businessLocationSearch";
+import { hasUsableLocationFilter } from "@/lib/location/filter";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -14,7 +16,6 @@ export default async function CategoryListingsPage({ params }) {
   const slug = params?.slug;
   if (!slug) notFound();
   const location = await getLocationFromCookies();
-  const city = (location?.city || "").trim();
   const homeHref = "/customer/home";
 
   let category = null;
@@ -33,26 +34,24 @@ export default async function CategoryListingsPage({ params }) {
     categoryRow = await fetchCategoryBySlugFromDb(supabase, slug);
     const categoryName = categoryRow?.name || category.name;
 
-    const applyLocation = (q) => {
-      if (city) return q.ilike("city", city);
-      return q;
-    };
+    const businessIds = hasUsableLocationFilter(location)
+      ? await findBusinessOwnerIdsForLocation(supabase, location, { limit: 1000 })
+      : [];
 
     const buildBaseQuery = () =>
-      applyLocation(
-        supabase
-          .from("public_listings_v")
-          .select(
-            "id,public_id,title,description,price,category,category_id,city,photo_url,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
-          )
-          .order("created_at", { ascending: false })
-          .limit(80)
-      );
+      supabase
+        .from("public_listings_v")
+        .select(
+          "id,public_id,title,description,price,category,category_id,city,photo_url,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
+        )
+        .order("created_at", { ascending: false })
+        .limit(80)
+        .in("business_id", businessIds);
 
     let data = [];
     let error = null;
 
-    if (!city) {
+    if (!businessIds.length) {
       listings = [];
     } else {
       if (categoryRow?.id) {
@@ -108,7 +107,7 @@ export default async function CategoryListingsPage({ params }) {
           ) : null}
         </div>
 
-        {!city ? (
+        {!hasUsableLocationFilter(location) ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
             Select a location to see listings in this category.
           </div>

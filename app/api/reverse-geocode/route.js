@@ -7,6 +7,14 @@ const pickContextText = (contexts, prefix) => {
   return match?.text || "";
 };
 
+const pickRegionCode = (contexts) => {
+  const match = contexts.find((item) => item?.id?.startsWith("region."));
+  const shortCode = String(match?.short_code || "").trim();
+  if (!shortCode) return "";
+  const parts = shortCode.split("-");
+  return (parts[parts.length - 1] || "").toUpperCase();
+};
+
 const parseCity = (feature) => {
   if (!feature) return "";
   if (feature.place_type?.includes("place")) return feature.text || "";
@@ -49,10 +57,11 @@ export async function GET(request) {
     }
     const data = await res.json();
     if (!data?.features?.length) {
-      return NextResponse.json({ city: "" }, { status: 200 });
+      return NextResponse.json({ city: "", region: "" }, { status: 200 });
     }
     const city = parseCity(data.features[0]);
-    return NextResponse.json({ city });
+    const region = pickRegionCode(data.features[0]?.context || []);
+    return NextResponse.json({ city, region });
   } catch (err) {
     return NextResponse.json(
       { error: "geocode_error", detail: err?.message || String(err) },

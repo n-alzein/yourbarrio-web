@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
+  buildLocationLabel,
   hasLocation,
   isSameLocation,
   normalizeLocation,
@@ -22,10 +23,10 @@ const LocationContext = createContext(null);
 export const LOCATION_CHANGED_EVENT = "yb:location-changed";
 
 const buildLabel = (city, region) => {
-  const normalizedCity = decodeHumanLocationString(city);
-  const normalizedRegion = decodeHumanLocationString(region);
-  if (!normalizedCity) return null;
-  return normalizedRegion ? `${normalizedCity}, ${normalizedRegion}` : normalizedCity;
+  return buildLocationLabel(
+    decodeHumanLocationString(city),
+    decodeHumanLocationString(region)
+  );
 };
 
 const isFresh = (location) => {
@@ -187,7 +188,9 @@ export function LocationProvider({ children }) {
             if (geocodeRes.ok) {
               const geocode = await geocodeRes.json();
               const reverseCity = String(geocode?.city || "").trim();
+              const reverseRegion = String(geocode?.region || "").trim();
               if (reverseCity) city = reverseCity;
+              if (reverseRegion) region = reverseRegion;
             }
           } catch {
             // Best effort reverse geocode.

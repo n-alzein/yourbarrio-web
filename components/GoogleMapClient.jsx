@@ -802,35 +802,13 @@ export default function GoogleMapClient({
       const currentPrefilled = prefilledBusinessesRef.current || [];
       if (Array.isArray(currentPrefilled) && currentPrefilled.length) {
         const localList = currentPrefilled.slice();
-        let withCoords = localList.filter(
+        const withCoords = localList.filter(
           (biz) =>
             biz?.coords &&
             typeof biz.coords.lat === "number" &&
             typeof biz.coords.lng === "number" &&
             !(biz.coords.lat === 0 && biz.coords.lng === 0)
         );
-        if (!withCoords.length) {
-          const base = enforceCenter(safeCenter);
-          const step = 0.0035;
-          withCoords = [
-            {
-              id: "yb-sample-prefill-1",
-              name: "Local Business",
-              address: "Nearby",
-              coords: { lat: base.lat + step, lng: base.lng - step },
-              categoryLabel: "Local Business",
-              source: "sample",
-            },
-            {
-              id: "yb-sample-prefill-2",
-              name: "Neighborhood Shop",
-              address: "Nearby",
-              coords: { lat: base.lat - step * 0.6, lng: base.lng + step * 0.9 },
-              categoryLabel: "Shop",
-              source: "sample",
-            },
-          ];
-        }
         if (map && withCoords.length) {
           const userCenter = userCenterRef.current;
           try {
@@ -965,38 +943,7 @@ export default function GoogleMapClient({
       }
 
       const combinedBusinesses = [...curatedNearby, ...businessesWithCoords];
-      let finalBusinesses = combinedBusinesses;
-
-      if (!finalBusinesses.length) {
-        const base = enforceCenter(safeCenter);
-        const step = 0.0035;
-        finalBusinesses = [
-          {
-            id: "yb-sample-1",
-            name: "Barrio Cafe",
-            address: "Downtown",
-            coords: { lat: base.lat + step, lng: base.lng - step },
-            categoryLabel: "Cafe",
-            source: "sample",
-          },
-          {
-            id: "yb-sample-2",
-            name: "Neighborhood Market",
-            address: "Local St.",
-            coords: { lat: base.lat - step * 0.6, lng: base.lng + step * 1.1 },
-            categoryLabel: "Market",
-            source: "sample",
-          },
-          {
-            id: "yb-sample-3",
-            name: "Community Shop",
-            address: "Main Ave",
-            coords: { lat: base.lat + step * 0.4, lng: base.lng + step * 0.8 },
-            categoryLabel: "Shop",
-            source: "sample",
-          },
-        ];
-      }
+      const finalBusinesses = combinedBusinesses;
 
       if (PLACES_DISABLED || ((!places || places.length === 0) && curatedNearby.length)) {
         try {

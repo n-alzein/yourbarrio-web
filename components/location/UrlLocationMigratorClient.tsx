@@ -6,7 +6,16 @@ import { LOCATION_CHANGED_EVENT } from "@/components/location/LocationProvider";
 import { readLocationClient, setLocationCookieClient } from "@/lib/location/setLocationCookieClient";
 import type { LocationState } from "@/lib/location/locationCookie";
 
-const LOCATION_QUERY_KEYS = new Set(["city", "zip", "lat", "lng", "placeId", "place_id"]);
+const LOCATION_QUERY_KEYS = new Set([
+  "city",
+  "state",
+  "region",
+  "zip",
+  "lat",
+  "lng",
+  "placeId",
+  "place_id",
+]);
 const SHAREABLE_PARAMS_ALLOWLIST = new Set(["q", "page", "sort", "category", "view", "tab"]);
 
 const toFloat = (value: string | null) => {
@@ -39,6 +48,10 @@ export default function UrlLocationMigratorClient() {
     const nextLocation = {
       ...existing,
       city: searchParams?.get("city") || existing.city,
+      region:
+        searchParams?.get("state") ||
+        searchParams?.get("region") ||
+        existing.region,
       zip: searchParams?.get("zip") || existing.zip,
       lat: toFloat(searchParams?.get("lat")) ?? existing.lat,
       lng: toFloat(searchParams?.get("lng")) ?? existing.lng,

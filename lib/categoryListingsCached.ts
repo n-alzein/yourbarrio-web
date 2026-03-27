@@ -3,6 +3,12 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { getPublicSupabaseServerClient } from "@/lib/supabasePublicServer";
 import { fetchCategoryBySlug } from "@/lib/categories";
+import { findBusinessOwnerIdsForLocation } from "@/lib/location/businessLocationSearch";
+import {
+  getLocationCacheKey,
+  getNormalizedLocation,
+  hasUsableLocationFilter,
+} from "@/lib/location/filter";
 
 export type CategoryRow = {
   id?: string | null;
@@ -50,43 +56,50 @@ export async function getCategoryListingsCached({
   categoryId,
   categoryName,
   categorySlug,
-  city,
+  location,
   limit,
 }: {
   categoryId?: string | null;
   categoryName?: string | null;
   categorySlug?: string | null;
-  city?: string | null;
+  location?: {
+    city?: string | null;
+    region?: string | null;
+    state?: string | null;
+    lat?: number | string | null;
+    lng?: number | string | null;
+  } | null;
   limit?: number;
 }): Promise<ListingsResult> {
   const normalizedSlug = typeof categorySlug === "string" ? categorySlug.trim() : "";
   const normalizedName = typeof categoryName === "string" ? categoryName.trim() : "";
-  const normalizedCity = typeof city === "string" ? city.trim() : "";
+  const normalizedLocation = getNormalizedLocation(location || {});
   const resolvedLimit = typeof limit === "number" ? limit : DEFAULT_LIMIT;
 
-  if (!normalizedCity) {
+  if (!hasUsableLocationFilter(normalizedLocation)) {
     return { listings: [], error: null, branch: "no-location", fallbacks: [] };
   }
 
   const cacheTags = ["category:listings"];
   if (normalizedSlug) cacheTags.push(`category:${normalizedSlug}`);
-  if (normalizedCity) cacheTags.push(`city:${normalizedCity}`);
+  cacheTags.push(`location:${getLocationCacheKey(normalizedLocation)}`);
 
   const cached = unstable_cache(
     async () => {
       const supabase = getPublicSupabaseServerClient();
-      const applyLocation = (q: any) => {
-        if (normalizedCity) return q.ilike("city", normalizedCity);
-        return q;
-      };
+      const businessIds = await findBusinessOwnerIdsForLocation(supabase, normalizedLocation, {
+        limit: 1000,
+      });
+      if (businessIds.length === 0) {
+        return { listings: [], error: null, branch: "no-businesses", fallbacks: [] };
+      }
       const buildBaseQuery = () =>
-        applyLocation(
-          supabase
-            .from("public_listings_v")
-            .select(LISTINGS_COLUMNS)
-            .order("created_at", { ascending: false })
-            .limit(resolvedLimit)
-        );
+        supabase
+          .from("public_listings_v")
+          .select(LISTINGS_COLUMNS)
+          .order("created_at", { ascending: false })
+          .limit(resolvedLimit)
+          .in("business_id", businessIds);
 
       let data: SupabaseListing[] = [];
       let error: Error | null = null;
@@ -134,7 +147,7 @@ export async function getCategoryListingsCached({
       categoryId || "none",
       normalizedName || "none",
       normalizedSlug || "none",
-      normalizedCity || "none",
+      getLocationCacheKey(normalizedLocation),
       String(resolvedLimit),
     ],
     {

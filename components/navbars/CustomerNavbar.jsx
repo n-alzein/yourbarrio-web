@@ -37,6 +37,7 @@ import {
 import { useCart } from "@/components/cart/CartProvider";
 import { useLocation } from "@/components/location/LocationProvider";
 import {
+  getLocationCacheKey,
   getLocationLabel,
   isZipLike,
   normalizeSelectedLocation,
@@ -553,7 +554,7 @@ function CustomerNavbarInner({ pathname, searchParams }) {
       return;
     }
 
-    const locationKey = location.city || "none";
+    const locationKey = getLocationCacheKey(location);
     const normalized = `${term.toLowerCase()}::${selectedCategory.toLowerCase()}::${locationKey.toLowerCase()}`;
     if (normalized === lastQueryRef.current) {
       queueMicrotask(() => {
@@ -625,7 +626,7 @@ function CustomerNavbarInner({ pathname, searchParams }) {
       clearTimeout(handle);
       controller.abort();
     };
-  }, [searchTerm, selectedCategory, hasLocation, location.city]);
+  }, [searchTerm, selectedCategory, hasLocation, location]);
 
   // Close dropdown on outside click for a more premium, lightweight feel
   useEffect(() => {
