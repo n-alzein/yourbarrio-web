@@ -2,9 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import { BUSINESS_CATEGORIES } from "@/lib/businessCategories";
+import { getBusinessTypeOptions } from "@/lib/taxonomy/businessTypes";
+import {
+  buildBusinessTaxonomyPayload,
+  getBusinessTypeLabel,
+  getBusinessTypeSlug,
+} from "@/lib/taxonomy/compat";
 
 const DESCRIPTION_MIN = 30;
+const BUSINESS_TYPE_OPTIONS = getBusinessTypeOptions();
 
 const DAYS = [
   { key: "mon", label: "Monday" },
@@ -150,7 +156,7 @@ export default function OverviewEditor({
 
   const [form, setForm] = useState({
     business_name: "",
-    category: "",
+    business_type: "",
     description: "",
     website: "",
     phone: "",
@@ -169,7 +175,7 @@ export default function OverviewEditor({
     const socials = toObject(profile.social_links_json);
     setForm({
       business_name: profile.business_name || profile.full_name || "",
-      category: profile.category || "",
+      business_type: getBusinessTypeSlug(profile, ""),
       description: profile.description || "",
       website: profile.website || "",
       phone: profile.phone || "",
@@ -190,7 +196,7 @@ export default function OverviewEditor({
     const socials = toObject(profile.social_links_json);
     const comparison = {
       business_name: profile.business_name || profile.full_name || "",
-      category: profile.category || "",
+      business_type: getBusinessTypeSlug(profile, ""),
       description: profile.description || "",
       website: profile.website || "",
       phone: profile.phone || "",
@@ -284,7 +290,7 @@ export default function OverviewEditor({
   const validateForm = () => {
     const nextErrors = {};
     if (!form.business_name.trim()) nextErrors.business_name = "Business name is required.";
-    if (!form.category.trim()) nextErrors.category = "Category is required.";
+    if (!form.business_type.trim()) nextErrors.business_type = "Business type is required.";
     if (!form.city.trim()) nextErrors.city = "City is required.";
     if (!form.description.trim() || form.description.trim().length < DESCRIPTION_MIN) {
       nextErrors.description = `Description must be at least ${DESCRIPTION_MIN} characters.`;
@@ -305,10 +311,15 @@ export default function OverviewEditor({
     if (!validation.isValid) return;
     if (saving) return;
 
-    const payload = {
+    const taxonomy = buildBusinessTaxonomyPayload({
+      business_type: form.business_type.trim(),
+      category: profile?.category || "",
+    });
+    const userPayload = {
       business_name: form.business_name.trim(),
       full_name: form.business_name.trim(),
-      category: form.category.trim(),
+      business_type: taxonomy.business_type,
+      category: taxonomy.category,
       description: form.description.trim(),
       website: form.website.trim(),
       phone: form.phone.trim(),
@@ -320,7 +331,7 @@ export default function OverviewEditor({
       profile_photo_url: form.profile_photo_url.trim(),
       cover_photo_url: form.cover_photo_url.trim(),
     };
-    const filteredPayload = filterPayloadByProfile(payload, profile);
+    const filteredPayload = filterPayloadByProfile(userPayload, profile);
     if (!Object.keys(filteredPayload).length) {
       onToast?.(
         "error",
@@ -330,7 +341,7 @@ export default function OverviewEditor({
     }
 
     const previous = profile;
-    onProfileUpdate?.({ ...profile, ...filteredPayload });
+    onProfileUpdate?.({ ...profile, ...userPayload });
     setSaving(true);
     setSavingMessage("Saving profile...");
 
@@ -353,8 +364,38 @@ export default function OverviewEditor({
         return;
       }
 
-      onProfileUpdate?.(data);
-      refreshProfile?.();
+      const businessPayload = {
+        owner_user_id: user.id,
+        business_name: userPayload.business_name,
+        business_type: userPayload.business_type,
+        category: userPayload.category,
+        description: userPayload.description,
+        website: userPayload.website,
+        phone: userPayload.phone,
+        profile_photo_url: userPayload.profile_photo_url,
+        cover_photo_url: userPayload.cover_photo_url,
+        address: userPayload.address,
+        city: userPayload.city,
+        hours_json: userPayload.hours_json,
+        social_links_json: userPayload.social_links_json,
+      };
+
+      const { error: businessError } = await supabase.from("businesses").upsert(
+        businessPayload,
+        {
+          onConflict: "owner_user_id",
+          ignoreDuplicates: false,
+        }
+      );
+
+      if (businessError) {
+        onProfileUpdate?.(previous);
+        onToast?.("error", businessError.message || "Failed to sync business profile.");
+        return;
+      }
+
+      onProfileUpdate?.({ ...previous, ...data, ...userPayload });
+      await refreshProfile?.();
       setEditMode(false);
       setIsDirty(false);
       onToast?.("success", "Profile updated.");
@@ -421,21 +462,21 @@ export default function OverviewEditor({
               ) : null}
             </div>
             <div>
-              <label className={labelClass}>Category</label>
+              <label className={labelClass}>Business type</label>
               <select
-                value={form.category}
-                onChange={handleChange("category")}
+                value={form.business_type}
+                onChange={handleChange("business_type")}
                 className={inputClass}
               >
-                <option value="">Select a category</option>
-                {BUSINESS_CATEGORIES.map((category) => (
-                  <option key={category.slug} value={category.name}>
-                    {category.name}
+                <option value="">Select a business type</option>
+                {BUSINESS_TYPE_OPTIONS.map((type) => (
+                  <option key={type.slug} value={type.slug}>
+                    {type.label}
                   </option>
                 ))}
               </select>
-              {errors.category ? (
-                <p className={tone.errorText}>{errors.category}</p>
+              {errors.business_type ? (
+                <p className={tone.errorText}>{errors.business_type}</p>
               ) : null}
             </div>
             <div>
@@ -603,7 +644,11 @@ export default function OverviewEditor({
         <div className={`rounded-xl border ${tone.cardBorder} ${tone.cardSoft} p-5 md:p-6`}>
           <div className="grid gap-4 md:grid-cols-2">
             <InfoItem label="Business name" value={form.business_name} tone={tone} />
-            <InfoItem label="Category" value={form.category} tone={tone} />
+            <InfoItem
+              label="Business type"
+              value={getBusinessTypeLabel({ business_type: form.business_type }, "—")}
+              tone={tone}
+            />
             <InfoItem label="City" value={form.city} tone={tone} />
             <InfoItem label="Phone" value={form.phone || "—"} tone={tone} />
             <InfoItem label="Email" value={form.email || "—"} tone={tone} />

@@ -1,3 +1,5 @@
+import { buildBusinessTaxonomyPayload } from "@/lib/taxonomy/compat";
+
 export type BusinessVerificationStatus =
   | "pending"
   | "auto_verified"
@@ -11,6 +13,7 @@ export type UnifiedBusiness = {
   source: "businesses" | "legacy";
   public_id: string | null;
   business_name: string | null;
+  business_type: string | null;
   full_name: string | null;
   category: string | null;
   description: string | null;
@@ -55,6 +58,7 @@ const BUSINESS_SELECT = [
   "owner_user_id",
   "public_id",
   "business_name",
+  "business_type",
   "category",
   "description",
   "website",
@@ -85,6 +89,7 @@ const USER_SELECT = [
   "role",
   "full_name",
   "business_name",
+  "business_type",
   "category",
   "description",
   "website",
@@ -130,6 +135,10 @@ function canFallbackFromBusinesses(error: any): boolean {
 }
 
 function mapFromBusinesses(row: any, userRow: any | null): UnifiedBusiness {
+  const taxonomy = buildBusinessTaxonomyPayload({
+    business_type: row?.business_type ?? userRow?.business_type ?? null,
+    category: row?.category ?? userRow?.category ?? null,
+  });
   return {
     id: row?.owner_user_id || userRow?.id || "",
     owner_user_id: row?.owner_user_id || userRow?.id || "",
@@ -137,8 +146,9 @@ function mapFromBusinesses(row: any, userRow: any | null): UnifiedBusiness {
     source: "businesses",
     public_id: row?.public_id ?? userRow?.public_id ?? null,
     business_name: row?.business_name ?? userRow?.business_name ?? null,
+    business_type: taxonomy.business_type,
     full_name: userRow?.full_name ?? null,
-    category: row?.category ?? userRow?.category ?? null,
+    category: taxonomy.category,
     description: row?.description ?? userRow?.description ?? null,
     website: row?.website ?? userRow?.website ?? null,
     phone: row?.phone ?? userRow?.phone ?? null,
@@ -165,6 +175,10 @@ function mapFromBusinesses(row: any, userRow: any | null): UnifiedBusiness {
 }
 
 function mapFromLegacyUser(userRow: any): UnifiedBusiness {
+  const taxonomy = buildBusinessTaxonomyPayload({
+    business_type: userRow?.business_type ?? null,
+    category: userRow?.category ?? null,
+  });
   return {
     id: userRow?.id || "",
     owner_user_id: userRow?.id || "",
@@ -172,8 +186,9 @@ function mapFromLegacyUser(userRow: any): UnifiedBusiness {
     source: "legacy",
     public_id: userRow?.public_id ?? null,
     business_name: userRow?.business_name ?? null,
+    business_type: taxonomy.business_type,
     full_name: userRow?.full_name ?? null,
-    category: userRow?.category ?? null,
+    category: taxonomy.category,
     description: userRow?.description ?? null,
     website: userRow?.website ?? null,
     phone: userRow?.phone ?? null,
@@ -212,10 +227,15 @@ async function shouldSelfHeal(client: AnyClient, userId: string): Promise<boolea
 
 async function trySelfHealBusinessRow(client: AnyClient, business: UnifiedBusiness) {
   try {
+    const taxonomy = buildBusinessTaxonomyPayload({
+      business_type: business.business_type,
+      category: business.category,
+    });
     const upsertPayload: Record<string, unknown> = {
       owner_user_id: business.owner_user_id,
       business_name: business.business_name,
-      category: business.category,
+      business_type: taxonomy.business_type,
+      category: taxonomy.category,
       description: business.description,
       website: business.website,
       phone: business.phone,

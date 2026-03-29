@@ -104,7 +104,7 @@ export default async function AdminUserDetailPage({
   const { data: userDetail } = await client
     .from("users")
     .select(
-      "id, public_id, email, full_name, phone, role, is_internal, business_name, category, website, address, address_2, city, state, postal_code, account_status, deletion_requested_at, scheduled_purge_at, deleted_at, restored_at, created_at, updated_at"
+      "id, public_id, email, full_name, phone, role, is_internal, business_name, business_type, category, website, address, address_2, city, state, postal_code, account_status, deletion_requested_at, scheduled_purge_at, deleted_at, restored_at, created_at, updated_at"
     )
     .eq("id", user.id)
     .maybeSingle();
@@ -125,6 +125,7 @@ export default async function AdminUserDetailPage({
       ? {
           public_id: business.public_id ?? userDetail?.public_id ?? user.public_id ?? null,
           business_name: business.business_name ?? userDetail?.business_name ?? null,
+          business_type: business.business_type ?? userDetail?.business_type ?? null,
           category: business.category ?? userDetail?.category ?? null,
           website: business.website ?? userDetail?.website ?? null,
           phone: business.phone ?? userDetail?.phone ?? null,
@@ -220,7 +221,7 @@ export default async function AdminUserDetailPage({
               <Field label="Phone" value={mergedUser.phone} />
               <Field label="Role" value={mergedUser.role} />
               <Field label="Business name" value={mergedUser.business_name} />
-              <Field label="Category" value={mergedUser.category} />
+              <Field label="Business type" value={mergedUser.category} />
               <Field label="Website" value={mergedUser.website} />
               <Field label="Address" value={mergedUser.address} />
               <Field label="Address 2" value={mergedUser.address_2} />
@@ -291,7 +292,7 @@ export default async function AdminUserDetailPage({
                 full_name: mergedUser.full_name || "",
                 phone: mergedUser.phone || "",
                 business_name: mergedUser.business_name || "",
-                category: mergedUser.category || "",
+                business_type: mergedUser.business_type || "",
                 website: mergedUser.website || "",
                 address: mergedUser.address || "",
                 address2: mergedUser.address_2 || "",

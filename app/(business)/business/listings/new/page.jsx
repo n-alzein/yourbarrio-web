@@ -7,6 +7,7 @@ import RichTextDescriptionEditor from "@/components/editor/RichTextDescriptionEd
 import { useAuth } from "@/components/AuthProvider";
 import { stripHtmlToText } from "@/lib/listingDescription";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { buildListingTaxonomyPayload } from "@/lib/taxonomy/compat";
 
 export default function NewListingPage() {
   const { supabase, user, profile, loadingUser } = useAuth();
@@ -218,13 +219,17 @@ export default function NewListingPage() {
       const selectedCategory = categories.find(
         (category) => category.id === form.categoryId
       );
+      const taxonomy = buildListingTaxonomyPayload({
+        listing_category: selectedCategory?.name || null,
+      });
       const listingPayload = {
         // public_id is intentionally omitted; DB default/trigger generates it.
         business_id: accountId,
         title: form.title,
         description: form.description,
         price: form.price,
-        category: selectedCategory?.name || null,
+        listing_category: taxonomy.listing_category,
+        category: taxonomy.category,
         category_id: form.categoryId,
         inventory_status: form.inventoryStatus,
         inventory_quantity:

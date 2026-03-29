@@ -1,4 +1,5 @@
 import { getPublicSupabaseServerClient } from "@/lib/supabasePublicServer";
+import { buildBusinessTaxonomyPayload } from "@/lib/taxonomy/compat";
 
 const UUID_ANY_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -8,6 +9,7 @@ const PUBLIC_BUSINESS_SELECT = [
   "owner_user_id",
   "public_id",
   "business_name",
+  "business_type",
   "category",
   "description",
   "website",
@@ -32,6 +34,7 @@ export type PublicBusiness = {
   business_row_id: string;
   public_id: string | null;
   business_name: string | null;
+  business_type: string | null;
   full_name: string | null;
   category: string | null;
   description: string | null;
@@ -56,6 +59,7 @@ type PublicBusinessRow = {
   owner_user_id: string;
   public_id: string | null;
   business_name: string | null;
+  business_type: string | null;
   category: string | null;
   description: string | null;
   website: string | null;
@@ -104,14 +108,20 @@ export async function getPublicBusinessByOwnerId(
 
   if (!data) return null;
 
+  const taxonomy = buildBusinessTaxonomyPayload({
+    business_type: data.business_type,
+    category: data.category,
+  });
+
   return {
     id: data.owner_user_id,
     owner_user_id: data.owner_user_id,
     business_row_id: data.id,
     public_id: data.public_id ?? null,
     business_name: data.business_name ?? null,
+    business_type: taxonomy.business_type,
     full_name: null,
-    category: data.category ?? null,
+    category: taxonomy.category,
     description: data.description ?? null,
     website: data.website ?? null,
     phone: data.phone ?? null,

@@ -12,6 +12,7 @@ export type ListingSummary = {
   title: string | null;
   description: string | null;
   price: number | string | null;
+  listing_category?: string | null;
   category: string | null;
   category_id: string | number | null;
   category_info?: { name?: string | null; slug?: string | null } | null;

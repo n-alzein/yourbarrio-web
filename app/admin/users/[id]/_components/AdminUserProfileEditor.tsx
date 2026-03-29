@@ -9,7 +9,7 @@ type ProfileFields = {
   full_name: string;
   phone: string;
   business_name: string;
-  category: string;
+  business_type: string;
   website: string;
   address: string;
   address2: string;
@@ -27,7 +27,7 @@ const FIELD_CONFIG: { name: keyof ProfileFields; placeholder: string }[] = [
   { name: "full_name", placeholder: "Full name" },
   { name: "phone", placeholder: "Phone" },
   { name: "business_name", placeholder: "Business name" },
-  { name: "category", placeholder: "Category" },
+  { name: "business_type", placeholder: "Business type slug" },
   { name: "website", placeholder: "Website" },
   { name: "address", placeholder: "Address" },
   { name: "address2", placeholder: "Address 2" },

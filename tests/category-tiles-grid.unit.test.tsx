@@ -4,42 +4,33 @@ import CategoryTilesGrid from "@/components/customer/CategoryTilesGrid";
 
 vi.mock("next/link", () => ({
   __esModule: true,
-  default: ({ href, children, ...rest }) => (
+  default: ({ href, children, prefetch, onNavigate, ...rest }) => (
     <a href={href} {...rest}>
       {children}
     </a>
   ),
 }));
 
-vi.mock("@/components/FastImage", () => ({
+vi.mock("next/image", () => ({
   __esModule: true,
-  default: ({ alt, ...rest }) => <img alt={alt} {...rest} />,
+  default: ({ alt, fill, priority, ...rest }) => <img alt={alt} {...rest} />,
 }));
-
-const tone = {
-  base: "text-slate-900",
-  soft: "text-slate-600",
-  subtle: "text-slate-500",
-};
 
 describe("CategoryTilesGrid", () => {
   it("renders category tiles with links", () => {
     render(
       <CategoryTilesGrid
-        textTone={tone}
         categories={[
           {
             id: 1,
             name: "Coffee",
             slug: "coffee",
-            tileSubtitle: "Fresh brews",
             tileImageUrl: "/coffee.png",
           },
           {
             id: 2,
             name: "Groceries",
             slug: "groceries",
-            tileSubtitle: null,
             tileImageUrl: "/groceries.png",
           },
         ]}
@@ -48,14 +39,18 @@ describe("CategoryTilesGrid", () => {
 
     expect(screen.getByText("Coffee")).toBeInTheDocument();
     expect(screen.getByText("Groceries")).toBeInTheDocument();
-    const links = screen.getAllByRole("link");
-    expect(links.length).toBe(2);
-    expect(links[0].getAttribute("href")).toBe("/category/coffee");
-    expect(links[1].getAttribute("href")).toBe("/category/groceries");
+    expect(screen.getByLabelText("Shop Coffee")).toHaveAttribute(
+      "href",
+      "/categories/coffee"
+    );
+    expect(screen.getByLabelText("Shop Groceries")).toHaveAttribute(
+      "href",
+      "/categories/groceries"
+    );
   });
 
   it("shows empty state when no categories", () => {
-    render(<CategoryTilesGrid textTone={tone} categories={[]} />);
+    render(<CategoryTilesGrid categories={[]} />);
     expect(screen.getByText("No categories yet.")).toBeInTheDocument();
   });
 });

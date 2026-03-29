@@ -10,6 +10,7 @@ import { stripHtmlToText } from "@/lib/listingDescription";
 import { retry } from "@/lib/retry";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
+import { buildListingTaxonomyPayload } from "@/lib/taxonomy/compat";
 
 export default function EditListingPage() {
   const router = useRouter();
@@ -259,11 +260,15 @@ export default function EditListingPage() {
       const selectedCategory = categories.find(
         (category) => category.id === form.categoryId
       );
+      const taxonomy = buildListingTaxonomyPayload({
+        listing_category: selectedCategory?.name || null,
+      });
       const payload = {
         title: (form.title || "").trim(),
         description: form.description || "",
         price: form.price,
-        category: selectedCategory?.name || null,
+        listing_category: taxonomy.listing_category,
+        category: taxonomy.category,
         category_id: form.categoryId,
         city: form.city,
         inventory_status: form.inventoryStatus,

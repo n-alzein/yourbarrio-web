@@ -34,6 +34,14 @@ import {
 } from "@/lib/auth/purchaseAccess";
 import { descriptionSnippet } from "@/lib/listingDescription";
 import { getCustomerBusinessUrl, getListingUrl } from "@/lib/ids/publicRefs";
+import {
+  getBusinessTypeLabel,
+  getListingCategoryLabel,
+} from "@/lib/taxonomy/compat";
+import {
+  getBusinessTypePlaceholder,
+  getListingCategoryPlaceholder,
+} from "@/lib/taxonomy/placeholders";
 
 export default function ListingDetails({ params }) {
   const { supabase, user, role, profile } = useAuth();
@@ -71,7 +79,7 @@ export default function ListingDetails({ params }) {
   const [messageLoading, setMessageLoading] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
-  const [heroSrc, setHeroSrc] = useState("/business-placeholder.png");
+  const [heroSrc, setHeroSrc] = useState("/listing-placeholder.png");
   const [cartToast, setCartToast] = useState(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportToast, setReportToast] = useState(null);
@@ -132,7 +140,7 @@ export default function ListingDetails({ params }) {
           setIsSaved(Boolean(payload?.isSaved));
           setHeroSrc(
             primaryPhotoUrl(payload?.listing?.photo_url) ||
-              "/business-placeholder.png"
+              getListingCategoryPlaceholder(payload?.listing)
           );
           return;
         }
@@ -156,13 +164,13 @@ export default function ListingDetails({ params }) {
         if (!isMounted) return;
         setListing(item);
         setHeroSrc(
-          primaryPhotoUrl(item.photo_url) || "/business-placeholder.png"
+          primaryPhotoUrl(item.photo_url) || getListingCategoryPlaceholder(item)
         );
 
         const { data: biz } = await client
           .from("businesses")
           .select(
-            "id,owner_user_id,public_id,business_name,category,city,address,website,phone,profile_photo_url,verification_status"
+            "id,owner_user_id,public_id,business_name,business_type,category,city,address,website,phone,profile_photo_url,verification_status"
           )
           .eq("owner_user_id", item.business_id)
           .maybeSingle();
@@ -446,11 +454,8 @@ export default function ListingDetails({ params }) {
   const storeName = business?.business_name || business?.full_name || "Local business";
   const city = business?.city || "Your area";
   const address = business?.address || null;
-  const category =
-    business?.category ||
-    listing?.category_info?.name ||
-    listing?.category ||
-    "Local listing";
+  const listingCategory = getListingCategoryLabel(listing, "Local listing");
+  const businessType = getBusinessTypeLabel(business, "Local business");
   const showMessage = role !== "business";
   const purchaseRestricted = isPurchaseRestrictedRole({
     role,
@@ -520,7 +525,7 @@ export default function ListingDetails({ params }) {
                           height={64}
                           sizes="64px"
                           useNextImage
-                          fallbackSrc="/business-placeholder.png"
+                          fallbackSrc={getListingCategoryPlaceholder(listing)}
                         />
                       </button>
                     );
@@ -530,7 +535,7 @@ export default function ListingDetails({ params }) {
 
               <div className="relative h-[420px] w-full overflow-hidden flex items-center justify-center bg-transparent p-3">
                 <SafeImage
-                  src={heroSrc || "/business-placeholder.png"}
+                  src={heroSrc || getListingCategoryPlaceholder(listing)}
                   alt={listing.title}
                   className="object-contain"
                   fill
@@ -538,19 +543,20 @@ export default function ListingDetails({ params }) {
                   useNextImage
                   loading="lazy"
                   onError={() => {
-                    if (heroSrc !== "/business-placeholder.png") {
-                      setHeroSrc("/business-placeholder.png");
+                    const fallback = getListingCategoryPlaceholder(listing);
+                    if (heroSrc !== fallback) {
+                      setHeroSrc(fallback);
                     }
                   }}
                   referrerPolicy="no-referrer"
-                  fallbackSrc="/business-placeholder.png"
+                  fallbackSrc={getListingCategoryPlaceholder(listing)}
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/10 to-white/20" />
               </div>
               <div className="p-5 space-y-3">
                 <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] opacity-75">
                   <Shield className="h-4 w-4 opacity-90" />
-                  {category}
+                  {listingCategory}
                   <span
                     className="rounded-full px-2 py-1 text-[10px] font-semibold border bg-transparent"
                     style={
@@ -602,8 +608,8 @@ export default function ListingDetails({ params }) {
                 <div>
                   <p className="text-lg font-semibold">{storeName}</p>
                   <p className="text-sm opacity-80">{city}</p>
-                  {category ? (
-                    <p className="text-xs opacity-70 mt-1">{category}</p>
+                  {businessType ? (
+                    <p className="text-xs opacity-70 mt-1">{businessType}</p>
                   ) : null}
                 </div>
                 <div className="flex items-center gap-3 text-sm opacity-90">

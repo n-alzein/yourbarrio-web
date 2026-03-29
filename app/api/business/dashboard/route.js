@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBusinessByUserId } from "@/lib/business/getBusinessByUserId";
 import { getBusinessDataClientForRequest } from "@/lib/business/getBusinessDataClientForRequest";
+import { getListingCategoryLabel } from "@/lib/taxonomy/compat";
 
 const SALES_STATUSES = ["fulfilled", "completed"];
 
@@ -162,7 +163,7 @@ export async function GET(request) {
       row.id,
       {
         title: row.title,
-        category: row.category_info?.name || row.category,
+        category: getListingCategoryLabel(row, "Uncategorized"),
         inventoryQty: row.inventory_quantity ?? null,
       },
     ])
@@ -170,7 +171,7 @@ export async function GET(request) {
   const categories = Array.from(
     new Set(
       listingRows
-        .map((row) => row.category_info?.name || row.category)
+        .map((row) => getListingCategoryLabel(row, ""))
         .filter(Boolean)
     )
   );
@@ -276,7 +277,7 @@ export async function GET(request) {
   const ordersByProduct = new Map();
   orderItems.forEach((item) => {
     const listing = listingMap.get(item.listing_id);
-    const category = listing?.category || "Uncategorized";
+    const category = getListingCategoryLabel(listing, "Uncategorized");
     if (categoriesFilter.length > 0 && !categoriesFilter.includes(category)) {
       return;
     }
@@ -351,7 +352,7 @@ export async function GET(request) {
   const itemsByOrder = new Map();
   recentItems.forEach((item) => {
     const listing = listingMap.get(item.listing_id);
-    const category = listing?.category || "Uncategorized";
+    const category = getListingCategoryLabel(listing, "Uncategorized");
     if (categoriesFilter.length > 0 && !categoriesFilter.includes(category)) {
       return;
     }

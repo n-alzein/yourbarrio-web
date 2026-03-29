@@ -1,5 +1,6 @@
 import BusinessProfilePage from "@/components/business/profile/BusinessProfilePage";
 import { requireEffectiveRole } from "@/lib/auth/requireEffectiveRole";
+import { getBusinessByUserId } from "@/lib/business/getBusinessByUserId";
 
 async function safeQuery(promise, fallback, label) {
   try {
@@ -70,12 +71,6 @@ function buildRatingSummary(rows) {
 export default async function BusinessProfileRoute() {
   const { supabase, effectiveUserId } = await requireEffectiveRole("business");
 
-  const profileQuery = supabase
-    .from("users")
-    .select("*")
-    .eq("id", effectiveUserId)
-    .maybeSingle();
-
   const galleryQuery = supabase
     .from("business_gallery_photos")
     .select("id, business_id, photo_url, caption, sort_order, created_at")
@@ -104,7 +99,15 @@ export default async function BusinessProfileRoute() {
 
   const [profileResult, galleryResult, reviewListResult, reviewRatingsResult, listingsResult, announcementsResult] =
     await Promise.all([
-      safeQuery(profileQuery, null, "profile"),
+      getBusinessByUserId({
+        client: supabase,
+        userId: effectiveUserId,
+      })
+        .then((data) => ({ data, count: 0, error: null }))
+        .catch((error) => {
+          console.error("[business profile] profile query failed", error);
+          return { data: null, count: 0, error };
+        }),
       safeQuery(galleryQuery, [], "gallery"),
       fetchReviewList(supabase, effectiveUserId),
       safeQuery(reviewRatingQuery, [], "review ratings"),
@@ -118,13 +121,17 @@ export default async function BusinessProfileRoute() {
     role: rawProfile.role,
     full_name: rawProfile.full_name,
     business_name: rawProfile.business_name,
+    business_type: rawProfile.business_type,
     category: rawProfile.category,
     description: rawProfile.description,
     website: rawProfile.website,
     phone: rawProfile.phone,
     email: rawProfile.email,
     address: rawProfile.address,
+    address_2: rawProfile.address_2,
     city: rawProfile.city,
+    state: rawProfile.state,
+    postal_code: rawProfile.postal_code,
     hours_json: rawProfile.hours_json ?? null,
     social_links_json: rawProfile.social_links_json ?? null,
     profile_photo_url: rawProfile.profile_photo_url,
@@ -133,13 +140,17 @@ export default async function BusinessProfileRoute() {
     id: effectiveUserId,
     business_name: "",
     full_name: "",
+    business_type: "",
     category: "",
     description: "",
     website: "",
     phone: "",
     email: "",
     address: "",
+    address_2: "",
     city: "",
+    state: "",
+    postal_code: "",
     hours_json: null,
     social_links_json: null,
     profile_photo_url: "",

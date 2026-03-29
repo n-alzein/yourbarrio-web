@@ -3,6 +3,11 @@
 import Link from "next/link";
 import FastImage from "@/components/FastImage";
 import { Pencil, Loader2, Star } from "lucide-react";
+import { getBusinessTypeLabel } from "@/lib/taxonomy/compat";
+import {
+  getBusinessTypePlaceholder,
+  resolveBusinessImageSrc,
+} from "@/lib/placeholders/businessPlaceholders";
 
 export default function BusinessProfileHeader({
   profile,
@@ -19,8 +24,21 @@ export default function BusinessProfileHeader({
 }) {
   const name =
     profile?.business_name || profile?.full_name || "Business profile";
-  const category = profile?.category || "Category";
+  const businessType = getBusinessTypeLabel(profile, "Business type");
   const city = profile?.city || "";
+  const placeholderSrc = getBusinessTypePlaceholder(
+    profile?.business_type || profile?.category || null
+  );
+  const avatarSrc = resolveBusinessImageSrc({
+    imageUrl: profile?.profile_photo_url || null,
+    businessType: profile?.business_type,
+    legacyCategory: profile?.category,
+  });
+  const coverSrc = resolveBusinessImageSrc({
+    imageUrl: profile?.cover_photo_url || null,
+    businessType: profile?.business_type,
+    legacyCategory: profile?.category,
+  });
   const ratingLabel = reviewCount
     ? `${averageRating.toFixed(1)} · ${reviewCount} review${reviewCount === 1 ? "" : "s"}`
     : "No reviews yet";
@@ -40,18 +58,16 @@ export default function BusinessProfileHeader({
               }`}
             />
           ) : null}
-          {profile?.cover_photo_url ? (
-            <FastImage
-              src={profile.cover_photo_url}
-              alt={`${name} cover`}
-              className="object-cover"
-              fallbackSrc="/business-placeholder.png"
-              fill
-              sizes="(max-width: 768px) 100vw, 80vw"
-              priority
-              decoding="async"
-            />
-          ) : null}
+          <FastImage
+            src={coverSrc}
+            alt={`${name} cover`}
+            className="object-cover"
+            fallbackSrc={placeholderSrc}
+            fill
+            sizes="(max-width: 768px) 100vw, 80vw"
+            priority
+            decoding="async"
+          />
           {editMode ? (
             <label
               className={`absolute right-4 top-4 inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border shadow ${tone.buttonSecondary}`}
@@ -87,9 +103,10 @@ export default function BusinessProfileHeader({
           <div className="flex flex-col md:flex-row md:items-center gap-4">
             <div className="relative h-24 w-24 rounded-xl border border-white/20 bg-white/10 p-1 shadow-lg">
               <FastImage
-                src={profile?.profile_photo_url || "/business-placeholder.png"}
+                src={avatarSrc}
                 alt={`${name} logo`}
                 className="rounded-lg object-cover"
+                fallbackSrc={placeholderSrc}
                 width={96}
                 height={96}
                 sizes="96px"
@@ -126,7 +143,7 @@ export default function BusinessProfileHeader({
                   {name}
                 </h1>
                 <p className={`text-sm md:text-base ${tone.textMuted}`}>
-                  {category}
+                  {businessType}
                   {city ? ` · ${city}` : ""}
                 </p>
               </div>

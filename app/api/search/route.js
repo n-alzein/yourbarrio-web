@@ -5,6 +5,11 @@ import { primaryPhotoUrl } from "@/lib/listingPhotos";
 import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
 import { findBusinessOwnerIdsForLocation } from "@/lib/location/businessLocationSearch";
 import {
+  getBusinessTypeLabel,
+  getListingCategoryLabel,
+} from "@/lib/taxonomy/compat";
+import { normalizeBusinessTypeSlug } from "@/lib/taxonomy/businessTypes";
+import {
   getLocationCacheKey,
   getNormalizedLocation,
   hasUsableLocationFilter,
@@ -96,7 +101,8 @@ async function searchListings(supabase, term, category, { businessIds }) {
     title: row.title,
     description: row.description,
     price: row.price,
-    category: row.category,
+    category: getListingCategoryLabel(row, ""),
+    listing_category: getListingCategoryLabel(row, ""),
     city: row.city,
     photo_url: primaryPhotoUrl(row.photo_url),
     business_id: row.business_id,
@@ -117,16 +123,13 @@ async function searchBusinesses(supabase, term, category, { businessIds }) {
   let query = supabase
     .from("businesses")
     .select(
-      "id,owner_user_id,public_id,business_name,category,city,state,address,description,website,profile_photo_url,verification_status"
+      "id,owner_user_id,public_id,business_name,business_type,category,city,state,address,description,website,profile_photo_url,verification_status"
     )
     .in("verification_status", ["auto_verified", "manually_verified"])
     .in("owner_user_id", businessIds)
     .or(
-      `business_name.ilike.%${safe}%,category.ilike.%${safe}%,description.ilike.%${safe}%,city.ilike.%${safe}%`
+      `business_name.ilike.%${safe}%,business_type.ilike.%${safe}%,category.ilike.%${safe}%,description.ilike.%${safe}%,city.ilike.%${safe}%`
     );
-  if (safeCategory) {
-    query = query.eq("category", safeCategory);
-  }
   const { data, error } = await query.limit(8);
 
   if (error) {
@@ -134,19 +137,29 @@ async function searchBusinesses(supabase, term, category, { businessIds }) {
     return [];
   }
 
-  return (data || []).map((row) => ({
-    id: row.owner_user_id,
-    public_id: row.public_id || null,
-    name: row.business_name || "Local business",
-    category: row.category,
-    city: row.city,
-    state: row.state || null,
-    address: row.address,
-    description: row.description,
-    website: row.website,
-    image: row.profile_photo_url,
-    source: "supabase_business",
-  }));
+  const normalizedFilter = normalizeBusinessTypeSlug(safeCategory);
+
+  return (data || [])
+    .filter((row) => {
+      if (!safeCategory) return true;
+      const label = getBusinessTypeLabel(row, "").toLowerCase();
+      const slug = normalizeBusinessTypeSlug(row.business_type || row.category || "");
+      return label === safeCategory.toLowerCase() || slug === normalizedFilter;
+    })
+    .map((row) => ({
+      id: row.owner_user_id,
+      public_id: row.public_id || null,
+      name: row.business_name || "Local business",
+      category: getBusinessTypeLabel(row, ""),
+      business_type: row.business_type || null,
+      city: row.city,
+      state: row.state || null,
+      address: row.address,
+      description: row.description,
+      website: row.website,
+      image: row.profile_photo_url,
+      source: "supabase_business",
+    }));
 }
 
 const PLACES_DISABLED =

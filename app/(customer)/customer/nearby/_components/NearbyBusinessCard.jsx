@@ -1,7 +1,7 @@
 "use client";
 
 import FastImage from "@/components/FastImage";
-import { primaryPhotoUrl } from "@/lib/listingPhotos";
+import { resolveBusinessImageSrc } from "@/lib/placeholders/businessPlaceholders";
 
 const formatDistance = (distanceKm) => {
   if (typeof distanceKm !== "number" || !Number.isFinite(distanceKm)) return null;
@@ -37,15 +37,18 @@ export default function NearbyBusinessCard({
   const distanceLabel = formatDistance(business.distance_km ?? business.distanceKm ?? null);
   const ratingLabel = formatRating(business.rating ?? null);
   const locationLine = formatLocationLine(business);
-  const photo =
-    primaryPhotoUrl(
+  const photo = resolveBusinessImageSrc({
+    imageUrl:
       business?.imageUrl ||
-        business?.profile_photo_url ||
-        business?.photo_url ||
-        business?.image_url ||
-        business?.avatar_url ||
-        business?.logo_url
-    ) || "/business-placeholder.png";
+      business?.profile_photo_url ||
+      business?.photo_url ||
+      business?.image_url ||
+      business?.avatar_url ||
+      business?.logo_url ||
+      null,
+    businessType: business?.business_type,
+    legacyCategory: business?.categoryLabel || business?.category,
+  });
 
   return (
     <article
@@ -84,7 +87,7 @@ export default function NearbyBusinessCard({
               fill
               sizes="92px"
               className="object-cover"
-              fallbackSrc="/business-placeholder.png"
+              fallbackSrc={photo}
               decoding="async"
             />
           </div>

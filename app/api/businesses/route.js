@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
 import { isBusinessOnboardingComplete } from "@/lib/business/onboardingCompletion";
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
+import { buildBusinessTaxonomyPayload } from "@/lib/taxonomy/compat";
 
 function normalizeWebsite(value) {
   const trimmed = (value || "").trim();
@@ -75,6 +76,7 @@ export async function POST(req) {
     const {
       name,
       category,
+      business_type,
       description,
       address,
       address_2,
@@ -88,10 +90,12 @@ export async function POST(req) {
     } = body || {};
 
     const trimmedName = String(name || "").trim();
-    const trimmedCategory = String(category || "").trim();
-    if (!trimmedName || !trimmedCategory) {
+    const taxonomy = buildBusinessTaxonomyPayload({ business_type, category });
+    const trimmedBusinessType = String(taxonomy.business_type || "").trim();
+    const trimmedCategory = String(taxonomy.category || "").trim();
+    if (!trimmedName || !trimmedBusinessType) {
       return NextResponse.json(
-        { error: "Business name and category are required" },
+        { error: "Business name and business type are required" },
         { status: 400 }
       );
     }
@@ -131,6 +135,7 @@ export async function POST(req) {
       public_id: existingUser?.public_id || null,
       full_name: trimmedName,
       business_name: trimmedName,
+      business_type: trimmedBusinessType,
       category: trimmedCategory,
       description: description || "",
       website: normalizedWebsite || "",
@@ -166,6 +171,7 @@ export async function POST(req) {
       owner_user_id: user.id,
       public_id: existingUser?.public_id || null,
       business_name: trimmedName,
+      business_type: trimmedBusinessType,
       category: trimmedCategory,
       description: description || "",
       website: normalizedWebsite || "",
@@ -189,7 +195,7 @@ export async function POST(req) {
         ignoreDuplicates: false,
       })
       .select(
-        "id,owner_user_id,public_id,business_name,category,address,city,state,postal_code,verification_status"
+        "id,owner_user_id,public_id,business_name,business_type,category,address,city,state,postal_code,verification_status"
       )
       .single();
 

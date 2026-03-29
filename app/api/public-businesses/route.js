@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { findBusinessesForLocation } from "@/lib/location/businessLocationSearch";
 import { getNormalizedLocation, hasUsableLocationFilter } from "@/lib/location/filter";
+import { getBusinessTypeLabel } from "@/lib/taxonomy/compat";
 
 const CACHE_SECONDS = 120;
 const GEOCODE_KEY = process.env.MAPBOX_GEOCODING_TOKEN || process.env.GOOGLE_GEOCODING_API_KEY || "";
@@ -78,6 +79,7 @@ export async function GET(request) {
           return {
             ...row,
             id: row.owner_user_id,
+            category: getBusinessTypeLabel(row, row.category || "Local business"),
             latitude: lat,
             longitude: lng,
             lat,
@@ -92,6 +94,7 @@ export async function GET(request) {
         return {
           ...row,
           id: row.owner_user_id,
+          category: getBusinessTypeLabel(row, row.category || "Local business"),
           latitude: coords?.lat ?? null,
           longitude: coords?.lng ?? null,
           lat: coords?.lat ?? null,

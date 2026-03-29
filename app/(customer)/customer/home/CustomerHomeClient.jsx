@@ -30,6 +30,7 @@ import { dumpStallRecorder } from "@/lib/stallRecorder";
 import { BUSINESS_CATEGORIES, normalizeCategoryName } from "@/lib/businessCategories";
 import { logDataDiag } from "@/lib/dataDiagnostics";
 import CategoryTilesGrid from "@/components/customer/CategoryTilesGrid";
+import PopularNearYouSection from "@/components/home/PopularNearYouSection";
 import { useLocation } from "@/components/location/LocationProvider";
 import FeedbackSection from "@/components/browse/FeedbackSection";
 
@@ -685,6 +686,7 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
         )}
 
       </div>
+      {!search ? <PopularNearYouSection mode={mode} /> : null}
       <FeedbackSection mode={mode} className="mt-5" />
     </section>
   );

@@ -5,6 +5,11 @@ import FastImage from "@/components/FastImage";
 import { Globe, MapPin, Phone, Share2, Star } from "lucide-react";
 import BusinessPreviewToolbar from "@/components/publicBusinessProfile/BusinessPreviewToolbar";
 import { useTheme } from "@/components/ThemeProvider";
+import { getBusinessTypeLabel } from "@/lib/taxonomy/compat";
+import {
+  getBusinessTypePlaceholder,
+  resolveBusinessImageSrc,
+} from "@/lib/placeholders/businessPlaceholders";
 
 const ACTION_ICONS = {
   website: Globe,
@@ -38,8 +43,21 @@ export default function PublicBusinessHero({
 
   const name =
     profile?.business_name || profile?.full_name || "Local business";
-  const category = profile?.category || "Neighborhood favorite";
+  const businessType = getBusinessTypeLabel(profile, "Neighborhood favorite");
   const city = profile?.city || "";
+  const placeholderSrc = getBusinessTypePlaceholder(
+    profile?.business_type || profile?.category || null
+  );
+  const avatarSrc = resolveBusinessImageSrc({
+    imageUrl: profile?.profile_photo_url || null,
+    businessType: profile?.business_type,
+    legacyCategory: profile?.category,
+  });
+  const coverSrc = resolveBusinessImageSrc({
+    imageUrl: profile?.cover_photo_url || null,
+    businessType: profile?.business_type,
+    legacyCategory: profile?.category,
+  });
   const average = ratingSummary?.average || 0;
   const reviewCount = ratingSummary?.count || 0;
   const ratingLabel = reviewCount
@@ -119,9 +137,10 @@ export default function PublicBusinessHero({
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-full border border-white/20 bg-white/10 overflow-hidden relative">
                     <FastImage
-                      src={profile?.profile_photo_url || "/business-placeholder.png"}
+                      src={avatarSrc}
                       alt={`${name} logo`}
                       className="h-full w-full object-cover"
+                      fallbackSrc={placeholderSrc}
                       fill
                       sizes="36px"
                       decoding="async"
@@ -163,20 +182,17 @@ export default function PublicBusinessHero({
         <div className="absolute left-0 top-24 w-full z-40 pointer-events-none">
           <BusinessPreviewToolbar className="pointer-events-auto" />
         </div>
-        {profile?.cover_photo_url ? (
-          <FastImage
-            src={profile.cover_photo_url}
-            alt={`${name} cover`}
-            className="h-full w-full object-cover relative z-0"
-            fallbackSrc="/business-placeholder.png"
-            fill
-            sizes="100vw"
-            priority
-            decoding="async"
-          />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900/70 to-black z-0" />
-        )}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900/70 to-black z-0" />
+        <FastImage
+          src={coverSrc}
+          alt={`${name} cover`}
+          className="h-full w-full object-cover relative z-0"
+          fallbackSrc={placeholderSrc}
+          fill
+          sizes="100vw"
+          priority
+          decoding="async"
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/50 to-black/90 z-0" />
         <div className="pointer-events-none absolute -top-32 -left-24 h-[320px] w-[320px] rounded-full bg-purple-500/30 blur-[140px] z-0" />
         <div className="pointer-events-none absolute top-12 -right-24 h-[320px] w-[320px] rounded-full bg-rose-400/30 blur-[160px] z-0" />
@@ -189,9 +205,10 @@ export default function PublicBusinessHero({
               <div className="flex flex-col gap-4 md:flex-row md:items-center">
                 <div className="h-24 w-24 md:h-28 md:w-28 rounded-2xl border border-white/20 bg-white/10 p-2 shadow-xl">
                   <FastImage
-                    src={profile?.profile_photo_url || "/business-placeholder.png"}
+                    src={avatarSrc}
                     alt={`${name} logo`}
                     className="h-full w-full rounded-xl object-cover"
+                    fallbackSrc={placeholderSrc}
                     width={96}
                     height={96}
                     sizes="(max-width: 768px) 96px, 112px"
@@ -205,7 +222,7 @@ export default function PublicBusinessHero({
                       {name}
                     </h1>
                     <p className={`text-sm md:text-base ${cardText.sub}`}>
-                    {category}
+                    {businessType}
                     {city ? ` - ${city}` : ""}
                     </p>
                   </div>
@@ -247,9 +264,9 @@ export default function PublicBusinessHero({
               <div className="rounded-full border border-white/15 bg-white/10 px-3 py-1">
                 Local business
               </div>
-              {category ? (
+              {businessType ? (
                 <div className="rounded-full border border-white/15 bg-white/10 px-3 py-1">
-                  {category}
+                  {businessType}
                 </div>
               ) : null}
               {city ? (

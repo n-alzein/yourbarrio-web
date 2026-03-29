@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
-import { BUSINESS_CATEGORIES } from "@/lib/businessCategories";
+import { getBusinessTypeOptions } from "@/lib/taxonomy/businessTypes";
 import { isBusinessOnboardingComplete } from "@/lib/business/onboardingCompletion";
 import { US_STATES } from "@/lib/constants/usStates";
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
@@ -22,7 +22,7 @@ const ADDRESS_FIELDS = new Set(["address", "address_2", "city", "state", "postal
 // ------------------------------
 const initialForm = {
   businessName: "",
-  category: "",
+  business_type: "",
   description: "",
   address: "",
   address_2: "",
@@ -113,6 +113,8 @@ function resolveStateCode(region) {
   }
   return normalizeStateCode(region.text) || "";
 }
+
+const BUSINESS_TYPE_OPTIONS = getBusinessTypeOptions();
 
 // ------------------------------
 // MAIN COMPONENT (only ONE export default)
@@ -294,7 +296,7 @@ export default function BusinessOnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.businessName,
-          category: form.category,
+          business_type: form.business_type,
           description: form.description,
           address: normalizedAddress.address,
           address_2: normalizedAddress.address_2,
@@ -434,20 +436,20 @@ export default function BusinessOnboardingPage() {
 
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Category
+                    Business type
                   </label>
                   <select
-                    value={form.category}
-                    onChange={(e) => updateField("category", e.target.value)}
+                    value={form.business_type}
+                    onChange={(e) => updateField("business_type", e.target.value)}
                     className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/20 text-white focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400/40 outline-none"
                     required
                   >
                     <option value="" disabled>
-                      Select a category
+                      Select a business type
                     </option>
-                    {BUSINESS_CATEGORIES.map((cat) => (
-                      <option key={cat.slug} value={cat.name} className="text-black">
-                        {cat.name}
+                    {BUSINESS_TYPE_OPTIONS.map((type) => (
+                      <option key={type.slug} value={type.slug} className="text-black">
+                        {type.label}
                       </option>
                     ))}
                   </select>

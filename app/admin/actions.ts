@@ -31,6 +31,7 @@ import { getSupabaseServerAuthedClient, getSupabaseServerClient } from "@/lib/su
 import { getAdminDataClient, getAdminServiceRoleClient } from "@/lib/supabase/admin";
 import { sendAdminInvite } from "@/lib/email/adminInvite";
 import { setFeatureFlag } from "@/lib/featureFlags";
+import { buildBusinessTaxonomyPayload } from "@/lib/taxonomy/compat";
 
 function withMessage(pathname: string, type: "success" | "error" | "ok" | "err", message: string) {
   const normalizedPath = getSafeRedirectPath(pathname || "") || "/admin";
@@ -114,7 +115,7 @@ export async function updateUserRoleAction(formData: FormData) {
     const { data: businessSeed } = await client
       .from("users")
       .select(
-        "id, public_id, business_name, category, description, website, phone, profile_photo_url, cover_photo_url, address, address_2, city, state, postal_code, latitude, longitude, hours_json, social_links_json, is_internal"
+        "id, public_id, business_name, business_type, category, description, website, phone, profile_photo_url, cover_photo_url, address, address_2, city, state, postal_code, latitude, longitude, hours_json, social_links_json, is_internal"
       )
       .eq("id", parsed.data.userId)
       .maybeSingle();
@@ -122,10 +123,11 @@ export async function updateUserRoleAction(formData: FormData) {
     if (businessSeed) {
       const { error: businessUpsertError } = await client.from("businesses").upsert(
         {
-          owner_user_id: businessSeed.id,
-          public_id: businessSeed.public_id || null,
-          business_name: businessSeed.business_name || null,
-          category: businessSeed.category || null,
+        owner_user_id: businessSeed.id,
+        public_id: businessSeed.public_id || null,
+        business_name: businessSeed.business_name || null,
+        business_type: businessSeed.business_type || null,
+        category: businessSeed.category || null,
           description: businessSeed.description || null,
           website: businessSeed.website || null,
           phone: businessSeed.phone || null,
@@ -258,7 +260,7 @@ const updateUserProfileFieldsSchema = z.object({
   full_name: z.string().max(160).optional(),
   phone: z.string().max(64).optional(),
   business_name: z.string().max(160).optional(),
-  category: z.string().max(120).optional(),
+  business_type: z.string().max(120).optional(),
   website: z.string().max(500).optional(),
   address: z.string().max(240).optional(),
   address2: z.string().max(240).optional(),
@@ -280,7 +282,7 @@ export async function updateUserProfileFieldsAction(formData: FormData) {
     full_name: formData.get("full_name") ?? undefined,
     phone: formData.get("phone") ?? undefined,
     business_name: formData.get("business_name") ?? undefined,
-    category: formData.get("category") ?? undefined,
+    business_type: formData.get("business_type") ?? undefined,
     website: formData.get("website") ?? undefined,
     address: formData.get("address") ?? undefined,
     address2: formData.get("address2") ?? undefined,
@@ -298,11 +300,15 @@ export async function updateUserProfileFieldsAction(formData: FormData) {
 
   const { client } = await getAdminDataClient({ mode: "service" });
   const targetPath = await resolveAdminUserPath(client, parsed.data.userId);
+  const taxonomy = buildBusinessTaxonomyPayload({
+    business_type: formData.get("business_type"),
+  });
   const updates = {
     full_name: normalizeNullableText(formData.get("full_name")),
     phone: normalizeNullableText(formData.get("phone")),
     business_name: normalizeNullableText(formData.get("business_name")),
-    category: normalizeNullableText(formData.get("category")),
+    business_type: taxonomy.business_type,
+    category: taxonomy.category,
     website: normalizeNullableText(formData.get("website")),
     address: normalizeNullableText(formData.get("address")),
     address_2: normalizeNullableText(formData.get("address2")),
@@ -324,7 +330,7 @@ export async function updateUserProfileFieldsAction(formData: FormData) {
   const { data: roleRow } = await client
     .from("users")
     .select(
-      "id, role, public_id, business_name, category, description, website, phone, profile_photo_url, cover_photo_url, address, address_2, city, state, postal_code, latitude, longitude, hours_json, social_links_json, is_internal"
+      "id, role, public_id, business_name, business_type, category, description, website, phone, profile_photo_url, cover_photo_url, address, address_2, city, state, postal_code, latitude, longitude, hours_json, social_links_json, is_internal"
     )
     .eq("id", parsed.data.userId)
     .maybeSingle();
@@ -335,6 +341,7 @@ export async function updateUserProfileFieldsAction(formData: FormData) {
         owner_user_id: roleRow.id,
         public_id: roleRow.public_id || null,
         business_name: roleRow.business_name || null,
+        business_type: roleRow.business_type || null,
         category: roleRow.category || null,
         description: roleRow.description || null,
         website: roleRow.website || null,

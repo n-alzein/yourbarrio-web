@@ -6,6 +6,8 @@ import { ArrowUpRight } from "lucide-react";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
 import { descriptionSnippet } from "@/lib/listingDescription";
 import { getListingUrl } from "@/lib/ids/publicRefs";
+import { getListingCategoryLabel } from "@/lib/taxonomy/compat";
+import { getListingCategoryPlaceholder } from "@/lib/taxonomy/placeholders";
 
 function formatPrice(value) {
   if (value === null || value === undefined || value === "") return "Price TBD";
@@ -42,7 +44,7 @@ export default function BusinessListingsGrid({ listings, className = "" }) {
               >
                 <div className="relative h-48 w-full overflow-hidden bg-white/5 border-b border-white/10">
                   <FastImage
-                    src={cover || "/business-placeholder.png"}
+                    src={cover || getListingCategoryPlaceholder(item)}
                     alt={item.title || "Listing"}
                     className="object-contain p-3 transition-transform duration-300 group-hover:scale-[1.02]"
                     fill
@@ -52,7 +54,7 @@ export default function BusinessListingsGrid({ listings, className = "" }) {
                 </div>
                 <div className="flex flex-1 flex-col gap-2 p-4">
                   <p className="text-xs uppercase tracking-wide text-white/60">
-                    {item.category_info?.name || item.category || "Listing"}
+                    {getListingCategoryLabel(item, "Listing")}
                     {item.city ? ` - ${item.city}` : ""}
                   </p>
                   <h3 className="text-base font-semibold text-white line-clamp-2">
