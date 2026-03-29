@@ -474,10 +474,10 @@ export default function GlobalHeader({
       data-nav-guard="1"
       data-testid={surface === "customer" ? "customer-navbar" : "global-navbar"}
     >
-      <div className="w-full px-3 sm:px-4 md:px-8 lg:px-10 xl:px-14 flex items-center justify-between h-20 gap-2 md:gap-6">
+      <div className="mx-auto flex h-20 w-full max-w-[1380px] items-center justify-between gap-3 px-4 sm:px-6 lg:gap-4 lg:px-7 xl:gap-5 xl:px-8">
         <button
           onClick={() => setMobileMenuOpen((open) => !open)}
-          className="md:hidden text-white mr-0 md:mr-1"
+          className="text-white mr-0 lg:hidden"
           aria-label="Open menu"
           aria-expanded={mobileMenuOpen}
           aria-controls={mobileDrawerId}
@@ -489,10 +489,10 @@ export default function GlobalHeader({
         <Link
           href={logoHref}
           aria-label="Go to home"
-          className="touch-manipulation"
+          className="touch-manipulation shrink-0"
           onPointerDownCapture={() => markNavInProgress(logoHref)}
         >
-          <span className="relative block h-10 w-10 md:hidden">
+          <span className="relative block h-10 w-10 lg:hidden">
             <Image
               src="/business-placeholder2.png"
               alt="YourBarrio"
@@ -502,31 +502,34 @@ export default function GlobalHeader({
               className="object-contain"
             />
           </span>
-          <span className="relative hidden h-10 w-10 md:block md:h-32 md:w-32">
+          <span className="hidden lg:block">
             <Image
               src="/logo.png"
               alt="YourBarrio"
-              fill
-              sizes="128px"
+              width={867}
+              height={306}
+              sizes="(min-width: 1280px) 162px, 150px"
               priority
-              className="object-contain"
+              className="h-auto w-[150px] object-contain xl:w-[162px]"
             />
           </span>
         </Link>
 
-        <div className="relative hidden md:flex items-center" ref={locationRef}>
+        <div className="relative hidden lg:flex items-center" ref={locationRef}>
           <button
             type="button"
             onClick={() => setLocationOpen((open) => !open)}
-            className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-left text-white/90 transition hover:bg-white/15"
+            className={`flex h-11 max-w-[208px] items-center gap-2.5 rounded-xl border bg-white/7 px-3.5 text-left text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors duration-200 ease-out hover:bg-purple-500/10 ${
+              locationOpen ? "border-purple-400" : "border-white/15"
+            }`}
             aria-haspopup="dialog"
             aria-expanded={locationOpen}
           >
-            <MapPin className="h-4 w-4 text-white/80" />
-            <div className="leading-tight">
-              <div className="text-sm font-semibold">{locationLabel}</div>
+            <MapPin className="h-4 w-4 shrink-0 text-white/75 transition-colors duration-200 ease-out hover:text-purple-400" />
+            <div className="min-w-0 leading-tight">
+              <div className="truncate text-sm font-semibold">{locationLabel}</div>
             </div>
-            <ChevronDown className="h-4 w-4 text-white/70" />
+            <ChevronDown className="h-4 w-4 shrink-0 text-white/65 transition-colors duration-200 ease-out hover:text-purple-400" />
           </button>
 
           {locationOpen ? (
@@ -610,10 +613,13 @@ export default function GlobalHeader({
         </div>
 
         {showSearch ? (
-          <div className="md:hidden flex flex-1 justify-center" data-nav-guard="1">
+          <div className="flex flex-1 justify-center lg:hidden" data-nav-guard="1">
             <form
               onSubmit={handleSubmitSearch}
-              className="relative flex w-[92%] items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 md:w-full"
+              className="relative flex w-[92%] items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 transition-[border-color,box-shadow] duration-200 ease-out hover:border-purple-400/60 focus-within:border-purple-400/70 focus-within:ring-2 focus-within:ring-purple-500/40 md:w-full"
+              style={{
+                boxShadow: "0 0 0 0 rgba(124,58,237,0)",
+              }}
             >
               <Search className="h-4 w-4 text-white/70" />
               <input
@@ -621,6 +627,18 @@ export default function GlobalHeader({
                 name="search"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onFocus={(event) => {
+                  event.currentTarget.form?.style.setProperty(
+                    "box-shadow",
+                    "0 0 0 2px rgba(124,58,237,0.25)"
+                  );
+                }}
+                onBlur={(event) => {
+                  event.currentTarget.form?.style.setProperty(
+                    "box-shadow",
+                    "0 0 0 0 rgba(124,58,237,0)"
+                  );
+                }}
                 className="flex-1 bg-transparent pr-12 text-base md:text-sm placeholder:text-white/60 focus:outline-none"
                 placeholder="Search YourBarrio"
                 type="search"
@@ -637,13 +655,25 @@ export default function GlobalHeader({
         ) : null}
 
         {showSearch ? (
-          <div className="hidden md:flex flex-1 justify-center" data-nav-guard="1">
-            <div ref={searchBoxRef} className="w-full max-w-3xl relative" data-nav-guard="1">
+          <div className="hidden flex-1 justify-center lg:flex" data-nav-guard="1">
+            <div
+              ref={searchBoxRef}
+              className="relative w-full max-w-[40rem] xl:max-w-[42rem]"
+              data-nav-guard="1"
+            >
             <form
               onSubmit={handleSubmitSearch}
-              className="flex flex-1 items-stretch rounded-2xl overflow-hidden border border-white/15 bg-white/10"
+              className="flex h-11 flex-1 items-stretch overflow-hidden rounded-xl border border-white/15 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-[border-color,box-shadow] duration-200 ease-out hover:border-purple-400/60 focus-within:border-purple-400/70 focus-within:ring-2 focus-within:ring-purple-500/40"
+              style={{
+                boxShadow:
+                  "inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 0 rgba(124,58,237,0)",
+              }}
             >
-                <div className="hidden lg:flex items-center gap-2 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-white/70 bg-white/5 border-r border-white/10">
+                <div
+                  className={`hidden h-full lg:flex items-center gap-2 border-r bg-white/5 px-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70 transition-colors duration-200 ease-out hover:bg-purple-500/10 ${
+                    selectedCategory !== "All" ? "border-purple-400/70" : "border-white/10"
+                  }`}
+                >
                   <label htmlFor="global-search-category" className="sr-only">
                     Category
                   </label>
@@ -653,7 +683,7 @@ export default function GlobalHeader({
                       value={selectedCategory}
                       onChange={handleCategoryChange}
                       style={{ width: `${categorySelectWidth}ch` }}
-                      className="appearance-none bg-transparent pr-7 text-base md:text-xs font-semibold uppercase tracking-[0.12em] text-white/80 focus:outline-none"
+                      className="appearance-none bg-transparent pr-7 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/80 focus:outline-none"
                     >
                       {SEARCH_CATEGORIES.map((category) => (
                         <option key={category} value={category} className="text-black">
@@ -661,11 +691,11 @@ export default function GlobalHeader({
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 text-white/60" />
+                    <ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 text-white/60 transition-colors duration-200 ease-out group-hover:text-purple-400" />
                   </div>
                 </div>
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60 transition-colors duration-200 ease-out hover:text-purple-400" />
                   <input
                     id="global-nav-search"
                     name="search"
@@ -673,14 +703,26 @@ export default function GlobalHeader({
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onFocus={() => setSuggestionsOpen(hasHybridResults || searchTerm.trim().length > 0)}
-                    className="w-full bg-transparent py-3 pl-11 pr-3 text-sm text-white placeholder:text-white/60 focus:outline-none"
+                    onFocusCapture={(event) => {
+                      event.currentTarget.form?.style.setProperty(
+                        "box-shadow",
+                        "inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 2px rgba(124,58,237,0.25)"
+                      );
+                    }}
+                    onBlurCapture={(event) => {
+                      event.currentTarget.form?.style.setProperty(
+                        "box-shadow",
+                        "inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 0 rgba(124,58,237,0)"
+                      );
+                    }}
+                    className="h-full w-full bg-transparent pl-11 pr-4 text-sm text-white placeholder:text-white/60 focus:outline-none"
                     placeholder="Search tacos, coffee, salons, groceries..."
                     type="search"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="px-5 bg-white text-sm font-semibold text-black hover:bg-white/90 transition yb-navbar-light"
+                  className="h-full min-w-[92px] bg-white px-5 text-sm font-semibold text-black transition hover:bg-white/90 yb-navbar-light"
                 >
                   Search
                 </button>
@@ -799,10 +841,10 @@ export default function GlobalHeader({
             </div>
           </div>
         ) : (
-          <div className="hidden md:flex flex-1" />
+          <div className="hidden lg:flex flex-1" />
         )}
 
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden items-center gap-4 lg:flex xl:gap-5">
           <CartNavActionClient />
           <HeaderAccountWidget surface={surface} variant="desktop" forcedAuth={forcedAuth} />
         </div>

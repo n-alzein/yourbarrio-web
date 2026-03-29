@@ -635,6 +635,7 @@ function BusinessNavbarInner({ pathname, forcedAuth = null }) {
             href={isBusinessAuthed ? "/go/dashboard" : "/business"}
             prefetch={isBusinessAuthed ? undefined : false}
           >
+            {/* TODO: Trim transparent padding from /public/logo.png for a tighter brand lockup. */}
             <span className="relative block h-32 w-32">
               <Image
                 src="/logo.png"
@@ -661,16 +662,15 @@ function BusinessNavbarInner({ pathname, forcedAuth = null }) {
               href={isBusinessAuthed ? "/go/dashboard" : "/business"}
               prefetch={isBusinessAuthed ? undefined : false}
             >
-              <span className="relative block h-32 w-32">
-                <Image
-                  src="/logo.png"
-                  alt="YourBarrio"
-                  fill
-                  sizes="128px"
-                  priority
-                  className="object-contain"
-                />
-              </span>
+              <Image
+                src="/logo.png"
+                alt="YourBarrio"
+                width={867}
+                height={306}
+                sizes="(min-width: 1280px) 162px, 150px"
+                priority
+                className="h-auto w-[150px] object-contain xl:w-[162px]"
+              />
             </Link>
 
           </div>
@@ -706,7 +706,7 @@ function BusinessNavbarInner({ pathname, forcedAuth = null }) {
 
         {/* RIGHT SIDE */}
         <div className="hidden md:flex items-center gap-8">
-          <span className="text-[11px] font-semibold tracking-[0.3em] text-white/70 whitespace-nowrap">
+          <span className="whitespace-nowrap rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-semibold tracking-[0.28em] text-white/70">
             BUSINESS ACCOUNT
           </span>
 
@@ -748,7 +748,7 @@ function BusinessNavbarInner({ pathname, forcedAuth = null }) {
                 <button
                   type="button"
                   onClick={() => setNotificationsOpen((open) => !open)}
-                  className="relative rounded-2xl bg-white/5 px-3 py-2 border border-white/10 hover:border-white/30 transition text-white/90"
+                  className="relative rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-white/90 transition-colors duration-200 ease-out hover:border-white/30 hover:text-purple-400"
                   aria-label="Open notifications"
                 >
                   <Bell className="h-5 w-5" />

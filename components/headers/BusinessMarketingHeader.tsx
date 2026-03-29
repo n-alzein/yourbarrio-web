@@ -80,35 +80,38 @@ export default function BusinessMarketingHeader() {
           hidden ? "-translate-y-full" : "translate-y-0"
         }`}
       >
-        <div className="yb-navbar yb-navbar-bordered">
-          <HeaderShell>
-            <div className="flex items-center gap-4">
-              <Link href="/business" prefetch={false} className="flex items-center gap-3">
-                <span className="relative h-9 w-9 scale-[3] origin-left">
-                  <Image
-                    src="/logo.png"
-                    alt="YourBarrio"
-                    fill
-                    sizes="36px"
-                    className="object-contain"
-                    priority
-                  />
-                </span>
+        <div className="yb-navbar-accent-line bg-white shadow-sm">
+          <HeaderShell innerClassName="h-[74px] w-full max-w-[1180px] gap-5">
+            <div className="flex min-w-0 items-center gap-5">
+              <Link
+                href="/business"
+                prefetch={false}
+                className="flex shrink-0 items-center"
+              >
+                <Image
+                  src="/logo.png"
+                  alt="YourBarrio"
+                  width={867}
+                  height={306}
+                  sizes="(min-width: 1024px) 152px, 136px"
+                  className="h-auto w-[136px] object-contain sm:w-[144px] lg:w-[152px]"
+                  priority
+                />
                 {!useLandingNav && (
-                  <span className="text-base font-semibold text-white tracking-tight">
+                  <span className="ml-3 text-base font-semibold tracking-tight text-neutral-900">
                     YourBarrio
                   </span>
                 )}
               </Link>
               {showPrimaryNav && (
-                <nav className="hidden md:flex items-center gap-6 ml-6">
+                <nav className="ml-4 hidden items-center gap-6 lg:flex">
                   {NAV_ITEMS.map((item) => (
                     <NavLink
                       key={item.href}
                       href={item.href}
                       active={isActivePath(pathname, item.href)}
-                      activeClassName="text-white"
-                      inactiveClassName="yb-navbar-muted hover:text-white"
+                      activeClassName="text-neutral-900"
+                      inactiveClassName="text-neutral-600 hover:text-neutral-900"
                     >
                       {item.label}
                     </NavLink>
@@ -117,16 +120,16 @@ export default function BusinessMarketingHeader() {
               )}
             </div>
 
-            <div className="hidden md:flex items-center gap-4">
+            <div className="ml-auto hidden items-center gap-3 lg:flex">
               <Link
                 href={LOGIN_HREF}
-                className="text-sm font-medium yb-navbar-muted hover:text-white transition-colors"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-neutral-300 bg-white px-4 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 hover:text-neutral-900"
               >
                 Log in
               </Link>
               <Link
                 href={CTA_HREF}
-                className="inline-flex items-center justify-center rounded-full bg-[var(--color-primary)] px-6 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700"
               >
                 Get started
               </Link>
@@ -136,13 +139,13 @@ export default function BusinessMarketingHeader() {
               type="button"
               aria-label="Open menu"
               onClick={() => setMenuOpen(true)}
-              className="md:hidden inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 text-white transition hover:bg-white/10"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-neutral-300 text-neutral-900 transition hover:bg-neutral-50 lg:hidden"
             >
               <span className="sr-only">Open menu</span>
               <div className="flex flex-col gap-1">
-                <span className="h-0.5 w-5 bg-white" />
-                <span className="h-0.5 w-5 bg-white" />
-                <span className="h-0.5 w-5 bg-white" />
+                <span className="h-0.5 w-5 bg-neutral-900" />
+                <span className="h-0.5 w-5 bg-neutral-900" />
+                <span className="h-0.5 w-5 bg-neutral-900" />
               </div>
             </button>
           </HeaderShell>

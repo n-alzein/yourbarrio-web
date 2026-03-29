@@ -13,7 +13,7 @@ function NavItem({ href, children, active, onClick, className, ...rest }) {
       href={href}
       prefetch={href === "/business" ? false : undefined}
       className={`relative text-sm md:text-base font-medium transition-all ${
-        active ? "text-white" : "text-white/70 hover:text-white"
+        active ? "text-neutral-900" : "text-neutral-600 hover:text-neutral-900"
       } ${className || ""}`}
       onClick={onClick}
       aria-current={active ? "page" : undefined}
@@ -52,17 +52,26 @@ export default function BusinessMarketingNavbar() {
 
   return (
     <nav
-      className="fixed top-0 inset-x-0 z-50 theme-lock yb-navbar yb-navbar-bordered"
+      className="fixed top-0 inset-x-0 z-50 yb-navbar yb-navbar-bordered bg-white shadow-sm"
       data-public-nav
       data-business-public-navbar="1"
     >
       <div>
-        <div className="w-full px-5 sm:px-6 md:px-8 lg:px-12 xl:px-14">
-          <div className="h-20 flex items-center justify-between">
+        <div className="mx-auto flex h-[72px] w-full max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
             {/* LEFT SIDE */}
-            <div className="flex items-center gap-x-10">
+            <div className="flex items-center gap-x-8">
               <Link href="/business" prefetch={false} className="select-none">
-                <span className="relative block h-10 w-10 md:h-32 md:w-32">
+                <span className="relative block h-10 w-10 lg:hidden">
+                  <Image
+                    src="/logo.png"
+                    alt="YourBarrio Logo"
+                    fill
+                    sizes="40px"
+                    priority
+                    className="object-contain"
+                  />
+                </span>
+                <span className="relative hidden h-10 w-10 lg:block lg:h-32 lg:w-32">
                   <Image
                     src="/logo.png"
                     alt="YourBarrio Logo"
@@ -74,7 +83,7 @@ export default function BusinessMarketingNavbar() {
                 </span>
               </Link>
 
-              <div className="hidden md:flex items-center gap-x-8">
+              <div className="hidden items-center gap-x-8 lg:flex">
                 <NavItem
                   href="/about"
                   active={pathname === "/about"}
@@ -86,65 +95,57 @@ export default function BusinessMarketingNavbar() {
             </div>
 
             {/* RIGHT SIDE */}
-            <div className="hidden md:flex items-center gap-x-6">
-              <Link
-                href="/"
-                className="px-4 py-2 rounded-lg text-sm font-semibold text-white/90 border border-white/20 hover:bg-white/10 transition"
-              >
-                For Customers
-              </Link>
-
+            <div className="ml-auto hidden items-center gap-3 lg:flex">
               <Link
                 href="/business/login"
                 onClick={(e) => handlePopup(e, "/business/login")}
-                className="relative text-sm md:text-base font-medium transition-all text-white/70 hover:text-white"
+                className="inline-flex items-center justify-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 hover:text-neutral-900"
               >
-                Business Login
+                Log in
               </Link>
 
               <Link
                 href="/business-auth/register"
                 onClick={(e) => handlePopup(e, "/business-auth/register")}
-                className="px-5 py-2 rounded-xl font-semibold bg-[var(--color-primary)] text-white"
+                className="inline-flex items-center justify-center rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
               >
-                Create Account
+                Get started
               </Link>
             </div>
 
             {/* MOBILE MENU BUTTON */}
             <button
               aria-label="Toggle menu"
-              className="md:hidden h-11 w-11 rounded-xl border border-white/15 bg-white/5 text-white flex items-center justify-center active:scale-[0.98] transition"
+              className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-300 bg-white text-neutral-900 transition active:scale-[0.98] hover:bg-neutral-50 lg:hidden"
               onClick={() => setOpen((o) => !o)}
             >
               <div className="flex flex-col gap-1.5">
                 <span
-                  className={`block h-0.5 w-6 rounded-full bg-white transition-transform ${
+                  className={`block h-0.5 w-6 rounded-full bg-neutral-900 transition-transform ${
                     open ? "translate-y-2 rotate-45" : ""
                   }`}
                 />
                 <span
-                  className={`block h-0.5 w-4 rounded-full bg-white transition ${
+                  className={`block h-0.5 w-4 rounded-full bg-neutral-900 transition ${
                     open ? "opacity-0" : ""
                   }`}
                 />
                 <span
-                  className={`block h-0.5 w-6 rounded-full bg-white transition-transform ${
+                  className={`block h-0.5 w-6 rounded-full bg-neutral-900 transition-transform ${
                     open ? "-translate-y-2 -rotate-45" : ""
                   }`}
                 />
               </div>
             </button>
-          </div>
         </div>
       </div>
 
       {/* MOBILE MENU */}
       {open && (
-        <div className="md:hidden fixed inset-0 z-40">
+        <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
           <div className="absolute inset-x-0 top-20 px-4 pb-6">
-            <div className="overflow-hidden rounded-3xl border border-white/10 bg-[var(--yb-navbar-bg)] text-white">
+            <div className="overflow-hidden rounded-3xl border border-white/10 bg-[var(--yb-navbar-bg)] text-white shadow-[0_18px_44px_rgba(0,0,0,0.32)] backdrop-blur-xl">
               <div className="px-6 pt-6 pb-4">
                 <div className="text-xs uppercase tracking-[0.2em] text-white/60 mb-3">Navigate</div>
                 <div className="flex flex-col gap-3 text-lg font-semibold">
@@ -152,7 +153,7 @@ export default function BusinessMarketingNavbar() {
                     href="/about"
                     active={pathname === "/about"}
                     onClick={() => setOpen(false)}
-                    className="text-lg font-semibold"
+                    className="text-lg font-semibold text-white/80 hover:text-white"
                   >
                     About YourBarrio
                   </NavItem>
@@ -163,13 +164,6 @@ export default function BusinessMarketingNavbar() {
 
               <div className="px-6 py-6 flex flex-col gap-3">
                 <Link
-                  href="/"
-                  className="w-full text-center px-4 py-3 rounded-xl font-semibold bg-white/5 border border-white/15"
-                  onClick={() => setOpen(false)}
-                >
-                  For Customers
-                </Link>
-                <Link
                   href="/business/login"
                   className="w-full text-center px-4 py-3 rounded-xl font-semibold bg-white/5 border border-white/15"
                   onClick={(e) => {
@@ -177,7 +171,7 @@ export default function BusinessMarketingNavbar() {
                     handlePopup(e, "/business/login");
                   }}
                 >
-                  Business Login
+                  Log in
                 </Link>
                 <Link
                   href="/business-auth/register"
@@ -187,7 +181,7 @@ export default function BusinessMarketingNavbar() {
                     handlePopup(e, "/business-auth/register");
                   }}
                 >
-                  Create Account
+                  Get started
                 </Link>
               </div>
 

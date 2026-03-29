@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { BUSINESS_CATEGORIES } from "@/lib/businessCategories";
 import { isBusinessOnboardingComplete } from "@/lib/business/onboardingCompletion";
+import { US_STATES } from "@/lib/constants/usStates";
+import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 const PLACES_DISABLED =
@@ -45,7 +47,7 @@ function normalizeWebsite(value) {
 
 function normalizeAddressPayload(values) {
   const trimValue = (value) => (value ?? "").trim();
-  const stateValue = trimValue(values.state).toUpperCase();
+  const stateValue = normalizeStateCode(trimValue(values.state)) || "";
   const postalValue = trimValue(values.postal_code);
   return {
     address: trimValue(values.address),
@@ -107,9 +109,9 @@ function resolveStateCode(region) {
   if (!region) return "";
   if (region.short_code) {
     const code = region.short_code.split("-").pop();
-    return (code || region.short_code).toUpperCase();
+    return normalizeStateCode(code || region.short_code) || "";
   }
-  return region.text?.toUpperCase() || "";
+  return normalizeStateCode(region.text) || "";
 }
 
 // ------------------------------
@@ -513,11 +515,14 @@ export default function BusinessOnboardingPage() {
                   <FormField
                     label="State"
                     value={form.state}
-                    placeholder="CA"
-                    onChange={(v) => updateField("state", v.toUpperCase())}
-                    maxLength={2}
+                    placeholder="Select state"
+                    onChange={(v) => updateField("state", v)}
                     required
                     error={fieldErrors.state}
+                    options={US_STATES.map((stateOption) => ({
+                      value: stateOption.code,
+                      label: `${stateOption.code} - ${stateOption.name}`,
+                    }))}
                   />
 
                   <FormField
@@ -604,6 +609,7 @@ function FormField({
   helper,
   error,
   maxLength,
+  options,
 }) {
   const hasError = Boolean(error);
   const inputClassName = [
@@ -619,16 +625,32 @@ function FormField({
         {label}
         {required ? <span className="text-rose-300"> *</span> : null}
       </label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        list={listId}
-        required={required}
-        maxLength={maxLength}
-        className={inputClassName}
-      />
+      {Array.isArray(options) && options.length ? (
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required={required}
+          className={inputClassName}
+        >
+          <option value="">{placeholder || "Select an option"}</option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value} className="text-black">
+              {option.label}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          list={listId}
+          required={required}
+          maxLength={maxLength}
+          className={inputClassName}
+        />
+      )}
       {helper && !hasError ? (
         <p className="mt-2 text-xs text-white/50">{helper}</p>
       ) : null}

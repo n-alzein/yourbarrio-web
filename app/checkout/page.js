@@ -10,6 +10,8 @@ import {
   getPurchaseRestrictionMessage,
   isPurchaseRestrictedRole,
 } from "@/lib/auth/purchaseAccess";
+import { US_STATES } from "@/lib/constants/usStates";
+import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
 
 const formatMoney = (value) => {
   const amount = Number(value || 0);
@@ -124,7 +126,7 @@ export default function CheckoutPage() {
       delivery_address1: profile?.address?.trim() || prev.delivery_address1,
       delivery_address2: profile?.address_2?.trim() || prev.delivery_address2,
       delivery_city: profile?.city?.trim() || prev.delivery_city,
-      delivery_state: profile?.state?.toUpperCase?.() || prev.delivery_state,
+      delivery_state: normalizeStateCode(profile?.state) || prev.delivery_state,
       delivery_postal_code: profile?.postal_code?.trim() || prev.delivery_postal_code,
     }));
   };
@@ -362,14 +364,20 @@ export default function CheckoutPage() {
                     className="rounded-xl px-3 py-2 text-base md:text-sm"
                     style={{ background: "var(--overlay)", border: "1px solid var(--border)" }}
                   />
-                  <input
+                  <select
                     name="delivery_state"
                     value={form.delivery_state}
                     onChange={handleChange}
-                    placeholder="State"
                     className="rounded-xl px-3 py-2 text-base md:text-sm"
                     style={{ background: "var(--overlay)", border: "1px solid var(--border)" }}
-                  />
+                  >
+                    <option value="">Select state</option>
+                    {US_STATES.map((stateOption) => (
+                      <option key={stateOption.code} value={stateOption.code}>
+                        {stateOption.code} - {stateOption.name}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     name="delivery_postal_code"
                     value={form.delivery_postal_code}

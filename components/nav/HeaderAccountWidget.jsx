@@ -538,7 +538,7 @@ export default function HeaderAccountWidget({
             onClick={() => openModal("customer-login")}
             disabled={disableCtas}
             aria-busy={disableCtas}
-            className={`text-sm md:text-base transition text-white/70 hover:text-white ${
+            className={`inline-flex h-11 items-center rounded-lg px-2.5 text-sm font-medium text-gray-300 transition-colors duration-200 ease-out hover:text-purple-400 ${
               disableCtas ? "opacity-60 cursor-not-allowed" : ""
             }`}
             data-public-cta="signin"
@@ -550,7 +550,7 @@ export default function HeaderAccountWidget({
             onClick={() => openModal("customer-signup")}
             disabled={disableCtas}
             aria-busy={disableCtas}
-            className={`px-5 py-2 rounded-xl bg-[var(--color-primary)] text-white font-semibold ${
+            className={`inline-flex h-11 items-center rounded-xl bg-[var(--color-primary)] px-5 text-sm font-semibold text-white transition-[background-image,background-color] duration-200 ease-out hover:bg-gradient-to-r hover:from-blue-600 hover:to-purple-600 ${
               disableCtas ? "opacity-60 cursor-not-allowed" : ""
             }`}
             data-public-cta="signup"

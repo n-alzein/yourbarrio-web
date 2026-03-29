@@ -17,6 +17,8 @@ import {
   inputClassName,
 } from "@/components/settings/SettingsSection";
 import ManagePasswordDialog from "@/components/settings/ManagePasswordDialog";
+import { US_STATES } from "@/lib/constants/usStates";
+import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
 
 export default function SettingsPage() {
   const { user, profile, supabase, loadingUser, logout, refreshProfile } =
@@ -43,7 +45,7 @@ export default function SettingsPage() {
     city: profile?.city || "",
     address: profile?.address || "",
     address_2: profile?.address_2 || "",
-    state: profile?.state ? profile.state.toUpperCase() : "",
+    state: normalizeStateCode(profile?.state) || "",
     postal_code: profile?.postal_code || "",
     website: profile?.website || "",
     profile_photo_url: profile?.profile_photo_url || "",
@@ -75,7 +77,7 @@ export default function SettingsPage() {
 
   const normalizeAddressPayload = (values) => {
     const trimValue = (value) => (value ?? "").trim();
-    const stateValue = trimValue(values.state).toUpperCase();
+    const stateValue = normalizeStateCode(trimValue(values.state)) || "";
     const postalValue = trimValue(values.postal_code);
     return {
       address: trimValue(values.address),
@@ -665,29 +667,28 @@ export default function SettingsPage() {
               <Field
                 label="State"
                 id="state"
-                helper="Two-letter code."
+                helper="Select your state."
                 error={fieldErrors.state}
               >
                 {editMode ? (
-                  <input
+                  <select
                     id="state"
-                    type="text"
                     value={form.state}
-                    onChange={(e) =>
-                      handleFieldChange(
-                        "state",
-                        e.target.value.toUpperCase()
-                      )
-                    }
-                    placeholder="CA"
-                    maxLength={2}
+                    onChange={(e) => handleFieldChange("state", e.target.value)}
                     className={`${inputClassName} ${
                       fieldErrors.state
                         ? "border-rose-400 focus-visible:ring-rose-400/60"
                         : ""
                     }`}
                     aria-invalid={Boolean(fieldErrors.state)}
-                  />
+                  >
+                    <option value="">Select state</option>
+                    {US_STATES.map((stateOption) => (
+                      <option key={stateOption.code} value={stateOption.code}>
+                        {stateOption.code} - {stateOption.name}
+                      </option>
+                    ))}
+                  </select>
                 ) : (
                   <div className="flex h-11 items-center rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white/80">
                     {form.state || "—"}

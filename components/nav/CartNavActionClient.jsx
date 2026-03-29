@@ -37,7 +37,7 @@ export default function CartNavActionClient({ variant = "desktop", onNavigate })
   return (
     <Link
       href="/cart"
-      className="relative text-white/90 hover:text-white transition"
+      className="relative text-white/90 transition-colors duration-200 ease-out hover:text-purple-400"
       aria-label="View cart"
       data-nav-guard="1"
     >

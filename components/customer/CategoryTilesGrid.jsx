@@ -6,6 +6,28 @@ import Image from "next/image";
 import { markNavInProgress } from "@/lib/nav/safariNavGuard";
 
 const FALLBACK_TILES = Array.from({ length: 8 });
+const CATEGORY_IMAGE_POSITIONS = {
+  "arts-and-crafts": "center center",
+  automotive: "center center",
+  "baby-and-maternity": "center 35%",
+  "books-and-media": "center 32%",
+  "clothing-and-accessories": "center 28%",
+  "fitness-and-wellness": "center 30%",
+  "food-and-drink": "center 38%",
+  furniture: "center center",
+  "garden-and-outdoor": "center 35%",
+  "grocery-and-gourmet": "center 40%",
+  "handmade-and-artisan": "center 30%",
+  "health-and-beauty": "center 28%",
+  "home-and-kitchen": "center 34%",
+  "jewelry-and-watches": "center 25%",
+  "kids-and-family": "center 30%",
+  photography: "center center",
+  shoes: "center 36%",
+  "sports-and-outdoors": "center 32%",
+  "tech-and-electronics": "center center",
+  "toys-and-games": "center 34%",
+};
 
 export default function CategoryTilesGrid({
   categories = [],
@@ -14,7 +36,6 @@ export default function CategoryTilesGrid({
   title = "Shop by category",
   viewAllHref = "/listings",
   viewAllLabel = "View all",
-  textTone,
   clickDiagEnabled = false,
   onTileClickCapture,
   onTilePointerDown,
@@ -37,23 +58,25 @@ export default function CategoryTilesGrid({
 
   if (isLoading) {
     return (
-      <div className="w-full px-0 sm:px-4 lg:px-0 max-w-none mx-auto">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="h-6 w-40 rounded bg-white/10 animate-pulse" />
-          <div className="h-4 w-20 rounded bg-white/10 animate-pulse" />
-        </div>
-        <div className="grid gap-4 lg:gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-3">
-          {FALLBACK_TILES.map((_, idx) => (
-            <div
-              key={`tile-skeleton-${idx}`}
-              className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden"
-            >
-              <div className="aspect-[4/5] lg:aspect-[16/9] bg-white/10 animate-pulse" />
-              <div className="p-3">
-                <div className="h-4 w-3/4 bg-white/10 rounded animate-pulse" />
+      <div className="mx-auto w-full max-w-none px-1 sm:px-3 lg:px-0">
+        <div className="rounded-[32px] border border-black/5 bg-[linear-gradient(180deg,#fdfbf8_0%,#f7f2eb_100%)] px-4 py-5 shadow-[0_20px_50px_-36px_rgba(15,23,42,0.28)] sm:px-5 md:px-6 md:py-7">
+          <div className="mb-6 flex items-center justify-between">
+            <div className="h-7 w-44 rounded-full bg-black/8 animate-pulse" />
+            <div className="h-10 w-24 rounded-full bg-black/8 animate-pulse" />
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-3 lg:gap-5">
+            {FALLBACK_TILES.map((_, idx) => (
+              <div
+                key={`tile-skeleton-${idx}`}
+                className="overflow-hidden rounded-[28px] border border-black/5 bg-white shadow-[0_16px_36px_-28px_rgba(15,23,42,0.24)]"
+              >
+                <div className="aspect-[4/5] bg-black/[0.06] animate-pulse lg:aspect-[5/4]" />
+                <div className="px-5 pb-5">
+                  <div className="-mt-12 h-4 w-3/4 rounded-full bg-white/20 animate-pulse" />
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -61,8 +84,8 @@ export default function CategoryTilesGrid({
 
   if (!hasCategories) {
     return (
-      <div className="w-full px-0 sm:px-4 lg:px-0 max-w-none mx-auto">
-        <div className="text-sm text-white/70 mt-2">
+      <div className="mx-auto w-full max-w-none px-1 sm:px-3 lg:px-0">
+        <div className="rounded-[32px] border border-black/5 bg-[linear-gradient(180deg,#fdfbf8_0%,#f7f2eb_100%)] px-4 py-5 text-sm text-slate-600 shadow-[0_20px_50px_-36px_rgba(15,23,42,0.28)] sm:px-5 md:px-6 md:py-7">
           {error ? "Categories are unavailable right now." : "No categories yet."}
         </div>
       </div>
@@ -70,29 +93,40 @@ export default function CategoryTilesGrid({
   }
 
   return (
-    <>
-      <div className="w-full px-0 sm:px-4 lg:px-0 max-w-none mx-auto">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg sm:text-xl lg:text-lg font-semibold text-white">
+    <div className="mx-auto w-full max-w-none px-1 sm:px-3 lg:px-0">
+      <section className="relative overflow-hidden rounded-[32px] border border-[#2f234208] bg-[linear-gradient(180deg,#fdfbf8_0%,#faf6f0_52%,#f7f1eb_100%)] px-4 py-5 shadow-[0_22px_52px_-40px_rgba(15,23,42,0.2),inset_0_1px_0_rgba(255,255,255,0.6)] sm:px-5 sm:py-6 md:px-7 md:py-7 lg:px-8 lg:py-8">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(106,76,147,0.14),transparent)]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/70 via-white/24 to-transparent"
+        />
+        <div className="relative mb-5 flex flex-wrap items-end justify-between gap-x-5 gap-y-3 sm:mb-6 md:mb-7">
+          <div className="max-w-[34rem]">
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-[#6c6676]">
+              Browse local
+            </p>
+            <h2 className="mt-1 text-[1.35rem] font-semibold tracking-[-0.035em] text-[#17141f] sm:text-[1.55rem] lg:text-[1.72rem]">
               {title}
             </h2>
             {error ? (
-              <p className="mt-1 text-sm text-white/70">{error}</p>
+              <p className="mt-2 text-sm text-slate-600">{error}</p>
             ) : null}
           </div>
           {viewAllHref ? (
             <Link
               href={viewAllHref}
               prefetch={false}
-              className="text-sm font-semibold text-white/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 rounded-md px-2 py-1"
+              className="inline-flex h-10 items-center justify-center rounded-full border border-[#43365f1f] bg-white/78 px-4.5 text-sm font-medium text-[#352d43] shadow-[0_10px_26px_-24px_rgba(15,23,42,0.2)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#6a4c9338] hover:bg-[#f7f2fb] hover:text-[#231c31] hover:shadow-[0_14px_30px_-24px_rgba(106,76,147,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6a4c9340] focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf6f0]"
             >
               {viewAllLabel}
             </Link>
           ) : null}
         </div>
         <div
-          className="grid gap-4 lg:gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 yb-tile-scroll-guard-y"
+          className="yb-tile-scroll-guard-y grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-3 lg:gap-5"
           onPointerDown={onTilePointerDown}
           onPointerMove={onTilePointerMove}
           onPointerUp={onTilePointerUp}
@@ -103,6 +137,8 @@ export default function CategoryTilesGrid({
           {categories.map((category, idx) => {
             const href = `/categories/${category.slug}`;
             const tileTitle = category.name || "Category";
+            const imageObjectPosition =
+              CATEGORY_IMAGE_POSITIONS[category.slug] || "center center";
             return (
               <Link
                 key={category.id ?? category.slug ?? idx}
@@ -157,27 +193,35 @@ export default function CategoryTilesGrid({
                   markNavStart();
                 }}
                 onNavigate={markNavStart}
-                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-sm transition-colors duration-200 hover:shadow-md hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 pointer-events-auto touch-manipulation active:bg-white/10 tile"
+                className="tile group relative isolate overflow-hidden rounded-[28px] border border-black/5 bg-white shadow-[0_16px_36px_-28px_rgba(15,23,42,0.22)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-black/10 hover:shadow-[0_24px_48px_-28px_rgba(15,23,42,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 pointer-events-auto touch-manipulation"
               >
-                <div className="relative aspect-[4/5] lg:aspect-[16/9] w-full overflow-hidden bg-white/5">
+                <div className="relative aspect-[4/5] w-full overflow-hidden bg-[linear-gradient(180deg,#d9c7b5_0%,#b59882_100%)] lg:aspect-[5/4]">
                   {category.tileImageUrl ? (
                     <Image
                       src={category.tileImageUrl}
                       alt={tileTitle}
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                      className="h-full w-full object-cover transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.035]"
+                      style={{ objectPosition: imageObjectPosition }}
                       fill
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 33vw"
                       priority={idx < 3}
                       decoding="async"
                     />
                   ) : (
-                    <div className="h-full w-full flex items-center justify-center text-xs text-white/60">
+                    <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
                       No image
                     </div>
                   )}
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/15 to-transparent" />
-                  <div className="absolute inset-x-0 bottom-0 p-3">
-                    <h3 className="text-sm sm:text-base lg:text-sm font-semibold !text-white drop-shadow-sm line-clamp-2">
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08)_0%,rgba(15,23,42,0.02)_34%,rgba(15,23,42,0.14)_62%,rgba(15,23,42,0.42)_100%)]"
+                  />
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,rgba(15,23,42,0)_0%,rgba(15,23,42,0.18)_38%,rgba(15,23,42,0.32)_100%)]"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 z-10 p-4 sm:p-5">
+                    <h3 className="max-w-[11ch] text-base font-semibold leading-[1.1] tracking-[-0.02em] text-white drop-shadow-[0_1px_10px_rgba(15,23,42,0.25)] sm:text-[1.15rem] lg:text-[1.2rem]">
                       {tileTitle}
                     </h3>
                   </div>
@@ -186,7 +230,7 @@ export default function CategoryTilesGrid({
             );
           })}
         </div>
-      </div>
-    </>
+      </section>
+    </div>
   );
 }

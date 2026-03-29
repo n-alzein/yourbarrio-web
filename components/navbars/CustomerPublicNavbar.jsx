@@ -141,7 +141,7 @@ export default function CustomerPublicNavbar() {
                   <button
                     type="button"
                     onClick={() => openModal("customer-login")}
-                    className="relative text-sm md:text-base font-medium transition-all text-white/70 hover:text-white"
+                    className="relative text-sm md:text-base font-medium text-gray-300 transition-colors duration-200 ease-out hover:text-purple-400"
                   >
                     Log in
                   </button>
@@ -149,7 +149,7 @@ export default function CustomerPublicNavbar() {
                   <button
                     type="button"
                     onClick={() => openModal("customer-signup")}
-                className="px-5 py-2 rounded-xl font-semibold bg-[var(--color-primary)] text-white"
+                className="rounded-xl bg-[var(--color-primary)] px-5 py-2 font-semibold text-white transition-[background-image,background-color] duration-200 ease-out hover:bg-gradient-to-r hover:from-blue-600 hover:to-purple-600"
                   >
                     Sign Up
                   </button>

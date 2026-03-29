@@ -664,7 +664,7 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
 
         {!search && (
           <div
-            className="relative z-10 mt-4 -mx-3 sm:-mx-4 md:-mx-6 lg:-mx-8"
+            className="relative z-10 mt-1 -mx-2 sm:mt-2 sm:-mx-3 md:-mx-4 lg:-mx-6"
             data-home-tiles="1"
           >
             <CategoryTilesGrid
@@ -673,7 +673,6 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
               error={featuredCategoriesError}
               title="Shop by category"
               viewAllHref="/listings"
-              textTone={textTone}
               clickDiagEnabled={clickDiagEnabled}
               onTilePointerDown={handleTilePointerDown}
               onTilePointerMove={handleTilePointerMove}
@@ -686,7 +685,7 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
         )}
 
       </div>
-      <FeedbackSection mode={mode} className="mt-4" />
+      <FeedbackSection mode={mode} className="mt-5" />
     </section>
   );
 }

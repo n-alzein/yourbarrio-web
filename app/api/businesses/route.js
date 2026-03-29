@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
 import { isBusinessOnboardingComplete } from "@/lib/business/onboardingCompletion";
+import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
 
 function normalizeWebsite(value) {
   const trimmed = (value || "").trim();
@@ -96,11 +97,12 @@ export async function POST(req) {
     }
 
     const normalizedWebsite = normalizeWebsite(website);
+    const normalizedState = normalizeStateCode(state) || "";
     const addressForGeocode = buildAddressForGeocode({
       address,
       address_2,
       city,
-      state,
+      state: normalizedState,
       postal_code,
     });
 
@@ -136,7 +138,7 @@ export async function POST(req) {
       address: address || "",
       address_2: address_2 || "",
       city: city || "",
-      state: state || "",
+      state: normalizedState,
       postal_code: postal_code || "",
       latitude: geo?.lat ?? null,
       longitude: geo?.lng ?? null,
@@ -171,7 +173,7 @@ export async function POST(req) {
       address: address || "",
       address_2: address_2 || "",
       city: city || "",
-      state: state || "",
+      state: normalizedState,
       postal_code: postal_code || "",
       latitude: geo?.lat ?? null,
       longitude: geo?.lng ?? null,

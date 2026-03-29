@@ -46,7 +46,10 @@ export default async function GlobalSupportModeBanner() {
     return (
       <>
         <style>{`:root { --yb-support-mode-offset: 3rem; }`}</style>
-        <div className="fixed inset-x-0 top-0 z-[6000] h-12 border-b border-amber-500 bg-amber-300/95 px-4 text-sm text-amber-950 backdrop-blur">
+        <div
+          className="fixed inset-x-0 top-0 z-[6000] h-12 border-b border-amber-500 bg-amber-300/95 px-4 text-sm text-amber-950 backdrop-blur"
+          data-support-mode-banner="1"
+        >
           <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between gap-3">
           {isValid ? (
             <p className="truncate text-amber-950">

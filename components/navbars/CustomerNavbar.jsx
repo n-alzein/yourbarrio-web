@@ -1041,15 +1041,17 @@ function CustomerNavbarInner({ pathname, searchParams }) {
           <button
             type="button"
             onClick={() => setLocationOpen((open) => !open)}
-            className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-left text-white/90 transition hover:bg-white/15"
+            className={`flex items-center gap-2 rounded-xl border bg-white/10 px-3 py-2 text-left text-white/90 transition-colors duration-200 ease-out hover:bg-purple-500/10 ${
+              locationOpen ? "border-purple-400" : "border-white/15"
+            }`}
             aria-haspopup="dialog"
             aria-expanded={locationOpen}
           >
-            <MapPin className="h-4 w-4 text-white/80" />
+            <MapPin className="h-4 w-4 text-white/80 transition-colors duration-200 ease-out hover:text-purple-400" />
             <div className="leading-tight">
               <div className="text-sm font-semibold">{locationLabel}</div>
             </div>
-            <ChevronDown className="h-4 w-4 text-white/70" />
+            <ChevronDown className="h-4 w-4 text-white/70 transition-colors duration-200 ease-out hover:text-purple-400" />
           </button>
 
           {locationOpen ? (
@@ -1139,9 +1141,14 @@ function CustomerNavbarInner({ pathname, searchParams }) {
           >
             <form
               onSubmit={handleSubmitSearch}
-              className="flex flex-1 items-stretch rounded-2xl overflow-hidden border border-white/15 bg-white/10"
+              className="flex flex-1 items-stretch overflow-hidden rounded-2xl border border-white/15 bg-white/10 transition-[border-color,box-shadow] duration-200 ease-out hover:border-purple-400/60 focus-within:border-purple-400/70 focus-within:ring-2 focus-within:ring-purple-500/40"
+              style={{ boxShadow: "0 0 0 0 rgba(124,58,237,0)" }}
             >
-              <div className="hidden lg:flex items-center gap-2 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-white/70 bg-white/5 border-r border-white/10">
+              <div
+                className={`hidden lg:flex items-center gap-2 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-white/70 bg-white/5 border-r transition-colors duration-200 ease-out hover:bg-purple-500/10 ${
+                  selectedCategory !== "All" ? "border-purple-400/70" : "border-white/10"
+                }`}
+              >
                 <label htmlFor="customer-search-category" className="sr-only">
                   Category
                 </label>
@@ -1163,7 +1170,7 @@ function CustomerNavbarInner({ pathname, searchParams }) {
                 </div>
               </div>
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60 transition-colors duration-200 ease-out hover:text-purple-400" />
                 <input
                   id="customer-nav-search"
                   name="search"
@@ -1171,6 +1178,18 @@ function CustomerNavbarInner({ pathname, searchParams }) {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onFocus={() => setSuggestionsOpen(hasHybridResults || searchTerm.trim().length > 0)}
+                  onFocusCapture={(event) => {
+                    event.currentTarget.form?.style.setProperty(
+                      "box-shadow",
+                      "0 0 0 2px rgba(124,58,237,0.25)"
+                    );
+                  }}
+                  onBlurCapture={(event) => {
+                    event.currentTarget.form?.style.setProperty(
+                      "box-shadow",
+                      "0 0 0 0 rgba(124,58,237,0)"
+                    );
+                  }}
                   className="w-full bg-transparent py-3 pl-11 pr-3 text-sm text-white placeholder:text-white/60 focus:outline-none"
                   placeholder="Search tacos, coffee, salons, groceries..."
                   type="search"
@@ -1297,21 +1316,6 @@ function CustomerNavbarInner({ pathname, searchParams }) {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => handleNavigate("/cart", "cart")}
-          className="relative hidden md:inline-flex text-white/90 hover:text-white transition"
-          aria-label="View cart"
-          data-nav-guard="1"
-        >
-          <ShoppingCart className="h-6 w-6" />
-          {itemCount > 0 ? (
-            <span className="absolute -top-2 -right-2 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold text-black">
-              {itemCount}
-            </span>
-          ) : null}
-        </button>
-
         <div className="flex items-center gap-3 md:hidden">
           <button
             type="button"
@@ -1330,6 +1334,21 @@ function CustomerNavbarInner({ pathname, searchParams }) {
         </div>
 
         {/* RIGHT — AUTH STATE */}
+        <button
+          type="button"
+          onClick={() => handleNavigate("/cart", "cart")}
+          className="relative hidden md:inline-flex text-white/90 hover:text-white transition"
+          aria-label="View cart"
+          data-nav-guard="1"
+        >
+          <ShoppingCart className="h-6 w-6" />
+          {itemCount > 0 ? (
+            <span className="absolute -top-2 -right-2 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold text-black">
+              {itemCount}
+            </span>
+          ) : null}
+        </button>
+
         <div className="hidden md:flex items-center gap-8">
           {!hasAuth && (
             <>
@@ -1518,7 +1537,8 @@ function CustomerNavbarInner({ pathname, searchParams }) {
       >
         <form
           onSubmit={handleSubmitSearch}
-          className="relative mx-auto flex w-[92%] items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 md:w-full md:mx-0"
+          className="relative mx-auto flex w-[92%] items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 transition-[border-color,box-shadow] duration-200 ease-out hover:border-purple-400/60 focus-within:border-purple-400/70 focus-within:ring-2 focus-within:ring-purple-500/40 md:mx-0 md:w-full"
+          style={{ boxShadow: "0 0 0 0 rgba(124,58,237,0)" }}
         >
           <Search className="h-4 w-4 text-white/70" />
           <input
@@ -1526,6 +1546,18 @@ function CustomerNavbarInner({ pathname, searchParams }) {
             name="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            onFocus={(event) => {
+              event.currentTarget.form?.style.setProperty(
+                "box-shadow",
+                "0 0 0 2px rgba(124,58,237,0.25)"
+              );
+            }}
+            onBlur={(event) => {
+              event.currentTarget.form?.style.setProperty(
+                "box-shadow",
+                "0 0 0 0 rgba(124,58,237,0)"
+              );
+            }}
             className="flex-1 bg-transparent pr-12 text-base md:text-sm placeholder:text-white/60 focus:outline-none"
             placeholder="Search YourBarrio"
             type="search"

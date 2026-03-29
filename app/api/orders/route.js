@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getProfileCached, getSupabaseServerClient, getUserCached } from "@/lib/supabaseServer";
 import { getPurchaseRestrictionMessage, isPurchaseRestrictedRole } from "@/lib/auth/purchaseAccess";
+import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
 
 function jsonError(message, status = 400, extra = {}) {
   return NextResponse.json({ error: message, ...extra }, { status });
@@ -68,7 +69,7 @@ export async function POST(request) {
   const deliveryAddress1 = (body?.delivery_address1 || "").trim() || null;
   const deliveryAddress2 = (body?.delivery_address2 || "").trim() || null;
   const deliveryCity = (body?.delivery_city || "").trim() || null;
-  const deliveryState = (body?.delivery_state || "").trim() || null;
+  const deliveryState = normalizeStateCode(body?.delivery_state) || null;
   const deliveryPostal = (body?.delivery_postal_code || "").trim() || null;
   const deliveryInstructions = (body?.delivery_instructions || "").trim() || null;
   const deliveryTime = (body?.delivery_time || "").trim() || null;

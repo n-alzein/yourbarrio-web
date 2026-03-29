@@ -31,11 +31,7 @@ export default function AppShell({ children }) {
   const flushFooterOnBusiness =
     pathname === "/onboarding" || pathname?.startsWith("/business/");
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
-  const shellPaddingTop = isOnboardingRoute
-    ? "0px"
-    : isAdminRoute
-      ? "var(--yb-support-mode-offset, 0px)"
-      : "calc(5rem + var(--yb-support-mode-offset, 0px))";
+  const shellKind = isOnboardingRoute ? "onboarding" : isAdminRoute ? "admin" : "default";
   const lightThemeVars = {
     "--bg-solid": "#ffffff",
     "--bg-gradient-start": "#f7f7f8",
@@ -47,9 +43,10 @@ export default function AppShell({ children }) {
   return (
     <div
       className="app-shell-root relative min-h-screen overflow-x-hidden w-full antialiased text-[var(--yb-text)] flex flex-col"
-      style={{ paddingTop: shellPaddingTop, ...lightThemeVars }}
+      style={lightThemeVars}
       data-theme-root="1"
       data-theme="light"
+      data-shell-kind={shellKind}
     >
       <CrashLoggerClient />
       <RscLoopDiagClient />
@@ -83,7 +80,14 @@ export default function AppShell({ children }) {
               <RealtimeProvider>
                 <CartProvider>
                   <ModalMount>
-                    <main className="flex-1 w-full min-h-screen">{children}</main>
+                    <main
+                      className="flex-1 w-full min-h-screen"
+                      style={{ paddingTop: "0px" }}
+                      data-app-shell-main="1"
+                      data-shell-kind={shellKind}
+                    >
+                      {children}
+                    </main>
                     <Footer
                       className={
                         flushFooterOnHome

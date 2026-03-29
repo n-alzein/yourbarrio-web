@@ -15,7 +15,13 @@ function isBannerLive(banner: any, now: Date) {
   return true;
 }
 
-export default async function StrapiBannersServer({ banners: preloadedBanners }: { banners?: any[] | null } = {}) {
+export default async function StrapiBannersServer({
+  banners: preloadedBanners,
+  locationName = null,
+}: {
+  banners?: any[] | null;
+  locationName?: string | null;
+} = {}) {
   let banners: any[] = Array.isArray(preloadedBanners) ? preloadedBanners : [];
   if (!Array.isArray(preloadedBanners)) {
     try {
@@ -59,6 +65,7 @@ export default async function StrapiBannersServer({ banners: preloadedBanners }:
                 key={banner?.id ?? banner?.title ?? banner?.ctaURL ?? `banner-${index}`}
                 banner={banner}
                 imageUrl={imageUrl}
+                locationName={locationName}
                 priority={index === 0}
               />
             );
