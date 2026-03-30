@@ -274,17 +274,17 @@ button {
 
 /* Light theme — force footer dark on branded pages */
 .theme-light footer.theme-lock {
-  background: #000;
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.18);
+  background: #12141c;
+  color: #e5e7eb;
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .theme-light footer.theme-lock a {
-  color: #fff;
+  color: inherit;
 }
 
 .theme-light footer.theme-lock a:hover {
-  color: #e5e5e5;
+  color: #c4b5fd;
 }
 
 @keyframes yb-fade-up {
@@ -365,7 +365,7 @@ button {
 .theme-light footer.theme-lock p,
 .theme-light footer.theme-lock h4,
 .theme-light footer.theme-lock li {
-  color: #fff !important;
+  color: inherit !important;
 }
 
 /* Light theme — navbars are solid, no blur/gradient */

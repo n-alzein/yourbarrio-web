@@ -31,12 +31,12 @@ const CATEGORY_IMAGE_POSITIONS = {
 
 function CategoryActionCue() {
   return (
-    <span className="inline-flex shrink-0 items-center justify-center self-end text-[rgba(88,28,135,0.7)] transition-all duration-250 ease-out group-hover:translate-x-[2px] group-hover:-translate-y-[2px] group-hover:text-[rgba(88,28,135,1)] group-focus-visible:translate-x-[2px] group-focus-visible:-translate-y-[2px] group-focus-visible:text-[rgba(88,28,135,1)]">
+    <span className="inline-flex h-[27px] w-[27px] shrink-0 items-center justify-center self-end rounded-full bg-[rgba(255,255,255,0.78)] text-[rgba(31,24,44,0.68)] ring-1 ring-black/[0.035] backdrop-blur-[4px] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.02] group-hover:bg-[rgba(244,240,249,0.84)] group-hover:text-[rgba(88,28,135,0.82)] group-focus-visible:scale-[1.02] group-focus-visible:bg-[rgba(244,240,249,0.84)] group-focus-visible:text-[rgba(88,28,135,0.82)]">
       <svg
         aria-hidden="true"
         viewBox="0 0 20 20"
         fill="none"
-        className="h-[1.05rem] w-[1.05rem] transition-transform duration-250 ease-out"
+        className="h-[0.82rem] w-[0.82rem] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-[1px] group-focus-visible:translate-x-[1px]"
       >
         <path
           d="M6 14L14 6M8 6h6v6"
@@ -89,16 +89,16 @@ export default function CategoryTilesGrid({
             {FALLBACK_TILES.map((_, idx) => (
               <div
                 key={`tile-skeleton-${idx}`}
-                className="overflow-hidden rounded-[30px] border border-black/[0.04] bg-[#fdfbf8] shadow-[0_16px_34px_-24px_rgba(20,18,26,0.16)]"
+                className="overflow-hidden rounded-[24px] border border-[rgba(255,255,255,0.56)] bg-[#fdfbf8] shadow-[0_16px_34px_-24px_rgba(20,18,26,0.16)]"
               >
                 <div className="aspect-[4/5] bg-black/[0.06] animate-pulse lg:aspect-[5/4]" />
-                <div className="-mt-20 px-4 pb-5 sm:px-5 sm:pb-6">
+                <div className="-mt-16 px-4 pb-5 sm:px-5 sm:pb-6">
                   <div className="flex items-end justify-between gap-3">
                     <div className="space-y-2">
-                      <div className="h-4 w-24 rounded-full bg-white/30 animate-pulse" />
-                      <div className="h-4 w-20 rounded-full bg-white/22 animate-pulse" />
+                      <div className="h-4 w-28 rounded-full bg-white/28 animate-pulse" />
+                      <div className="h-4 w-20 rounded-full bg-white/20 animate-pulse" />
                     </div>
-                    <div className="h-4 w-4 rounded-full bg-white/26 animate-pulse" />
+                    <div className="h-[27px] w-[27px] rounded-full bg-white/16 animate-pulse" />
                   </div>
                 </div>
               </div>
@@ -220,14 +220,14 @@ export default function CategoryTilesGrid({
                   markNavStart();
                 }}
                 onNavigate={markNavStart}
-                className="tile group relative isolate overflow-hidden rounded-[30px] border border-black/[0.04] bg-[#fdfbf8] shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all duration-250 ease-out hover:-translate-y-[3px] hover:shadow-[0_12px_32px_rgba(0,0,0,0.12),0_4px_12px_rgba(88,28,135,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8c73bb66] focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf6f0] pointer-events-auto touch-manipulation"
+                className="tile group relative isolate overflow-hidden rounded-[24px] border border-[rgba(255,255,255,0.52)] bg-[#fdfbf8] shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-[4px] hover:shadow-[0_18px_45px_rgba(0,0,0,0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8c73bb59] focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf6f0] pointer-events-auto touch-manipulation"
               >
                 <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[inherit] bg-[linear-gradient(180deg,#d9c7b5_0%,#b59882_100%)] lg:aspect-[5/4]">
                   {category.tileImageUrl ? (
                     <Image
                       src={category.tileImageUrl}
                       alt={tileTitle}
-                      className="h-full w-full object-cover brightness-[1.03] transition-transform duration-250 ease-out will-change-transform group-hover:scale-[1.045] group-focus-visible:scale-[1.045]"
+                      className="h-full w-full object-cover transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform group-hover:scale-[1.025] group-focus-visible:scale-[1.025]"
                       style={{ objectPosition: imageObjectPosition }}
                       fill
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 33vw"
@@ -241,19 +241,18 @@ export default function CategoryTilesGrid({
                   )}
                   <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.55)_0%,rgba(0,0,0,0.25)_35%,rgba(0,0,0,0)_70%)]"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-[35%] bg-[linear-gradient(to_top,rgba(0,0,0,0.16)_0%,rgba(0,0,0,0.08)_46%,rgba(0,0,0,0)_100%)]"
                   />
                   <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.12)_0%,rgba(0,0,0,0.05)_18%,rgba(0,0,0,0)_42%)]"
+                    className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/12"
                   />
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(88,28,135,0.18)_0%,rgba(0,0,0,0.45)_35%,rgba(0,0,0,0)_70%)] opacity-0 transition-opacity duration-250 ease-out group-hover:opacity-100 group-focus-visible:opacity-100"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 z-10 p-[1.05rem] sm:p-[1.2rem] lg:p-[1.45rem]">
+                  <div className="absolute inset-x-0 bottom-0 z-10 p-[1.08rem] sm:p-[1.16rem] lg:p-[1.26rem]">
                     <div className="flex items-end justify-between gap-3">
-                      <h3 className="max-w-[12ch] text-[1.03rem] font-bold leading-[1.08] tracking-[-0.03em] text-[rgba(255,255,255,0.96)] [text-wrap:balance] drop-shadow-[0_1px_4px_rgba(0,0,0,0.4)] sm:text-[1.12rem] lg:text-[1.2rem]">
+                      <h3
+                        className="max-w-[12ch] text-[1.04rem] font-semibold leading-[1.06] tracking-[-0.022em] text-[#ffffff] [text-wrap:balance] sm:text-[1.12rem] lg:text-[1.18rem]"
+                        style={{ textShadow: "0 3px 12px rgba(0,0,0,0.35)" }}
+                      >
                         {tileTitle}
                       </h3>
                       <CategoryActionCue />
