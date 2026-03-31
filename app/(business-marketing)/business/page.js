@@ -1,7 +1,5 @@
 import {
   ArrowRight,
-  BarChart3,
-  CheckCircle2,
   LayoutDashboard,
   MapPinned,
   Store,
@@ -79,8 +77,8 @@ function SectionHeading({ eyebrow, title, body }) {
 
 function BusinessPreviewPanel() {
   return (
-    <div className="mx-auto w-full max-w-[31rem]">
-      <div className="overflow-hidden rounded-[12px] border border-black/6 bg-white/40">
+    <div className="mx-auto w-full max-w-[35rem] lg:mr-0 lg:max-w-[39.9rem]">
+      <div className="overflow-hidden rounded-[12px] bg-white/35">
         <Image
           src={HERO_VISUAL_SRC}
           alt="YourBarrio for Business storefront preview"
@@ -88,7 +86,7 @@ function BusinessPreviewPanel() {
           height={900}
           priority
           className="h-auto w-full object-cover"
-          sizes="(max-width: 1024px) 100vw, 496px"
+          sizes="(max-width: 1024px) 100vw, 608px"
         />
       </div>
     </div>
@@ -100,30 +98,28 @@ function BusinessHeroHeader() {
     <header
       className="fixed inset-x-0 top-0 z-50"
       style={{
-        backgroundColor: "rgba(11, 15, 26, 0.9)",
+        backgroundColor: "#0F172A",
         borderBottom: "1px solid rgba(255,255,255,0.06)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
       }}
     >
       <div className="mx-auto flex h-20 w-full max-w-[1280px] items-center justify-between gap-5 px-4 sm:px-6 lg:px-8">
         <Link href="/business" prefetch={false} className="flex shrink-0 items-center">
-          <span className="relative block h-11 w-11 md:hidden">
+          <span className="relative block h-12 w-12 md:hidden">
             <Image
               src="/business-placeholder2.png"
               alt="YourBarrio Logo"
               fill
-              sizes="44px"
+              sizes="48px"
               priority
               className="object-contain"
             />
           </span>
-          <span className="relative hidden h-12 w-12 md:block md:h-36 md:w-36">
+          <span className="relative hidden h-[3.3rem] w-[3.3rem] md:block md:h-[9.8rem] md:w-[9.8rem]">
             <Image
               src="/logo.png"
               alt="YourBarrio Logo"
               fill
-              sizes="144px"
+              sizes="157px"
               priority
               className="object-contain"
             />
@@ -176,43 +172,36 @@ export default async function BusinessHome() {
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[18rem] bg-[radial-gradient(circle_at_top_left,rgba(124,58,237,0.06),transparent_38%)]" />
 
         <section className="relative px-6 pb-14 pt-12 md:px-8 md:pb-16 md:pt-16">
-          <div className="mx-auto grid w-full max-w-6xl gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.96fr)] lg:items-center">
+          <div className="mx-auto grid w-full max-w-6xl gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.02fr)] lg:items-center lg:gap-9">
             <div className="max-w-[32rem]">
               <p className="inline-flex items-center rounded-full border border-[#7c3aed]/16 bg-[#7c3aed]/[0.05] px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#6d28d9]">
                 For Local Businesses
               </p>
-              <h1 className="mt-5 text-4xl font-semibold tracking-[-0.06em] text-slate-950 sm:text-[3.2rem] sm:leading-[0.98] lg:text-[4rem]">
+              <h1 className="mt-4 text-4xl font-semibold tracking-[-0.06em] text-slate-950 sm:text-[3.2rem] sm:leading-[0.98] lg:text-[4rem]">
                 Help your neighborhood discover your business first.
               </h1>
-              <p className="mt-5 max-w-md text-base leading-7 text-slate-600">
+              <p className="mt-4 max-w-md text-base leading-7 text-slate-600">
                 Get discovered by customers already searching nearby.
               </p>
 
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <BusinessAuthPopupLink
                   href="/business-auth/register"
-                  className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#9333ea)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_-18px_rgba(124,58,237,0.34)] transition duration-200 hover:-translate-y-0.5"
+                  className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#8b33ea)] px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_22px_-18px_rgba(124,58,237,0.26)] transition duration-200 hover:-translate-y-0.5"
                 >
                   Create a business account
                 </BusinessAuthPopupLink>
                 <BusinessAuthPopupLink
                   href="/business/login"
-                  className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-300/85 bg-white/88 px-6 py-3 text-sm font-semibold text-slate-800 transition duration-200 hover:bg-white"
+                  className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white/88 px-6 py-3 text-sm font-semibold text-slate-800 transition duration-200 hover:bg-white"
                 >
                   Business login
                 </BusinessAuthPopupLink>
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-600">
-                <span className="inline-flex items-center gap-2 rounded-full bg-white/72 px-3 py-2">
-                  <CheckCircle2 className="h-4 w-4 text-[#7c3aed]" />
-                  Local visibility
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full bg-white/72 px-3 py-2">
-                  <CheckCircle2 className="h-4 w-4 text-[#7c3aed]" />
-                  Simple tools
-                </span>
-              </div>
+              <p className="mt-5 text-sm leading-6 text-slate-600">
+                Built for local visibility and simple business tools.
+              </p>
             </div>
 
             <BusinessPreviewPanel />
