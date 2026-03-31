@@ -149,7 +149,7 @@ export default function CustomerPublicNavbar() {
                   <button
                     type="button"
                     onClick={() => openModal("customer-signup")}
-                className="rounded-xl bg-[var(--color-primary)] px-5 py-2 font-semibold text-white transition-[background-image,background-color] duration-200 ease-out hover:bg-gradient-to-r hover:from-blue-600 hover:to-purple-600"
+                    className="rounded-xl border border-purple-300/20 bg-[linear-gradient(135deg,rgba(124,58,237,0.92),rgba(147,51,234,0.92))] px-5 py-2 text-sm font-semibold text-white shadow-[0_6px_18px_rgba(124,58,237,0.18)] transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-[linear-gradient(135deg,rgba(124,58,237,1),rgba(168,85,247,0.98))] hover:shadow-[0_10px_22px_rgba(124,58,237,0.22)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/20 active:translate-y-0"
                   >
                     Sign Up
                   </button>
@@ -218,7 +218,7 @@ export default function CustomerPublicNavbar() {
                 </button>
                 <button
                   type="button"
-                    className="w-full text-center px-4 py-3 rounded-xl font-semibold bg-[var(--color-primary)]"
+                  className="w-full rounded-xl border border-purple-300/20 bg-[linear-gradient(135deg,rgba(124,58,237,0.92),rgba(147,51,234,0.92))] px-4 py-3 text-center font-semibold text-white shadow-[0_6px_18px_rgba(124,58,237,0.18)] transition duration-200 ease-out hover:bg-[linear-gradient(135deg,rgba(124,58,237,1),rgba(168,85,247,0.98))] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/20"
                   onClick={() => {
                     setOpen(false);
                     openModal("customer-signup");

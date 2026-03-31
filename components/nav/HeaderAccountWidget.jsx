@@ -550,7 +550,7 @@ export default function HeaderAccountWidget({
             onClick={() => openModal("customer-signup")}
             disabled={disableCtas}
             aria-busy={disableCtas}
-            className={`inline-flex h-11 items-center rounded-xl bg-[var(--color-primary)] px-5 text-sm font-semibold text-white transition-[background-image,background-color] duration-200 ease-out hover:bg-gradient-to-r hover:from-blue-600 hover:to-purple-600 ${
+            className={`inline-flex h-11 items-center rounded-xl border border-purple-300/20 bg-[linear-gradient(135deg,rgba(124,58,237,0.92),rgba(147,51,234,0.92))] px-5 text-sm font-semibold text-white shadow-[0_6px_18px_rgba(124,58,237,0.18)] transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-[linear-gradient(135deg,rgba(124,58,237,1),rgba(168,85,247,0.98))] hover:shadow-[0_10px_22px_rgba(124,58,237,0.22)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/20 active:translate-y-0 ${
               disableCtas ? "opacity-60 cursor-not-allowed" : ""
             }`}
             data-public-cta="signup"
@@ -869,7 +869,7 @@ export default function HeaderAccountWidget({
                 }}
                 disabled={disableCtas}
                 aria-busy={disableCtas}
-                className={`px-4 py-2 bg-[var(--color-primary)] rounded-xl text-center font-semibold text-white ${
+                className={`rounded-xl border border-purple-300/20 bg-[linear-gradient(135deg,rgba(124,58,237,0.92),rgba(147,51,234,0.92))] px-4 py-2 text-center font-semibold text-white shadow-[0_6px_18px_rgba(124,58,237,0.18)] transition duration-200 ease-out hover:bg-[linear-gradient(135deg,rgba(124,58,237,1),rgba(168,85,247,0.98))] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/20 ${
                   disableCtas ? "opacity-60 cursor-not-allowed" : ""
                 }`}
                 data-public-cta="signup"

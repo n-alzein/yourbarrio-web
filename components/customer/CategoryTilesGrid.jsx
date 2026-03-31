@@ -79,7 +79,7 @@ export default function CategoryTilesGrid({
 
   if (isLoading) {
     return (
-      <div className="mx-auto w-full max-w-none px-1 sm:px-3 lg:px-0">
+      <div className="mx-auto w-full max-w-none">
         <div className="rounded-[32px] border border-black/5 bg-[linear-gradient(180deg,#fdfbf8_0%,#f7f2eb_100%)] px-4 py-5 shadow-[0_20px_50px_-36px_rgba(15,23,42,0.28)] sm:px-5 md:px-6 md:py-7">
           <div className="mb-6 flex items-center justify-between">
             <div className="h-7 w-44 rounded-full bg-black/8 animate-pulse" />
@@ -111,7 +111,7 @@ export default function CategoryTilesGrid({
 
   if (!hasCategories) {
     return (
-      <div className="mx-auto w-full max-w-none px-1 sm:px-3 lg:px-0">
+      <div className="mx-auto w-full max-w-none">
         <div className="rounded-[32px] border border-black/5 bg-[linear-gradient(180deg,#fdfbf8_0%,#f7f2eb_100%)] px-4 py-5 text-sm text-slate-600 shadow-[0_20px_50px_-36px_rgba(15,23,42,0.28)] sm:px-5 md:px-6 md:py-7">
           {error ? "Categories are unavailable right now." : "No categories yet."}
         </div>
@@ -120,7 +120,7 @@ export default function CategoryTilesGrid({
   }
 
   return (
-    <div className="mx-auto w-full max-w-none px-1 sm:px-3 lg:px-0">
+    <div className="mx-auto w-full max-w-none">
       <section className="relative overflow-hidden rounded-[32px] border border-[#2f234208] bg-[linear-gradient(180deg,#fdfbf8_0%,#faf6f0_52%,#f7f1eb_100%)] px-4 py-5 shadow-[0_22px_52px_-40px_rgba(15,23,42,0.2),inset_0_1px_0_rgba(255,255,255,0.6)] sm:px-5 sm:py-6 md:px-7 md:py-7 lg:px-8 lg:py-8">
         <div
           aria-hidden="true"

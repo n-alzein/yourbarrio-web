@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { resolveBusinessImageSrc } from "@/lib/placeholders/businessPlaceholders";
-import { getBusinessTypeLabel } from "@/lib/taxonomy/compat";
 
 type BusinessCardProps = {
   business: {
@@ -17,6 +16,8 @@ type BusinessCardProps = {
     cover_photo_url?: string | null;
     distanceMiles?: number | null;
   };
+  badges?: string[];
+  isVerified?: boolean;
 };
 
 function formatDistance(distanceMiles?: number | null) {
@@ -40,12 +41,16 @@ export function getBusinessImage(business: BusinessCardProps["business"]) {
   });
 }
 
-export default function BusinessCard({ business }: BusinessCardProps) {
+export default function BusinessCard({
+  business,
+  badges = [],
+  isVerified = false,
+}: BusinessCardProps) {
   const href = `/customer/b/${business?.public_id || ""}`;
   const imageSrc = getBusinessImage(business);
-  const categoryLabel = getBusinessTypeLabel(business, "Local business");
   const businessName = String(business?.business_name || "Local business").trim();
   const locationLine = formatLocationLine(business);
+  const visibleBadges = Array.isArray(badges) ? badges.filter(Boolean).slice(0, 1) : [];
 
   return (
     <Link
@@ -63,15 +68,37 @@ export default function BusinessCard({ business }: BusinessCardProps) {
           loading="lazy"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-black/5 to-transparent" />
-        <div className="absolute left-3 top-3 rounded-full border border-purple-100 bg-white/90 px-2 py-1 text-xs font-medium text-slate-700 shadow-sm backdrop-blur-sm">
-          {categoryLabel}
-        </div>
+        {visibleBadges.length ? (
+          <div className="absolute left-3 top-3 flex max-w-[58%] flex-wrap justify-start gap-1.5">
+            {visibleBadges.map((badge) => (
+              <span
+                key={`${business?.public_id || businessName}-${badge}`}
+                className="rounded-full border border-white/55 bg-white/88 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 shadow-[0_6px_16px_rgba(15,23,42,0.12)] backdrop-blur-sm"
+              >
+                {badge}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="flex flex-1 items-start justify-between gap-3 px-4 pb-4 pt-3.5">
         <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-2 text-[15px] font-semibold leading-tight tracking-[-0.02em] text-slate-900">
-            {businessName}
+          <h3 className="flex items-center gap-1.5 line-clamp-2 text-[15px] font-semibold leading-tight tracking-[-0.02em] text-slate-900">
+            <span className="min-w-0 truncate">{businessName}</span>
+            {isVerified ? (
+              <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
+                  <path
+                    d="M4 8.2L6.6 10.6L12 5.4"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+            ) : null}
           </h3>
           {locationLine ? (
             <p className="mt-1.5 text-sm text-slate-500">{locationLine}</p>

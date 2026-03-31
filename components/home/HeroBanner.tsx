@@ -57,7 +57,7 @@ export default function HeroBanner({
           className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.25)_0%,rgba(0,0,0,0.45)_100%)]"
         />
         <div className="relative z-10 flex min-h-[360px] items-center sm:min-h-[420px] lg:min-h-[460px]">
-          <div className="mx-auto flex w-full max-w-7xl items-center justify-center px-5 pb-12 pt-14 sm:px-6 sm:pb-14 sm:pt-16 md:px-8 lg:px-12 lg:pb-16 lg:pt-16">
+          <div className="mx-auto flex w-full max-w-6xl items-center justify-center px-6 pb-12 pt-14 sm:pb-14 sm:pt-16 md:px-8 lg:pb-16 lg:pt-16">
             <div className="yb-fade-up mx-auto flex max-w-[40rem] flex-col items-center text-center [animation-delay:120ms] motion-reduce:[animation-delay:0ms]">
               <h1 className="max-w-[12ch] text-[2rem] font-bold tracking-[-0.04em] text-[#ffffff] [text-shadow:0_2px_10px_rgba(0,0,0,0.4)] sm:text-[2.5rem] sm:leading-[1.05] lg:text-[3.25rem] lg:leading-[1.02]">
                 {title}
@@ -72,7 +72,7 @@ export default function HeroBanner({
                 <a
                   href={ctaHref}
                   {...ctaProps}
-                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#a855f7)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(124,58,237,0.24)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(124,58,237,0.3)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/25 active:translate-y-0 sm:text-[0.95rem]"
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#a855f7)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_28px_rgba(124,58,237,0.28)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(124,58,237,0.34)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/25 active:translate-y-0 sm:text-[0.95rem]"
                 >
                   {ctaText}
                 </a>
@@ -89,7 +89,7 @@ export default function HeroBanner({
         </div>
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent via-[rgba(248,244,238,0.05)] to-[rgba(248,244,238,0.22)]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-b from-transparent via-[rgba(248,244,238,0.08)] to-[rgba(248,244,238,0.76)]"
         />
       </div>
     </article>

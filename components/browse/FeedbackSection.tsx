@@ -41,7 +41,7 @@ export default function FeedbackSection({ mode = "public", className = "" }: Fee
   }, [currentPath]);
 
   return (
-    <section className={`w-full bg-slate-100 ${className}`}>
+    <section className={`w-full bg-[#f7f3ed] ${className}`}>
       <div className="mx-auto w-full max-w-5xl px-5 sm:px-6 md:px-8 py-10 sm:py-12 text-center">
         <h2 className="text-base sm:text-lg font-medium text-slate-800">
           Help us improve YourBarrio

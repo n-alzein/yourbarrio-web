@@ -536,6 +536,38 @@ body:has([data-support-mode-banner="1"]) [data-app-shell-main="1"][data-shell-ki
   color: var(--yb-text) !important;
 }
 
+nav[data-business-marketing-nav="1"] {
+  background: rgba(15, 23, 42, 0.92) !important;
+  background-color: rgba(15, 23, 42, 0.92) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 0 16px 40px -34px rgba(2, 6, 23, 0.58) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  backdrop-filter: blur(20px) !important;
+  background-image: none !important;
+}
+
+header[data-business-marketing-header="1"] > div {
+  background: rgba(15, 23, 42, 0.92) !important;
+  background-color: rgba(15, 23, 42, 0.92) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 0 16px 40px -34px rgba(2, 6, 23, 0.58) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  backdrop-filter: blur(20px) !important;
+  background-image: none !important;
+}
+
+header[data-business-marketing-header="1"] .text-white {
+  color: #fff !important;
+}
+
+header[data-business-marketing-header="1"] [class*="text-white/"] {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+header[data-business-marketing-header="1"] [class*="border-white"] {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
 .yb-dropdown-surface {
   background: var(--yb-surface) !important;
   color: var(--yb-text) !important;

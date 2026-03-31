@@ -79,8 +79,15 @@ export default function BusinessMarketingHeader() {
         className={`fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-out ${
           hidden ? "-translate-y-full" : "translate-y-0"
         }`}
+        data-business-marketing-header="1"
       >
-        <div className="yb-navbar-accent-line bg-white shadow-sm">
+        <div
+          className="border-b border-white/6 bg-[rgba(15,23,42,0.92)] shadow-[0_16px_40px_-34px_rgba(2,6,23,0.58)] backdrop-blur-xl"
+          style={{
+            backgroundColor: "rgba(15, 23, 42, 0.92)",
+            borderBottomColor: "rgba(255,255,255,0.06)",
+          }}
+        >
           <HeaderShell innerClassName="h-[74px] w-full max-w-[1180px] gap-5">
             <div className="flex min-w-0 items-center gap-5">
               <Link
@@ -89,16 +96,16 @@ export default function BusinessMarketingHeader() {
                 className="flex shrink-0 items-center"
               >
                 <Image
-                  src="/logo.png"
+                  src="/logo-off4.png"
                   alt="YourBarrio"
                   width={867}
                   height={306}
-                  sizes="(min-width: 1024px) 152px, 136px"
-                  className="h-auto w-[136px] object-contain sm:w-[144px] lg:w-[152px]"
+                  sizes="(min-width: 1024px) 156px, 138px"
+                  className="h-auto w-[138px] object-contain sm:w-[148px] lg:w-[156px]"
                   priority
                 />
                 {!useLandingNav && (
-                  <span className="ml-3 text-base font-semibold tracking-tight text-neutral-900">
+                  <span className="ml-3 text-base font-semibold tracking-tight text-white">
                     YourBarrio
                   </span>
                 )}
@@ -110,8 +117,8 @@ export default function BusinessMarketingHeader() {
                       key={item.href}
                       href={item.href}
                       active={isActivePath(pathname, item.href)}
-                      activeClassName="text-neutral-900"
-                      inactiveClassName="text-neutral-600 hover:text-neutral-900"
+                      activeClassName="text-white"
+                      inactiveClassName="text-white/68 hover:text-white"
                     >
                       {item.label}
                     </NavLink>
@@ -123,13 +130,13 @@ export default function BusinessMarketingHeader() {
             <div className="ml-auto hidden items-center gap-3 lg:flex">
               <Link
                 href={LOGIN_HREF}
-                className="inline-flex h-11 items-center justify-center rounded-full border border-neutral-300 bg-white px-4 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 hover:text-neutral-900"
+                className="inline-flex h-11 items-center justify-center rounded-full px-3 text-sm font-medium text-white/72 transition hover:text-white"
               >
                 Log in
               </Link>
               <Link
                 href={CTA_HREF}
-                className="inline-flex h-11 items-center justify-center rounded-full bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-purple-300/20 bg-[linear-gradient(135deg,rgba(124,58,237,0.96),rgba(147,51,234,0.96))] px-5 text-sm font-semibold text-white shadow-[0_10px_24px_-16px_rgba(124,58,237,0.42)] transition hover:-translate-y-0.5 hover:bg-[linear-gradient(135deg,rgba(124,58,237,1),rgba(168,85,247,0.98))]"
               >
                 Get started
               </Link>
@@ -139,13 +146,13 @@ export default function BusinessMarketingHeader() {
               type="button"
               aria-label="Open menu"
               onClick={() => setMenuOpen(true)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-neutral-300 text-neutral-900 transition hover:bg-neutral-50 lg:hidden"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/12 text-white transition hover:bg-white/[0.06] lg:hidden"
             >
               <span className="sr-only">Open menu</span>
               <div className="flex flex-col gap-1">
-                <span className="h-0.5 w-5 bg-neutral-900" />
-                <span className="h-0.5 w-5 bg-neutral-900" />
-                <span className="h-0.5 w-5 bg-neutral-900" />
+                <span className="h-0.5 w-5 bg-white" />
+                <span className="h-0.5 w-5 bg-white" />
+                <span className="h-0.5 w-5 bg-white" />
               </div>
             </button>
           </HeaderShell>
@@ -185,7 +192,7 @@ export default function BusinessMarketingHeader() {
           <Link
             href={CTA_HREF}
             onClick={() => setMenuOpen(false)}
-            className="inline-flex items-center justify-center rounded-full bg-[var(--color-primary)] px-5 py-2 text-sm font-semibold text-white hover:opacity-90"
+            className="inline-flex items-center justify-center rounded-full border border-purple-300/20 bg-[linear-gradient(135deg,rgba(124,58,237,0.96),rgba(147,51,234,0.96))] px-5 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_-16px_rgba(124,58,237,0.42)]"
           >
             Get started
           </Link>

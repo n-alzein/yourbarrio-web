@@ -29,7 +29,7 @@ export default function AppShell({ children }) {
   const flushFooterOnHome = pathname === "/" || pathname === "/customer/home";
   const isOnboardingRoute = pathname === "/onboarding";
   const flushFooterOnBusiness =
-    pathname === "/onboarding" || pathname?.startsWith("/business/");
+    pathname === "/onboarding" || pathname === "/business" || pathname?.startsWith("/business/");
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
   const shellKind = isOnboardingRoute ? "onboarding" : isAdminRoute ? "admin" : "default";
   const lightThemeVars = {

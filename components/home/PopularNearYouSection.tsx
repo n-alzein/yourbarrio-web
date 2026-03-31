@@ -13,17 +13,25 @@ import {
 
 type PopularNearYouSectionProps = {
   mode?: "public" | "customer";
+  title?: string;
+  sectionId?: string;
+  subtitle?: string;
+  distanceThresholdMiles?: number;
+  limit?: number;
+  badgeMode?: "trending" | "nearby" | "none";
 };
 
 type NearbyBusiness = {
   id?: string | null;
   public_id?: string | null;
   business_name?: string | null;
+  business_type?: string | null;
   category?: string | null;
   city?: string | null;
   state?: string | null;
   profile_photo_url?: string | null;
   cover_photo_url?: string | null;
+  verification_status?: string | null;
   latitude?: number | string | null;
   longitude?: number | string | null;
   lat?: number | string | null;
@@ -61,7 +69,8 @@ function buildQuery(location: ReturnType<typeof getNormalizedLocation>) {
 
 function sortBusinessesByDistance(
   businesses: NearbyBusiness[],
-  location: ReturnType<typeof getNormalizedLocation>
+  location: ReturnType<typeof getNormalizedLocation>,
+  limit = 8
 ) {
   const canMeasureDistance = hasCoordinates(location);
 
@@ -82,13 +91,28 @@ function sortBusinessesByDistance(
       const rightDistance = right.distanceMiles ?? Number.POSITIVE_INFINITY;
       return leftDistance - rightDistance;
     })
-    .slice(0, 8);
+    .slice(0, limit);
+}
+
+function createBusinessBadges(
+  business: NearbyBusiness,
+  index: number,
+  badgeMode: PopularNearYouSectionProps["badgeMode"]
+) {
+  void business;
+  if (badgeMode === "none") return [];
+
+  if (badgeMode === "trending") {
+    if (index >= 2 && index < 4) return ["New"];
+  }
+
+  return [];
 }
 
 function PopularNearYouSkeleton() {
   return (
-    <section className="mt-12 mb-16">
-      <div className="mx-auto max-w-6xl px-6">
+    <section className="mt-16 md:mt-20">
+      <div className="mx-auto max-w-6xl px-6 md:px-8">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div className="space-y-2">
             <div className="h-7 w-48 animate-pulse rounded-full bg-slate-200/80" />
@@ -118,6 +142,12 @@ function PopularNearYouSkeleton() {
 
 export default function PopularNearYouSection({
   mode = "public",
+  title,
+  sectionId,
+  subtitle,
+  distanceThresholdMiles,
+  limit = 8,
+  badgeMode = "trending",
 }: PopularNearYouSectionProps) {
   const { location, hydrated } = useLocation();
   const normalizedLocation = useMemo(() => getNormalizedLocation(location || {}), [location]);
@@ -155,7 +185,8 @@ export default function PopularNearYouSection({
 
         const nextBusinesses = sortBusinessesByDistance(
           Array.isArray(payload?.businesses) ? payload.businesses : [],
-          normalizedLocation
+          normalizedLocation,
+          Math.max(limit * 2, 8)
         );
         setBusinesses(nextBusinesses);
         setReady(true);
@@ -173,7 +204,7 @@ export default function PopularNearYouSection({
     void loadBusinesses();
 
     return () => controller.abort();
-  }, [hydrated, normalizedLocation]);
+  }, [hydrated, limit, normalizedLocation]);
 
   const viewAllHref = mode === "customer" ? "/customer/nearby" : "/nearby";
   const locationLabel = useMemo(() => {
@@ -185,20 +216,53 @@ export default function PopularNearYouSection({
     }
     return "Discover businesses near you";
   }, [normalizedLocation.city, normalizedLocation.state]);
+  const visibleBusinesses = useMemo(() => {
+    let nextBusinesses = businesses;
+
+    if (typeof distanceThresholdMiles === "number" && Number.isFinite(distanceThresholdMiles)) {
+      const withinRadius = businesses.filter((business) => {
+        const miles = business.distanceMiles;
+        return typeof miles === "number" && Number.isFinite(miles) && miles <= distanceThresholdMiles;
+      });
+      if (withinRadius.length > 0) {
+        nextBusinesses = withinRadius;
+      }
+    }
+
+    return nextBusinesses.slice(0, limit);
+  }, [businesses, distanceThresholdMiles, limit]);
+  const resolvedTitle = useMemo(() => {
+    if (title) return title;
+    if (typeof distanceThresholdMiles === "number" && Number.isFinite(distanceThresholdMiles)) {
+      if (normalizedLocation.city) return `Near ${normalizedLocation.city}`;
+      return `Within ${distanceThresholdMiles} miles`;
+    }
+    return "Trending near you";
+  }, [distanceThresholdMiles, normalizedLocation.city, title]);
+  const resolvedSubtitle = useMemo(() => {
+    if (subtitle) return subtitle;
+    if (typeof distanceThresholdMiles === "number" && Number.isFinite(distanceThresholdMiles)) {
+      if (normalizedLocation.city) {
+        return `Closest verified shops and favorites around ${normalizedLocation.city}`;
+      }
+      return `Places worth visiting within ${distanceThresholdMiles} miles`;
+    }
+    return locationLabel;
+  }, [distanceThresholdMiles, locationLabel, normalizedLocation.city, subtitle]);
 
   if (!hydrated) return null;
   if (loading && !ready) return <PopularNearYouSkeleton />;
-  if (!businesses.length) return null;
+  if (!visibleBusinesses.length) return null;
 
   return (
-    <section className="mt-12 mb-16">
-      <div className="mx-auto max-w-6xl px-6">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+    <section id={sectionId} className="mt-16 md:mt-20">
+      <div className="mx-auto max-w-6xl px-6 md:px-8">
+        <div className="mb-7 flex flex-wrap items-start justify-between gap-x-4 gap-y-2 md:mb-8">
           <div className="min-w-0">
             <h2 className="text-[1.65rem] font-semibold tracking-[-0.04em] text-slate-900">
-              Popular near you
+              {resolvedTitle}
             </h2>
-            <p className="mt-1 text-sm text-slate-500">{locationLabel}</p>
+            <p className="mt-1 text-sm text-slate-500">{resolvedSubtitle}</p>
           </div>
 
           <Link
@@ -211,12 +275,18 @@ export default function PopularNearYouSection({
         </div>
 
         <div className="flex snap-x snap-mandatory gap-5 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-3 md:overflow-visible xl:grid-cols-4">
-          {businesses.map((business) => (
+          {visibleBusinesses.map((business, index) => (
             <div
               key={business.public_id || business.id || business.business_name}
               className="md:min-w-0"
             >
-              <BusinessCard business={business} />
+              <BusinessCard
+                business={business}
+                badges={createBusinessBadges(business, index, badgeMode)}
+                isVerified={["auto_verified", "manually_verified"].includes(
+                  String(business?.verification_status || "")
+                )}
+              />
             </div>
           ))}
         </div>

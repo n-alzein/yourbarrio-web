@@ -31,6 +31,11 @@ import { BUSINESS_CATEGORIES, normalizeCategoryName } from "@/lib/businessCatego
 import { logDataDiag } from "@/lib/dataDiagnostics";
 import CategoryTilesGrid from "@/components/customer/CategoryTilesGrid";
 import PopularNearYouSection from "@/components/home/PopularNearYouSection";
+import {
+  CuratedCollectionsSection,
+  SellerCTASection,
+  WhyYourBarrioSection,
+} from "@/components/home/HomeDiscoverySections";
 import { useLocation } from "@/components/location/LocationProvider";
 import FeedbackSection from "@/components/browse/FeedbackSection";
 
@@ -132,6 +137,10 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
     }),
     [isLight]
   );
+  const locationHeading = useMemo(() => {
+    const city = String(location?.city || "").trim();
+    return city ? `Trending in ${city}` : "Trending near you";
+  }, [location?.city]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const showLocationEmpty = locationHydrated && !hasLocation;
@@ -521,10 +530,7 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
         <div className="pointer-events-none absolute top-40 -right-24 h-[480px] w-[480px] rounded-full bg-pink-500/30 blur-[120px]" />
       </div>
 
-      <div
-        className="w-full px-5 sm:px-6 md:px-8 lg:px-12 relative z-10"
-        data-home-content="1"
-      >
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-6 md:px-8" data-home-content="1">
         <div className="w-full max-w-none">
           {showLocationEmpty ? (
             <div className="mb-4 rounded-2xl border border-white/12 bg-white/5 backdrop-blur-xl p-4 text-sm text-white/70">
@@ -663,31 +669,42 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
           )}
         </div>
 
-        {!search && (
-          <div
-            className="relative z-10 mt-1 -mx-2 sm:mt-2 sm:-mx-3 md:-mx-4 lg:-mx-6"
-            data-home-tiles="1"
-          >
-            <CategoryTilesGrid
-              categories={featuredCategoryList}
-              isLoading={featuredCategoriesLoading}
-              error={featuredCategoriesError}
-              title="Shop by category"
-              viewAllHref="/listings"
-              clickDiagEnabled={clickDiagEnabled}
-              onTilePointerDown={handleTilePointerDown}
-              onTilePointerMove={handleTilePointerMove}
-              onTilePointerUp={handleTilePointerUp}
-              onTilePointerCancel={handleTilePointerCancel}
-              onTileClickCapture={handleTileClickCapture}
-              diagTileClick={diagTileClick}
-            />
-          </div>
-        )}
-
       </div>
-      {!search ? <PopularNearYouSection mode={mode} /> : null}
-      <FeedbackSection mode={mode} className="mt-5" />
+      {!search ? (
+        <>
+          <div className="w-full bg-[linear-gradient(180deg,#f8f4ee_0%,#faf7f2_52%,#f7f3ed_100%)] pb-16 pt-16 md:pb-20 md:pt-20">
+            <div className="mx-auto w-full max-w-6xl px-6 md:px-8">
+              <div id="browse-categories" className="relative z-10" data-home-tiles="1">
+                <CategoryTilesGrid
+                  categories={featuredCategoryList}
+                  isLoading={featuredCategoriesLoading}
+                  error={featuredCategoriesError}
+                  title="Browse by category"
+                  viewAllHref="/listings"
+                  clickDiagEnabled={clickDiagEnabled}
+                  onTilePointerDown={handleTilePointerDown}
+                  onTilePointerMove={handleTilePointerMove}
+                  onTilePointerUp={handleTilePointerUp}
+                  onTilePointerCancel={handleTilePointerCancel}
+                  onTileClickCapture={handleTileClickCapture}
+                  diagTileClick={diagTileClick}
+                />
+              </div>
+            </div>
+            <PopularNearYouSection
+              mode={mode}
+              title={locationHeading}
+              sectionId="trending-near-you"
+              limit={6}
+              badgeMode="trending"
+            />
+            <WhyYourBarrioSection />
+            <CuratedCollectionsSection mode={mode} />
+            <SellerCTASection />
+          </div>
+        </>
+      ) : null}
+      <FeedbackSection mode={mode} />
     </section>
   );
 }
