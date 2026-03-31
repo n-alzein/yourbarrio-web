@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { getProfileCached, getSupabaseServerClient, getUserCached } from "@/lib/supabaseServer";
-import { getPurchaseRestrictionMessage, isPurchaseRestrictedRole } from "@/lib/auth/purchaseAccess";
+import { getSupabaseServerClient, getUserCached } from "@/lib/supabaseServer";
+import { getPurchaseRestrictionMessage } from "@/lib/auth/purchaseAccess";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
+import { getCurrentAccountContext } from "@/lib/auth/getCurrentAccountContext";
 
 async function getActiveCarts(supabase, userId) {
   const { data, error } = await supabase
@@ -54,13 +55,13 @@ function jsonError(message, status = 400, extra = {}) {
   return NextResponse.json({ error: message, ...extra }, { status });
 }
 
-async function getPurchaseRestrictionError(supabase, userId) {
-  const profile = await getProfileCached(userId, supabase);
-  const purchaseRestricted = isPurchaseRestrictedRole({
-    role: profile?.role ?? null,
-    isInternal: profile?.is_internal === true,
+async function getPurchaseRestrictionError({ request, supabase }) {
+  const accountContext = await getCurrentAccountContext({
+    request,
+    supabase,
+    source: "api/cart",
   });
-  if (!purchaseRestricted) return null;
+  if (accountContext.canPurchase || !accountContext.isRoleResolved) return null;
   return jsonError(getPurchaseRestrictionMessage(), 403, {
     code: "CUSTOMER_ACCOUNT_REQUIRED",
   });
@@ -93,7 +94,7 @@ export async function POST(request) {
     return jsonError("Unauthorized", 401);
   }
 
-  const purchaseRestrictionError = await getPurchaseRestrictionError(supabase, user.id);
+  const purchaseRestrictionError = await getPurchaseRestrictionError({ request, supabase });
   if (purchaseRestrictionError) {
     return purchaseRestrictionError;
   }

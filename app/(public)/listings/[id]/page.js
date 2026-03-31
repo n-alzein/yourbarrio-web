@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import useBusinessProfileAccessGate from "@/components/auth/useBusinessProfileAccessGate";
+import { useCurrentAccountContext } from "@/lib/auth/useCurrentAccountContext";
 import { extractPhotoUrls, primaryPhotoUrl } from "@/lib/listingPhotos";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getAuthedContext } from "@/lib/auth/getAuthedContext";
@@ -30,7 +31,6 @@ import { isUuid } from "@/lib/ids/isUuid";
 import {
   getPurchaseRestrictionHelpText,
   getPurchaseRestrictionMessage,
-  isPurchaseRestrictedRole,
 } from "@/lib/auth/purchaseAccess";
 import { descriptionSnippet } from "@/lib/listingDescription";
 import { getCustomerBusinessUrl, getListingUrl } from "@/lib/ids/publicRefs";
@@ -44,7 +44,8 @@ import {
 } from "@/lib/taxonomy/placeholders";
 
 export default function ListingDetails({ params }) {
-  const { supabase, user, role, profile } = useAuth();
+  const { supabase, user } = useAuth();
+  const accountContext = useCurrentAccountContext();
   const gateBusinessProfileAccess = useBusinessProfileAccessGate();
   const router = useRouter();
   const { theme, hydrated } = useTheme();
@@ -344,12 +345,13 @@ export default function ListingDetails({ params }) {
   const handleAddToCart = async () => {
     if (!listing?.id) return;
     if (
-      isPurchaseRestrictedRole({
-        role,
-        isInternal: profile?.is_internal === true,
-      })
+      accountContext.purchaseRestricted
     ) {
       setStatusMessage(getPurchaseRestrictionMessage());
+      return;
+    }
+    if (accountContext.rolePending) {
+      setStatusMessage("We’re still confirming your account. Try again.");
       return;
     }
     if (!requireAuth("place orders", setStatusMessage)) return;
@@ -456,11 +458,9 @@ export default function ListingDetails({ params }) {
   const address = business?.address || null;
   const listingCategory = getListingCategoryLabel(listing, "Local listing");
   const businessType = getBusinessTypeLabel(business, "Local business");
-  const showMessage = role !== "business";
-  const purchaseRestricted = isPurchaseRestrictedRole({
-    role,
-    isInternal: profile?.is_internal === true,
-  });
+  const showMessage = !accountContext.isBusiness;
+  const purchaseRestricted = accountContext.purchaseRestricted;
+  const purchaseEligibilityPending = accountContext.rolePending;
   const galleryPhotos = extractPhotoUrls(listing.photo_url);
   const inventory = normalizeInventory(listing);
   const badgeStyle = getAvailabilityBadgeStyle(inventory.availability, isLight);
@@ -770,7 +770,7 @@ export default function ListingDetails({ params }) {
                 <select
                   value={quantity}
                   onChange={(e) => setQuantity(Number(e.target.value))}
-                  disabled={isOutOfStock || purchaseRestricted}
+                  disabled={isOutOfStock || purchaseRestricted || purchaseEligibilityPending}
                   className="w-full rounded-xl px-3 py-2 text-base md:text-sm font-semibold"
                   style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
                 >
@@ -781,7 +781,24 @@ export default function ListingDetails({ params }) {
                   ))}
                 </select>
 
-                {purchaseRestricted ? (
+                {purchaseEligibilityPending ? (
+                  <div
+                    className="mt-2 rounded-2xl border px-4 py-3"
+                    style={{ background: "var(--overlay)", borderColor: "var(--border)" }}
+                  >
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full rounded-xl px-3 py-3 text-sm font-semibold opacity-70"
+                      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                    >
+                      Checking account...
+                    </button>
+                    <p className="mt-2 text-xs opacity-80">
+                      We’re confirming your account before enabling checkout.
+                    </p>
+                  </div>
+                ) : purchaseRestricted ? (
                   <div
                     className="mt-2 rounded-2xl border px-4 py-3"
                     style={{ background: "var(--overlay)", borderColor: "var(--border)" }}
@@ -823,6 +840,10 @@ export default function ListingDetails({ params }) {
                     style={{ background: "var(--overlay)", border: "1px solid var(--border)" }}
                   >
                     {statusMessage}
+                  </div>
+                ) : purchaseEligibilityPending ? (
+                  <div className="mt-2 text-xs opacity-80">
+                    We’re confirming your account before enabling checkout.
                   </div>
                 ) : purchaseRestricted ? (
                   <div className="mt-2 text-xs opacity-80">

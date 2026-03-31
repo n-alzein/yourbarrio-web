@@ -42,6 +42,7 @@ import {
   normalizeAccountStatus,
 } from "@/lib/accountDeletion/status";
 import { shouldSuppressAuthUiReset } from "@/lib/auth/loginErrors";
+import { normalizePublicUserRole } from "@/lib/auth/currentAccountContext";
 
 const AuthContext = createContext({
   supabase: null,
@@ -77,8 +78,8 @@ const AuthContext = createContext({
   supportModeActive: false,
 });
 
-const resolveRole = (profile, user, fallbackRole) => {
-  return profile?.role ?? fallbackRole ?? user?.app_metadata?.role ?? null;
+const resolveRole = (profile) => {
+  return normalizePublicUserRole(profile?.role);
 };
 
 const isPublicBusinessPath = (pathname) => {

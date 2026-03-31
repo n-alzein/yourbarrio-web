@@ -2,7 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import { getPurchaseRestrictionMessage, isPurchaseRestrictedRole } from "@/lib/auth/purchaseAccess";
+import { useCurrentAccountContext } from "@/lib/auth/useCurrentAccountContext";
+import { getPurchaseRestrictionMessage } from "@/lib/auth/purchaseAccess";
 import { groupCartItemsByBusiness } from "@/lib/cart/groupCartItemsByBusiness";
 
 /** @typedef {import("@/lib/types/cart").CartResponse} CartResponse */
@@ -73,7 +74,8 @@ const getPerfDebug = () => {
 };
 
 export function CartProvider({ children }) {
-  const { user, authStatus, role, profile } = useAuth();
+  const { user, authStatus } = useAuth();
+  const accountContext = useCurrentAccountContext();
   const [cart, setCart] = useState(null);
   const [vendor, setVendor] = useState(null);
   const [carts, setCarts] = useState([]);
@@ -86,10 +88,8 @@ export function CartProvider({ children }) {
   const didRunMountRefreshRef = useRef(false);
   const perfDebug = getPerfDebug();
   const mountStartedAtRef = useRef(0);
-  const purchaseRestricted = isPurchaseRestrictedRole({
-    role,
-    isInternal: profile?.is_internal === true,
-  });
+  const purchaseRestricted = accountContext.purchaseRestricted;
+  const purchaseEligibilityPending = accountContext.rolePending;
 
   const syncCart = useCallback((payload) => {
     const nextCarts = Array.isArray(payload?.carts)
@@ -112,7 +112,12 @@ export function CartProvider({ children }) {
 
   const refreshCart = useCallback(
     async ({ reason } = {}) => {
-      if (!user?.id || authStatus !== "authenticated" || purchaseRestricted) {
+      if (
+        !user?.id ||
+        authStatus !== "authenticated" ||
+        purchaseRestricted ||
+        purchaseEligibilityPending
+      ) {
         setCart(null);
         setVendor(null);
         setCarts([]);
@@ -276,11 +281,18 @@ export function CartProvider({ children }) {
 
       return globalRefreshInFlight;
     },
-    [authStatus, perfDebug, purchaseRestricted, syncCart, user?.id]
+    [authStatus, perfDebug, purchaseEligibilityPending, purchaseRestricted, syncCart, user?.id]
   );
 
   useEffect(() => {
-    if (!user?.id || authStatus !== "authenticated" || purchaseRestricted) return undefined;
+    if (
+      !user?.id ||
+      authStatus !== "authenticated" ||
+      purchaseRestricted ||
+      purchaseEligibilityPending
+    ) {
+      return undefined;
+    }
     if (perfDebug) {
       if (typeof window !== "undefined") {
         globalMountCount += 1;
@@ -323,7 +335,7 @@ export function CartProvider({ children }) {
         console.log("[cart] mounted_for_ms", mountedForMs);
       }
     };
-  }, [authStatus, purchaseRestricted, refreshCart, syncCart, user?.id, perfDebug]);
+  }, [authStatus, purchaseEligibilityPending, purchaseRestricted, refreshCart, syncCart, user?.id, perfDebug]);
 
   useEffect(() => {
     didRunMountRefreshRef.current = false;
@@ -343,6 +355,9 @@ export function CartProvider({ children }) {
     async ({ listingId, quantity = 1, clearExisting }) => {
       if (!user?.id) {
         return { error: "Please log in to add items." };
+      }
+      if (purchaseEligibilityPending) {
+        return { error: "We’re still confirming your account. Try again." };
       }
       if (purchaseRestricted) {
         return { error: getPurchaseRestrictionMessage() };
@@ -368,13 +383,16 @@ export function CartProvider({ children }) {
       syncCart(payload);
       return { cart: payload?.cart || null, vendor: payload?.vendor || null };
     },
-    [purchaseRestricted, syncCart, user?.id]
+    [purchaseEligibilityPending, purchaseRestricted, syncCart, user?.id]
   );
 
   const updateItem = useCallback(
     async ({ itemId, quantity }) => {
       if (!user?.id) {
         return { error: "Please log in." };
+      }
+      if (purchaseEligibilityPending) {
+        return { error: "We’re still confirming your account. Try again." };
       }
       if (purchaseRestricted) {
         return { error: getPurchaseRestrictionMessage() };
@@ -395,7 +413,7 @@ export function CartProvider({ children }) {
       syncCart(payload);
       return payload;
     },
-    [purchaseRestricted, syncCart, user?.id]
+    [purchaseEligibilityPending, purchaseRestricted, syncCart, user?.id]
   );
 
   const removeItem = useCallback(
@@ -407,6 +425,9 @@ export function CartProvider({ children }) {
     async (fulfillmentType, { cartId = null, businessId = null } = {}) => {
       if (!user?.id) {
         return { error: "Please log in." };
+      }
+      if (purchaseEligibilityPending) {
+        return { error: "We’re still confirming your account. Try again." };
       }
       if (purchaseRestricted) {
         return { error: getPurchaseRestrictionMessage() };
@@ -431,12 +452,15 @@ export function CartProvider({ children }) {
       syncCart(payload);
       return payload;
     },
-    [purchaseRestricted, syncCart, user?.id]
+    [purchaseEligibilityPending, purchaseRestricted, syncCart, user?.id]
   );
 
   const clearCart = useCallback(async () => {
     if (!user?.id) {
       return { error: "Please log in." };
+    }
+    if (purchaseEligibilityPending) {
+      return { error: "We’re still confirming your account. Try again." };
     }
     if (purchaseRestricted) {
       return { error: getPurchaseRestrictionMessage() };
@@ -454,7 +478,7 @@ export function CartProvider({ children }) {
 
     syncCart(payload);
     return payload;
-  }, [purchaseRestricted, syncCart, user?.id]);
+  }, [purchaseEligibilityPending, purchaseRestricted, syncCart, user?.id]);
 
   const itemCount = useMemo(
     () => items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),

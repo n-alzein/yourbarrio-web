@@ -4,12 +4,11 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ShoppingBag, Trash2, Truck, Minus, Plus } from "lucide-react";
 import SafeImage from "@/components/SafeImage";
-import { useAuth } from "@/components/AuthProvider";
 import { useCart } from "@/components/cart/CartProvider";
+import { useCurrentAccountContext } from "@/lib/auth/useCurrentAccountContext";
 import {
   getPurchaseRestrictionHelpText,
   getPurchaseRestrictionMessage,
-  isPurchaseRestrictedRole,
 } from "@/lib/auth/purchaseAccess";
 
 const formatMoney = (value) => {
@@ -21,16 +20,12 @@ const formatMoney = (value) => {
 };
 
 export default function CartPage() {
-  const { authStatus, role, profile } = useAuth();
+  const accountContext = useCurrentAccountContext();
   const { items, vendorGroups, loading, error, updateItem, removeItem, setFulfillmentType } = useCart();
   const [updatingItem, setUpdatingItem] = useState(null);
   const [fulfillmentErrors, setFulfillmentErrors] = useState({});
-  const purchaseRestricted =
-    authStatus === "authenticated" &&
-    isPurchaseRestrictedRole({
-      role,
-      isInternal: profile?.is_internal === true,
-    });
+  const purchaseRestricted = accountContext.purchaseRestricted;
+  const purchaseEligibilityPending = accountContext.rolePending;
 
   const allItemsSubtotal = useMemo(
     () => items.reduce((sum, item) => sum + Number(item.unit_price || 0) * Number(item.quantity || 0), 0),
@@ -68,6 +63,17 @@ export default function CartPage() {
         <div className="max-w-5xl mx-auto space-y-6 animate-pulse">
           <div className="h-6 w-40 rounded-full" style={{ background: "var(--surface)" }} />
           <div className="h-64 rounded-3xl" style={{ background: "var(--surface)" }} />
+        </div>
+      </div>
+    );
+  }
+
+  if (purchaseEligibilityPending) {
+    return (
+      <div className="min-h-screen px-4 md:px-8 lg:px-12 py-12" style={{ background: "var(--background)", color: "var(--text)" }}>
+        <div className="max-w-4xl mx-auto rounded-3xl p-8 text-center" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+          <h1 className="text-2xl font-semibold">Checking account...</h1>
+          <p className="mt-3 text-sm opacity-80">We’re confirming your account before enabling checkout.</p>
         </div>
       </div>
     );
