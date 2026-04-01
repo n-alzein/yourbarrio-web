@@ -390,6 +390,9 @@ export async function GET(request) {
       topProducts,
       recentOrders,
       categories,
+      listingCount: listingRows.length,
+      orderCount: orders.length,
+      viewCount: views.length,
       businessName:
         access.effectiveProfile?.business_name ||
         access.effectiveProfile?.full_name ||

@@ -469,7 +469,7 @@ export default function GlobalHeader({
 
   return (
     <nav
-      className="fixed top-0 inset-x-0 z-[5000] theme-lock pointer-events-auto yb-navbar yb-navbar-bordered"
+      className="fixed top-0 left-0 right-0 w-full z-50 theme-lock pointer-events-auto yb-navbar yb-navbar-bordered"
       data-nav-surface={surface}
       data-nav-guard="1"
       data-testid={surface === "customer" ? "customer-navbar" : "global-navbar"}

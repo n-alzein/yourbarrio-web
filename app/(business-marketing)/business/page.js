@@ -1,9 +1,4 @@
-import {
-  ArrowRight,
-  LayoutDashboard,
-  MapPinned,
-  Store,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -22,17 +17,23 @@ const VALUE_POINTS = [
   {
     title: "Reach nearby customers",
     description: "Get discovered by people already searching close to where you do business.",
-    Icon: MapPinned,
+    image: "/images/business-values/reach-nearby-customers.png",
+    alt: "A customer browsing a refined local boutique storefront in warm natural light.",
+    objectPosition: "object-center",
   },
   {
     title: "Build a credible local presence",
     description: "Present your business with a storefront that feels clear, polished, and trustworthy.",
-    Icon: Store,
+    image: "/images/business-values/credible-local-presence.png",
+    alt: "A business owner carefully arranging a polished storefront or product display.",
+    objectPosition: "object-[center_44%]",
   },
   {
     title: "Manage everything simply",
     description: "Keep your profile, listings, and visibility in one place without extra complexity.",
-    Icon: LayoutDashboard,
+    image: "/images/business-values/manage-everything-simply.png",
+    alt: "A business owner using a laptop in a clean shop workspace with calm natural light.",
+    objectPosition: "object-[center_38%]",
   },
 ];
 
@@ -90,6 +91,28 @@ function BusinessPreviewPanel() {
         />
       </div>
     </div>
+  );
+}
+
+function BusinessValueCard({ title, description, image, alt, objectPosition }) {
+  return (
+    <article className="group flex max-w-[23.5rem] flex-col">
+      <div className="overflow-hidden rounded-[26px] bg-[#f3ede6] shadow-[0_14px_34px_-24px_rgba(15,23,42,0.18)] transition duration-300 ease-out group-hover:-translate-y-0.5 group-hover:shadow-[0_20px_42px_-26px_rgba(15,23,42,0.24)]">
+        <div className="relative aspect-[4/3] min-h-[17.5rem] overflow-hidden md:min-h-[18.5rem]">
+          <Image
+            src={image}
+            alt={alt}
+            fill
+            className={`object-cover ${objectPosition} transition-transform duration-300 ease-out group-hover:scale-[1.03]`}
+            sizes="(max-width: 767px) 100vw, (max-width: 1279px) 50vw, 360px"
+          />
+        </div>
+      </div>
+      <h3 className="mt-6 max-w-[18rem] text-[1.1rem] font-semibold tracking-[-0.03em] text-slate-950">
+        {title}
+      </h3>
+      <p className="mt-3 max-w-[19rem] text-[0.95rem] leading-6 text-slate-600">{description}</p>
+    </article>
   );
 }
 
@@ -208,23 +231,24 @@ export default async function BusinessHome() {
           </div>
         </section>
 
-        <section className="px-6 py-16 md:px-8 md:py-18">
-          <div className="mx-auto w-full max-w-6xl">
+        <section className="px-6 py-20 md:px-8 md:py-24">
+          <div className="mx-auto w-full max-w-[76rem]">
             <SectionHeading
               eyebrow="Core value"
               title="Everything you need to show up locally without extra complexity."
               body="Three clear reasons businesses use YourBarrio to strengthen their neighborhood presence."
             />
 
-            <div className="mt-10 grid gap-8 md:grid-cols-3">
-              {VALUE_POINTS.map(({ title, description, Icon }) => (
-                <div key={title} className="max-w-sm">
-                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7c3aed]/10 text-[#7c3aed]">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <h2 className="mt-5 text-xl font-semibold tracking-[-0.035em] text-slate-950">{title}</h2>
-                  <p className="mt-3 text-[0.98rem] leading-7 text-slate-600">{description}</p>
-                </div>
+            <div className="mt-16 grid gap-x-10 gap-y-12 md:grid-cols-3 lg:gap-x-14">
+              {VALUE_POINTS.map(({ title, description, image, alt, objectPosition }) => (
+                <BusinessValueCard
+                  key={title}
+                  title={title}
+                  description={description}
+                  image={image}
+                  alt={alt}
+                  objectPosition={objectPosition}
+                />
               ))}
             </div>
           </div>

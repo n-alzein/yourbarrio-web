@@ -52,7 +52,7 @@ export default function BusinessMarketingNavbar() {
 
   return (
     <nav
-      className="fixed top-0 inset-x-0 z-50 yb-navbar border-b border-white/6 bg-[rgba(15,23,42,0.92)] shadow-[0_16px_40px_-34px_rgba(2,6,23,0.58)] backdrop-blur-xl"
+      className="fixed top-0 left-0 right-0 w-full z-50 yb-navbar border-b border-white/6 bg-[rgba(15,23,42,0.92)] shadow-[0_16px_40px_-34px_rgba(2,6,23,0.58)] backdrop-blur-xl"
       style={{
         backgroundColor: "rgba(15, 23, 42, 0.92)",
         borderBottomColor: "rgba(255,255,255,0.06)",

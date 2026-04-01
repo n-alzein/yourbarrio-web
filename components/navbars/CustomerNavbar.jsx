@@ -988,7 +988,7 @@ function CustomerNavbarInner({ pathname, searchParams }) {
   --------------------------------------------------- */
   return (
     <nav
-      className="fixed top-0 inset-x-0 z-[5000] theme-lock pointer-events-auto yb-navbar yb-navbar-bordered"
+      className="fixed top-0 left-0 right-0 w-full z-50 theme-lock pointer-events-auto yb-navbar yb-navbar-bordered"
       data-clickdiag={clickDiagEnabled ? "navbar" : undefined}
       onClickCapture={handleNavCapture}
       data-nav-guard="1"

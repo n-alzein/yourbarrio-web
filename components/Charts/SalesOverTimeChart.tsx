@@ -42,7 +42,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 const SalesOverTimeChart = ({ data }: SalesOverTimeChartProps) => {
   return (
-    <div className="relative h-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+    <div className="relative h-full rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-0.5 hover:border-slate-300/80 hover:shadow-[0_18px_36px_rgba(15,23,42,0.1)] sm:p-6">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -51,7 +51,7 @@ const SalesOverTimeChart = ({ data }: SalesOverTimeChartProps) => {
           <h3 className="text-lg font-semibold text-slate-900">Sales over time</h3>
         </div>
       </div>
-      <div className="mt-6 h-64">
+      <div className="mt-5 h-[240px] rounded-[24px] border border-slate-200/55 p-2 sm:h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}

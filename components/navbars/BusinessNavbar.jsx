@@ -609,7 +609,7 @@ function BusinessNavbarInner({ pathname, forcedAuth = null }) {
   --------------------------------------------------- */
   return (
     <nav
-      className="fixed top-0 inset-x-0 z-50 theme-lock yb-navbar yb-navbar-bordered"
+      className="fixed top-0 left-0 right-0 w-full z-50 theme-lock yb-navbar yb-navbar-bordered"
       data-business-navbar="1"
     >
       <div>

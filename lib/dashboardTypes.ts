@@ -91,6 +91,9 @@ export type DashboardData = {
   topProducts: TopProduct[];
   recentOrders: RecentOrder[];
   categories: string[];
+  listingCount: number;
+  orderCount: number;
+  viewCount: number;
   businessName?: string;
   businessAvatarUrl?: string | null;
 };

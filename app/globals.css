@@ -706,6 +706,12 @@ header[data-business-marketing-header="1"] [class*="border-white"] {
   color: var(--color-text) !important;
 }
 
+.theme-light .business-theme .dashboard-primary-action,
+.theme-light .business-theme .dashboard-primary-action.text-white,
+.theme-light .business-theme .dashboard-primary-action * {
+  color: #ffffff !important;
+}
+
 .theme-dark .business-theme {
   color: #f8fafc !important;
 }

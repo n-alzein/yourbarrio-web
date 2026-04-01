@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import DashboardEmptyState from "@/components/DashboardEmptyState";
 import type { RecentOrder } from "@/lib/dashboardTypes";
 
 type RecentOrdersProps = {
@@ -25,7 +26,7 @@ const statusTone: Record<RecentOrder["status"], string> = {
 const RecentOrders = ({ orders }: RecentOrdersProps) => {
   const router = useRouter();
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+    <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition duration-200 hover:border-slate-300/80 hover:shadow-[0_18px_36px_rgba(15,23,42,0.1)] sm:p-6">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -35,34 +36,35 @@ const RecentOrders = ({ orders }: RecentOrdersProps) => {
         </div>
         <Link
           href="/business/orders"
-          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
+          className="rounded-full border border-slate-200/80 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
         >
           View all
         </Link>
       </div>
-      <div className="mt-6 h-72 overflow-hidden rounded-2xl border border-slate-200">
-        <div className="h-full overflow-auto">
-          <table className="dashboard-table dashboard-table--no-hover-dark w-full text-sm">
-            <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
-              <tr>
-                <th className="px-4 py-3 text-left">Order</th>
-                <th className="px-4 py-3 text-left">Customer</th>
-                <th className="px-4 py-3 text-right">Total</th>
-                <th className="px-4 py-3 text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.length === 0 ? (
-                <tr className="border-t border-slate-200">
-                  <td
-                    colSpan={4}
-                    className="px-4 py-10 text-center text-sm text-slate-500"
-                  >
-                    No data available yet.
-                  </td>
+      <div className="mt-5 overflow-hidden rounded-[24px] border border-slate-200/60">
+        {orders.length === 0 ? (
+          <div className="min-h-[190px] p-4">
+            <DashboardEmptyState
+              compact
+              title="No orders yet"
+              description="Customer purchases will start to appear here."
+              secondaryAction={{ href: "/business/preview", label: "View storefront" }}
+              className="min-h-[158px]"
+            />
+          </div>
+        ) : (
+          <div className="h-[300px] overflow-auto">
+            <table className="dashboard-table dashboard-table--no-hover-dark w-full text-sm">
+              <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 text-left">Order</th>
+                  <th className="px-4 py-3 text-left">Customer</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 text-right">Status</th>
                 </tr>
-              ) : (
-                orders.map((order) => (
+              </thead>
+              <tbody>
+                {orders.map((order) => (
                   <tr
                     key={order.id}
                     className={`border-t border-slate-200 ${
@@ -105,11 +107,11 @@ const RecentOrders = ({ orders }: RecentOrdersProps) => {
                       </span>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
