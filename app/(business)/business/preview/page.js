@@ -6,6 +6,10 @@ import BusinessGalleryGrid from "@/components/publicBusinessProfile/BusinessGall
 import BusinessListingsGrid from "@/components/publicBusinessProfile/BusinessListingsGrid";
 import BusinessReviewsPanel from "@/components/publicBusinessProfile/BusinessReviewsPanel";
 import PreviewAutoRefresh from "@/components/business/preview/PreviewAutoRefresh";
+import {
+  ProfilePageShell,
+  ProfileSectionNav,
+} from "@/components/business/profile-system/ProfileSystem";
 import ViewerContextEnhancer from "@/components/public/ViewerContextEnhancer";
 import { getCustomerBusinessUrl } from "@/lib/ids/publicRefs";
 
@@ -203,17 +207,16 @@ export default async function BusinessPreviewPage() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen text-white -mt-20">
-        <div className="h-[170px] sm:h-[200px] md:h-[230px] bg-gradient-to-br from-slate-900 via-purple-900/70 to-black" />
-        <div className="mx-auto max-w-4xl px-6 md:px-10 py-24 text-center">
-          <h1 className="text-3xl md:text-4xl font-semibold">
+      <ProfilePageShell>
+        <div className="rounded-[28px] border border-slate-200 bg-white px-6 py-20 text-center shadow-[0_24px_60px_-48px_rgba(15,23,42,0.28)]">
+          <h1 className="text-3xl font-semibold tracking-[-0.03em] text-slate-950">
             Preview unavailable.
           </h1>
-          <p className="mt-3 text-sm md:text-base text-white/70">
+          <p className="mt-3 text-sm text-slate-600">
             Your business profile is not ready yet.
           </p>
         </div>
-      </div>
+      </ProfilePageShell>
     );
   }
 
@@ -229,15 +232,23 @@ export default async function BusinessPreviewPage() {
   const ratingSummary = buildRatingSummary(reviewRatings || []);
 
   return (
-    <div className="pointer-events-none min-h-screen text-white -mt-20">
+    <ProfilePageShell>
       <PreviewAutoRefresh businessId={effectiveUserId} />
       <PublicBusinessHero
         profile={profile}
         ratingSummary={ratingSummary}
         publicPath={getCustomerBusinessUrl(profile || { id: effectiveUserId })}
       />
-
-      <div className="mx-auto max-w-6xl px-6 md:px-10 pb-16 space-y-8">
+      <ProfileSectionNav
+        items={[
+          { id: "about", label: "About" },
+          { id: "gallery", label: "Gallery" },
+          { id: "listings", label: "Listings" },
+          { id: "reviews", label: "Reviews" },
+          { id: "updates", label: "Updates" },
+        ]}
+      />
+      <div className="space-y-14">
         <BusinessAbout profile={profile} className="rounded-none" />
         <BusinessAnnouncementsPreview
           announcements={announcements}
@@ -255,6 +266,6 @@ export default async function BusinessPreviewPage() {
           />
         </ViewerContextEnhancer>
       </div>
-    </div>
+    </ProfilePageShell>
   );
 }

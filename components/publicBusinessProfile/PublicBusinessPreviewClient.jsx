@@ -9,6 +9,10 @@ import BusinessGalleryGrid from "@/components/publicBusinessProfile/BusinessGall
 import BusinessListingsGrid from "@/components/publicBusinessProfile/BusinessListingsGrid";
 import BusinessReviewsPanel from "@/components/publicBusinessProfile/BusinessReviewsPanel";
 import ViewerContextEnhancer from "@/components/public/ViewerContextEnhancer";
+import {
+  ProfilePageShell,
+  ProfileSectionNav,
+} from "@/components/business/profile-system/ProfileSystem";
 import { getCustomerBusinessUrl } from "@/lib/ids/publicRefs";
 
 const EMPTY_SUMMARY = {
@@ -51,37 +55,37 @@ function readPreviewCache(businessId) {
 function PreviewSkeleton({ withContainer = true }) {
   const content = (
     <>
-      <div className="rounded-none border border-white/10 bg-white/5 p-6 md:p-8">
-        <div className="h-5 w-32 rounded bg-white/10" />
+      <div className="rounded-[28px] border border-slate-200/80 bg-white/92 p-6 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.28)] md:p-8">
+        <div className="h-5 w-32 rounded bg-slate-200" />
         <div className="mt-4 space-y-2">
-          <div className="h-4 w-full rounded bg-white/10" />
-          <div className="h-4 w-5/6 rounded bg-white/10" />
-          <div className="h-4 w-4/6 rounded bg-white/10" />
+          <div className="h-4 w-full rounded bg-slate-200" />
+          <div className="h-4 w-5/6 rounded bg-slate-200" />
+          <div className="h-4 w-4/6 rounded bg-slate-200" />
         </div>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
-        <div className="rounded-none border border-white/10 bg-white/5 p-6 md:p-8 space-y-4">
-          <div className="h-5 w-40 rounded bg-white/10" />
-          <div className="h-20 w-full rounded bg-white/10" />
+        <div className="rounded-[28px] border border-slate-200/80 bg-white/92 p-6 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.28)] md:p-8 space-y-4">
+          <div className="h-5 w-40 rounded bg-slate-200" />
+          <div className="h-20 w-full rounded bg-slate-200" />
         </div>
-        <div className="rounded-none border border-white/10 bg-white/5 p-6 md:p-8">
-          <div className="h-5 w-32 rounded bg-white/10" />
+        <div className="rounded-[28px] border border-slate-200/80 bg-white/92 p-6 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.28)] md:p-8">
+          <div className="h-5 w-32 rounded bg-slate-200" />
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="h-28 rounded bg-white/10" />
-            <div className="h-28 rounded bg-white/10" />
-            <div className="h-28 rounded bg-white/10" />
-            <div className="h-28 rounded bg-white/10" />
+            <div className="h-28 rounded bg-slate-200" />
+            <div className="h-28 rounded bg-slate-200" />
+            <div className="h-28 rounded bg-slate-200" />
+            <div className="h-28 rounded bg-slate-200" />
           </div>
         </div>
       </div>
 
-      <div className="rounded-3xl rounded-t-none border border-white/10 bg-white/5 p-6 md:p-8">
-        <div className="h-5 w-32 rounded bg-white/10" />
+      <div className="rounded-[28px] border border-slate-200/80 bg-white/92 p-6 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.28)] md:p-8">
+        <div className="h-5 w-32 rounded bg-slate-200" />
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="h-40 rounded bg-white/10" />
-          <div className="h-40 rounded bg-white/10" />
-          <div className="h-40 rounded bg-white/10" />
+          <div className="h-40 rounded bg-slate-200" />
+          <div className="h-40 rounded bg-slate-200" />
+          <div className="h-40 rounded bg-slate-200" />
         </div>
       </div>
     </>
@@ -89,11 +93,7 @@ function PreviewSkeleton({ withContainer = true }) {
 
   if (!withContainer) return content;
 
-  return (
-    <div className="mx-auto max-w-6xl px-6 md:px-10 pb-16 space-y-8 mt-6">
-      {content}
-    </div>
-  );
+  return <div className="mt-6 space-y-8">{content}</div>;
 }
 
 export default function PublicBusinessPreviewClient({
@@ -338,22 +338,30 @@ export default function PublicBusinessPreviewClient({
 
   if (!profile) {
     return (
-      <div className="min-h-screen text-white -mt-20">
-        <div className="h-[170px] sm:h-[200px] md:h-[230px] bg-gradient-to-br from-slate-900 via-purple-900/70 to-black" />
+      <ProfilePageShell>
         <PreviewSkeleton />
-      </div>
+      </ProfilePageShell>
     );
   }
 
   return (
-    <div className="min-h-screen text-white -mt-20">
+    <ProfilePageShell>
       <PublicBusinessHero
         profile={profile}
         ratingSummary={ratingSummary}
         publicPath={getCustomerBusinessUrl(profile || { id: businessId })}
       />
+      <ProfileSectionNav
+        items={[
+          { id: "about", label: "About" },
+          { id: "gallery", label: "Gallery" },
+          { id: "listings", label: "Listings" },
+          { id: "reviews", label: "Reviews" },
+          { id: "updates", label: "Updates" },
+        ]}
+      />
 
-      <div className="mx-auto max-w-6xl px-6 md:px-10 pb-16 space-y-8">
+      <div className="space-y-14">
         <BusinessAbout profile={profile} className="rounded-none" />
 
         {loading ? (
@@ -379,6 +387,6 @@ export default function PublicBusinessPreviewClient({
           </>
         )}
       </div>
-    </div>
+    </ProfilePageShell>
   );
 }

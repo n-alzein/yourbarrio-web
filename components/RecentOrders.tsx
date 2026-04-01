@@ -48,7 +48,7 @@ const RecentOrders = ({ orders }: RecentOrdersProps) => {
               compact
               title="No orders yet"
               description="Customer purchases will start to appear here."
-              secondaryAction={{ href: "/business/preview", label: "View storefront" }}
+              secondaryAction={{ href: "/business/orders", label: "View orders" }}
               className="min-h-[158px]"
             />
           </div>

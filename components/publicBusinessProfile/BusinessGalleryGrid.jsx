@@ -3,8 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import FastImage from "@/components/FastImage";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import {
+  ProfileEmptyState,
+  ProfileSection,
+} from "@/components/business/profile-system/ProfileSystem";
 
-export default function BusinessGalleryGrid({ photos, className = "" }) {
+export default function BusinessGalleryGrid({
+  photos,
+  className = "",
+  headerAction = null,
+}) {
   const [activeIndex, setActiveIndex] = useState(null);
 
   const activePhoto = useMemo(() => {
@@ -15,20 +23,12 @@ export default function BusinessGalleryGrid({ photos, className = "" }) {
   useEffect(() => {
     if (activeIndex === null) return undefined;
     const handleKey = (event) => {
-      if (event.key === "Escape") {
-        setActiveIndex(null);
-      }
+      if (event.key === "Escape") setActiveIndex(null);
       if (event.key === "ArrowRight") {
-        setActiveIndex((prev) => {
-          if (prev === null) return prev;
-          return Math.min(prev + 1, photos.length - 1);
-        });
+        setActiveIndex((prev) => (prev === null ? prev : Math.min(prev + 1, photos.length - 1)));
       }
       if (event.key === "ArrowLeft") {
-        setActiveIndex((prev) => {
-          if (prev === null) return prev;
-          return Math.max(prev - 1, 0);
-        });
+        setActiveIndex((prev) => (prev === null ? prev : Math.max(prev - 1, 0)));
       }
     };
     window.addEventListener("keydown", handleKey);
@@ -36,40 +36,36 @@ export default function BusinessGalleryGrid({ photos, className = "" }) {
   }, [activeIndex, photos?.length]);
 
   return (
-    <section
-      className={`rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 md:p-8 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.7)] ${className}`}
+    <ProfileSection
+      id="gallery"
+      title="Gallery"
+      description="A visual snapshot of the business."
+      action={headerAction}
+      className={className}
     >
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl md:text-2xl font-semibold">Gallery</h2>
-          <p className="text-sm text-white/70">
-            A peek at their latest work.
-          </p>
-        </div>
-      </div>
-
       {!photos?.length ? (
-        <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-white/70">
-          No gallery photos yet.
-        </div>
+        <ProfileEmptyState
+          title="No gallery photos yet"
+          detail="Photos will appear here once the business adds them."
+        />
       ) : (
-        <div className="mt-5 flex gap-3 overflow-x-auto pb-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {photos.map((photo, index) => (
             <button
               key={photo.id || index}
               type="button"
               onClick={() => setActiveIndex(index)}
-              className="group relative h-44 w-64 flex-shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg"
+              className="group relative aspect-[4/3] overflow-hidden rounded-[24px] bg-slate-100"
             >
               <FastImage
                 src={photo.photo_url || "/business-placeholder.png"}
                 alt={photo.caption || "Gallery photo"}
-                className="object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                className="object-cover transition duration-300 group-hover:scale-[1.02]"
                 fill
-                sizes="256px"
+                sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
                 decoding="async"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent opacity-0 transition group-hover:opacity-100" />
             </button>
           ))}
         </div>
@@ -77,26 +73,26 @@ export default function BusinessGalleryGrid({ photos, className = "" }) {
 
       {activePhoto ? (
         <div
-          className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 theme-lock"
+          className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm"
           onClick={() => setActiveIndex(null)}
           role="presentation"
         >
           <div
-            className="relative max-w-4xl w-full"
+            className="relative w-full max-w-5xl"
             onClick={(event) => event.stopPropagation()}
           >
             <button
               type="button"
               onClick={() => setActiveIndex(null)}
-              className="absolute -top-12 right-0 rounded-full border border-white/20 bg-white/10 p-2 text-white hover:bg-white/20 transition"
+              className="absolute -top-12 right-0 rounded-full bg-white p-2 text-slate-900 shadow-lg"
             >
               <X className="h-5 w-5" />
             </button>
-            <div className="relative h-[60vh] overflow-hidden rounded-3xl border border-white/10 bg-black">
+            <div className="relative h-[68vh] overflow-hidden rounded-[28px] bg-black">
               <FastImage
                 src={activePhoto.photo_url || "/business-placeholder.png"}
                 alt={activePhoto.caption || "Gallery photo"}
-                className="object-contain bg-black"
+                className="object-contain"
                 fill
                 sizes="100vw"
                 priority
@@ -108,17 +104,14 @@ export default function BusinessGalleryGrid({ photos, className = "" }) {
                 {activePhoto.caption}
               </p>
             ) : null}
-
             {photos.length > 1 ? (
               <>
                 <button
                   type="button"
                   onClick={() =>
-                    setActiveIndex((prev) =>
-                      prev === null ? prev : Math.max(prev - 1, 0)
-                    )
+                    setActiveIndex((prev) => (prev === null ? prev : Math.max(prev - 1, 0)))
                   }
-                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 rounded-full border border-white/20 bg-white/10 p-2 text-white hover:bg-white/20 transition"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white p-2 text-slate-900 shadow-lg"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
@@ -126,12 +119,10 @@ export default function BusinessGalleryGrid({ photos, className = "" }) {
                   type="button"
                   onClick={() =>
                     setActiveIndex((prev) =>
-                      prev === null
-                        ? prev
-                        : Math.min(prev + 1, photos.length - 1)
+                      prev === null ? prev : Math.min(prev + 1, photos.length - 1)
                     )
                   }
-                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 rounded-full border border-white/20 bg-white/10 p-2 text-white hover:bg-white/20 transition"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white p-2 text-slate-900 shadow-lg"
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>
@@ -140,6 +131,6 @@ export default function BusinessGalleryGrid({ photos, className = "" }) {
           </div>
         </div>
       ) : null}
-    </section>
+    </ProfileSection>
   );
 }

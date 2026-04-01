@@ -246,7 +246,7 @@ const DashboardPage = () => {
     const setupItems = [
       { id: "profile", label: "Profile complete", complete: Boolean(data.businessName) },
       { id: "product", label: "First product", complete: listingCount > 0 },
-      { id: "storefront", label: "Storefront ready", complete: Boolean(data.businessName) },
+      { id: "profile_visibility", label: "Profile ready", complete: Boolean(data.businessName) },
     ];
 
     const quickActions = [
@@ -278,9 +278,7 @@ const DashboardPage = () => {
           totalSales > 0
             ? `Revenue across ${rangeCopy[dateRange]}`
             : "Add a product to start selling",
-        action: totalSales > 0
-          ? { href: "/business/orders", label: "Review orders" }
-          : { href: "/business/listings/new", label: "Add product" },
+        action: { href: "/business/listings/new", label: "Add product" },
       },
       {
         label: "Views",
@@ -288,8 +286,8 @@ const DashboardPage = () => {
         helper:
           totalViews > 0
             ? `Storefront visits in ${rangeCopy[dateRange]}`
-            : "Share your storefront",
-        action: { href: "/business/preview", label: "View storefront" },
+            : "Share your profile",
+        action: { href: "/business/profile", label: "View profile" },
       },
       {
         label: "Orders",
@@ -298,9 +296,7 @@ const DashboardPage = () => {
           totalOrders > 0
             ? `New purchases in ${rangeCopy[dateRange]}`
             : "Orders will appear here once customers purchase",
-        action: totalOrders > 0
-          ? { href: "/business/orders", label: "Open orders" }
-          : { href: "/business/profile", label: "Edit profile" },
+        action: { href: "/business/orders", label: "View orders" },
       },
     ];
 
@@ -392,7 +388,7 @@ const DashboardPage = () => {
                       label="Traffic pulse"
                       value={formatNumber(dashboardState.totalViews)}
                       helper="Once views pick up, the chart will show the pattern."
-                      action={{ href: "/business/preview", label: "View storefront" }}
+                      action={{ href: "/business/profile", label: "View profile" }}
                     />
                   )}
                 </div>

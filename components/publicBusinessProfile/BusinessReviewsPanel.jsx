@@ -125,6 +125,7 @@ export default function BusinessReviewsPanel({
     reviewCount ?? 0,
     reviews.length
   );
+  const shouldShowDistribution = totalReviews > 2;
   const pageSize = 6;
 
   const ratingRows = useMemo(() => {
@@ -603,49 +604,50 @@ export default function BusinessReviewsPanel({
 
   return (
     <section
-      className={`rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 md:p-8 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.7)] ${className}`}
+      id="reviews"
+      className={`scroll-mt-40 rounded-[28px] border border-slate-200/80 bg-white/92 p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.28)] backdrop-blur md:p-6 ${className}`}
     >
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="text-xl md:text-2xl font-semibold">Reviews</h2>
-          <p className="text-sm text-white/70">
-            What customers are saying.
-          </p>
+          <h2 className="text-[1.4rem] font-semibold tracking-[-0.02em] text-slate-950">Reviews</h2>
+          <p className="text-sm text-slate-600">What customers are saying.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Star className="h-5 w-5 text-amber-300" fill="currentColor" />
-          <span className="text-2xl font-semibold text-white">
+          <Star className="h-5 w-5 text-amber-500" fill="currentColor" />
+          <span className="text-2xl font-semibold text-slate-950">
             {averageRating ? averageRating.toFixed(1) : "0.0"}
           </span>
-          <span className="text-sm text-white/60">
+          <span className="text-sm text-slate-500">
             ({totalReviews} total)
           </span>
         </div>
       </div>
 
-      <div className="mt-5 grid gap-2">
-        {ratingRows.map((row) => (
-          <div key={row.value} className="flex items-center gap-3 text-sm">
-            <span className="w-8 text-white/70">{row.value}*</span>
-            <div className="h-2 flex-1 rounded-full bg-white/10">
-              <div
-                className="h-2 rounded-full bg-amber-300"
-                style={{ width: `${row.percent}%` }}
-              />
+      {shouldShowDistribution ? (
+        <div className="mt-4 grid gap-2">
+          {ratingRows.map((row) => (
+            <div key={row.value} className="flex items-center gap-3 text-sm">
+              <span className="w-8 text-slate-500">{row.value}★</span>
+              <div className="h-2 flex-1 rounded-full bg-slate-200">
+                <div
+                  className="h-2 rounded-full bg-[#6a3df0]"
+                  style={{ width: `${row.percent}%` }}
+                />
+              </div>
+              <span className="w-10 text-right text-slate-500">{row.count}</span>
             </div>
-            <span className="w-10 text-right text-white/60">{row.count}</span>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : null}
 
       {showReviewForm ? (
         <form
           onSubmit={handleSubmitReview}
-          className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4"
+          className="mt-4 rounded-[20px] bg-slate-50/75 p-4 space-y-3"
         >
           <div>
-            <p className="text-sm font-semibold text-white">Leave a review</p>
-            <p className="text-xs text-white/60">
+            <p className="text-sm font-semibold text-slate-950">Leave a review</p>
+            <p className="text-xs text-slate-500">
               Share your experience to help neighbors decide.
             </p>
           </div>
@@ -660,7 +662,7 @@ export default function BusinessReviewsPanel({
               >
                 <Star
                   className={`h-5 w-5 ${
-                    value <= rating ? "text-amber-300" : "text-white/30"
+                    value <= rating ? "text-amber-500" : "text-slate-300"
                   }`}
                   fill={value <= rating ? "currentColor" : "none"}
                 />
@@ -672,26 +674,26 @@ export default function BusinessReviewsPanel({
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Title (optional)"
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-base md:text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 md:text-sm"
             maxLength={80}
           />
           <textarea
             value={body}
             onChange={(event) => setBody(event.target.value)}
             placeholder="Write your review (optional)"
-            className="w-full min-h-[120px] rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-base md:text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+            className="w-full min-h-[104px] rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 md:text-sm"
             maxLength={800}
           />
           {submitError ? (
-            <p className="text-xs text-rose-200">{submitError}</p>
+            <p className="text-xs text-rose-600">{submitError}</p>
           ) : null}
           {submitSuccess ? (
-            <p className="text-xs text-emerald-200">{submitSuccess}</p>
+            <p className="text-xs text-emerald-600">{submitSuccess}</p>
           ) : null}
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/20 transition disabled:opacity-60"
+            className="dashboard-primary-action inline-flex items-center justify-center rounded-full bg-[#6E34FF] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5E2DE0] disabled:opacity-60"
           >
             {submitting ? "Submitting..." : "Post review"}
           </button>
@@ -699,20 +701,20 @@ export default function BusinessReviewsPanel({
       ) : null}
 
       {!showReviewForm && showLoginPrompt ? (
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5">
+        <div className="mt-4 rounded-[20px] bg-slate-50/75 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-white">
+              <p className="text-sm font-semibold text-slate-950">
                 Sign in to write a review
               </p>
-              <p className="text-xs text-white/60">
+              <p className="text-xs text-slate-500">
                 Join as a customer to share your experience.
               </p>
             </div>
             <button
               type="button"
               onClick={() => openModal("customer-login")}
-              className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/20 transition"
+              className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 transition hover:border-slate-400 hover:bg-slate-50"
             >
               Sign in
             </button>
@@ -721,7 +723,7 @@ export default function BusinessReviewsPanel({
       ) : null}
 
       {!showReviewForm && showBusinessNote ? (
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5 text-xs text-white/60">
+        <div className="mt-4 rounded-[20px] bg-slate-50/75 p-4 text-xs text-slate-500">
           {isOwnBusiness
             ? "Business owners can’t review their own business."
             : "Business accounts can’t leave reviews."}
@@ -729,39 +731,39 @@ export default function BusinessReviewsPanel({
       ) : null}
 
       {!reviews.length && !loading ? (
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-white/70">
+        <div className="mt-4 rounded-[20px] border border-dashed border-slate-200/90 bg-slate-50/70 p-4 text-sm text-slate-500">
           No reviews yet.
         </div>
       ) : null}
 
       {loading ? (
-        <div className="mt-6 space-y-4">
+        <div className="mt-4 space-y-3">
           {Array.from({ length: 2 }).map((_, idx) => (
             <div
               key={idx}
-              className="rounded-2xl border border-white/10 bg-white/5 p-5"
+              className="rounded-[20px] bg-slate-50/75 p-4"
             >
-              <div className="h-4 w-32 rounded bg-white/10" />
-              <div className="mt-3 h-3 w-24 rounded bg-white/10" />
-              <div className="mt-4 h-3 w-full rounded bg-white/10" />
-              <div className="mt-2 h-3 w-4/5 rounded bg-white/10" />
+              <div className="h-4 w-32 rounded bg-slate-200" />
+              <div className="mt-3 h-3 w-24 rounded bg-slate-200" />
+              <div className="mt-4 h-3 w-full rounded bg-slate-200" />
+              <div className="mt-2 h-3 w-4/5 rounded bg-slate-200" />
             </div>
           ))}
         </div>
       ) : reviews.length ? (
-        <div className="mt-6 space-y-4">
+        <div className="mt-4 space-y-3">
           {orderedReviews.map((review) => (
             <div
               key={review.id}
-              className="rounded-2xl border border-white/10 bg-white/5 p-5"
+              className="rounded-[20px] bg-slate-50/75 p-4"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-white">
+                  <p className="text-sm font-semibold text-slate-950">
                     {customerNames[review.customer_id] ||
                       formatReviewer(review.customer_id)}
                   </p>
-                  <p className="text-xs text-white/60">
+                  <p className="text-xs text-slate-500">
                     {review.created_at ? formatDate(review.created_at) : ""}
                     {review.updated_at &&
                     review.updated_at !== review.created_at
@@ -769,17 +771,17 @@ export default function BusinessReviewsPanel({
                       : ""}
                   </p>
                   {review.title ? (
-                    <p className="mt-1 text-xs text-white/70">{review.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">{review.title}</p>
                   ) : null}
                 </div>
-                <div className="flex items-center gap-1 text-amber-300">
+                <div className="flex items-center gap-1 text-amber-500">
                   {Array.from({ length: 5 }).map((_, idx) => (
                     <Star
                       key={idx}
                       className={`h-4 w-4 ${
                         idx < (review.rating || 0)
-                          ? "text-amber-300"
-                          : "text-amber-300/30"
+                          ? "text-amber-500"
+                          : "text-amber-200"
                       }`}
                       fill={idx < (review.rating || 0) ? "currentColor" : "none"}
                     />
@@ -796,49 +798,49 @@ export default function BusinessReviewsPanel({
                         onClick={() => setEditRating(value)}
                         className="p-1"
                         aria-label={`Rate ${value} star${value === 1 ? "" : "s"}`}
-                      >
-                        <Star
-                          className={`h-5 w-5 ${
-                            value <= editRating
-                              ? "text-amber-300"
-                              : "text-white/30"
-                          }`}
-                          fill={value <= editRating ? "currentColor" : "none"}
-                        />
-                      </button>
-                    ))}
+                        >
+                          <Star
+                            className={`h-5 w-5 ${
+                              value <= editRating
+                                ? "text-amber-500"
+                                : "text-slate-300"
+                            }`}
+                            fill={value <= editRating ? "currentColor" : "none"}
+                          />
+                        </button>
+                      ))}
                   </div>
                   <input
                     type="text"
                     value={editTitle}
                     onChange={(event) => setEditTitle(event.target.value)}
                     placeholder="Title (optional)"
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-base md:text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 md:text-sm"
                     maxLength={80}
                   />
                   <textarea
                     value={editBody}
                     onChange={(event) => setEditBody(event.target.value)}
                     placeholder="Write your review (optional)"
-                    className="w-full min-h-[120px] rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-base md:text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+                    className="w-full min-h-[104px] rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 md:text-sm"
                     maxLength={800}
                   />
                   {editError ? (
-                    <p className="text-xs text-rose-200">{editError}</p>
+                    <p className="text-xs text-rose-600">{editError}</p>
                   ) : null}
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => handleUpdateReview(review.id)}
                       disabled={editLoading}
-                      className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/20 transition disabled:opacity-60"
+                      className="dashboard-primary-action inline-flex items-center justify-center rounded-full bg-[#6E34FF] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5E2DE0] disabled:opacity-60"
                     >
                       {editLoading ? "Saving..." : "Save"}
                     </button>
                     <button
                       type="button"
                       onClick={cancelEditing}
-                      className="inline-flex items-center justify-center rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-semibold text-white/70 hover:bg-white/10 transition"
+                      className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                     >
                       Cancel
                     </button>
@@ -847,21 +849,21 @@ export default function BusinessReviewsPanel({
               ) : (
                 <>
                   {review.body ? (
-                    <p className="mt-3 text-sm text-white/70 leading-relaxed">
+                    <p className="mt-2.5 text-sm leading-6 text-slate-600">
                       {review.body}
                     </p>
                   ) : null}
                   {review.business_reply ? (
-                    <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-xs font-semibold uppercase text-white/60">
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                         Reply from business
                       </p>
                       {review.business_reply_at ? (
-                        <p className="mt-1 text-[11px] text-white/50">
+                        <p className="mt-1 text-[11px] text-slate-400">
                           {formatDate(review.business_reply_at)}
                         </p>
                       ) : null}
-                      <p className="mt-2 text-sm text-white/70 leading-relaxed">
+                      <p className="mt-2 text-sm leading-7 text-slate-600">
                         {review.business_reply}
                       </p>
                     </div>
@@ -869,37 +871,37 @@ export default function BusinessReviewsPanel({
                   {customerId && review.customer_id === customerId ? (
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       <button
-                        type="button"
-                        onClick={() => startEditing(review)}
-                        className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/20 transition"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteReview(review.id)}
-                        className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/20 transition"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="mt-4 flex items-center gap-2 text-sm">
-                      <button
-                        type="button"
-                        className="text-gray-500 hover:text-gray-700 transition"
-                        aria-label="Mark review as helpful"
-                        onClick={() => {}}
-                      >
-                        Helpful
-                      </button>
-                      <span className="text-gray-400">|</span>
+                      type="button"
+                      onClick={() => startEditing(review)}
+                      className="inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteReview(review.id)}
+                      className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-4 flex items-center gap-2 text-sm">
+                    <button
+                      type="button"
+                      className="text-slate-400 transition hover:text-slate-600"
+                      aria-label="Mark review as helpful"
+                      onClick={() => {}}
+                    >
+                      Helpful
+                    </button>
+                      <span className="text-slate-300">|</span>
                       <button
                         type="button"
                         onClick={() => {
                           setReportTarget(review);
                         }}
-                        className="text-gray-500 hover:text-gray-700 hover:underline transition"
+                        className="text-slate-400 transition hover:text-slate-600 hover:underline"
                       >
                         Report
                       </button>
@@ -917,7 +919,7 @@ export default function BusinessReviewsPanel({
           type="button"
           onClick={handleLoadMore}
           disabled={loadingMore}
-          className="mt-5 inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/20 transition"
+          className="mt-4 inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
         >
           {loadingMore ? "Loading..." : "Load more reviews"}
         </button>

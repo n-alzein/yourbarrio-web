@@ -100,7 +100,7 @@ export default function AccountMenuItems({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold">Business dashboard</p>
-                  <p className="text-xs yb-dropdown-muted">Manage your storefront</p>
+                  <p className="text-xs yb-dropdown-muted">Manage your profile</p>
                 </div>
               </Link>
             ) : null}
@@ -199,7 +199,7 @@ export default function AccountMenuItems({
               <span className="min-w-0 flex-1">
                 <span className="text-sm font-semibold">Business dashboard</span>
                 <span className="mt-1 block text-xs yb-dropdown-muted">
-                  Manage your storefront
+                  Manage your profile
                 </span>
               </span>
             </Link>

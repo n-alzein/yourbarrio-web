@@ -21,7 +21,7 @@ export const metadata = {
 function BusinessRouteShell({ children = null }) {
   return (
     <div
-      className="pt-8 md:pt-10 min-h-screen flex-1 bg-[var(--yb-bg)] text-[var(--yb-text)]"
+      className="min-h-screen flex-1 bg-[var(--yb-bg)] text-[var(--yb-text)]"
       data-theme="light"
       style={{
         "--bg-solid": "#ffffff",

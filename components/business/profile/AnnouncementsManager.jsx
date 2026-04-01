@@ -45,6 +45,25 @@ export default function AnnouncementsManager({
 
   const [form, setForm] = useState(initialForm);
 
+  const formatItemMeta = (item) => {
+    const meta = [];
+    if (item.is_published) {
+      meta.push("Live");
+    } else {
+      meta.push("Draft");
+    }
+    if (item.starts_at) {
+      meta.push(`Starts ${new Date(item.starts_at).toLocaleDateString()}`);
+    }
+    if (item.ends_at) {
+      meta.push(`Ends ${new Date(item.ends_at).toLocaleDateString()}`);
+    }
+    if (!item.starts_at && !item.ends_at) {
+      meta.push("No schedule");
+    }
+    return meta.join(" · ");
+  };
+
   const runWithTimeout = async (promise, ms, label) => {
     let timeoutId;
     const timeout = new Promise((_, reject) => {
@@ -211,18 +230,11 @@ export default function AnnouncementsManager({
   };
 
   return (
-    <div className="space-y-6">
-      <div className={`rounded-xl border ${tone.cardBorder} ${tone.cardSoft} p-5 md:p-6`}>
-        <div className="flex items-center justify-between">
+    <div className="space-y-3.5">
+      <div className="rounded-[20px] border border-slate-200/70 bg-slate-50/80 p-3.5 sm:p-4">
+        <form onSubmit={handleSubmit} className="space-y-2.5">
           <div>
-            <h3 className={`text-lg font-semibold ${tone.textStrong}`}>Announcements</h3>
-            <p className={`text-sm ${tone.textMuted}`}>Share updates, promos, and events.</p>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className={`text-xs font-semibold uppercase tracking-[0.18em] ${tone.textSoft}`}>
+            <label className="text-[11px] font-medium tracking-[0.04em] text-slate-500">
               Title
             </label>
             <input
@@ -230,118 +242,130 @@ export default function AnnouncementsManager({
               type="text"
               value={form.title}
               onChange={handleChange("title")}
-              className={`w-full rounded-xl border px-4 py-2 text-base md:text-sm focus:outline-none focus:ring-4 ${tone.input}`}
+              placeholder="Share a quick headline"
+              className={`mt-1 w-full rounded-xl border px-3.5 py-2 text-base md:text-sm focus:outline-none focus:ring-4 ${tone.input}`}
             />
           </div>
           <div>
-            <label className={`text-xs font-semibold uppercase tracking-[0.18em] ${tone.textSoft}`}>
-              Announcement
+            <label className="text-[11px] font-medium tracking-[0.04em] text-slate-500">
+              Update
             </label>
             <textarea
               value={form.body}
               onChange={handleChange("body")}
-              rows={4}
-              className={`w-full rounded-xl border px-4 py-2 text-base md:text-sm focus:outline-none focus:ring-4 ${tone.input}`}
+              rows={2}
+              placeholder="Short promos, schedule notes, or timely changes."
+              className={`mt-1 min-h-[92px] w-full rounded-xl border px-3.5 py-2.5 text-base md:text-sm focus:outline-none focus:ring-4 ${tone.input}`}
             />
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <label className={`text-xs font-semibold uppercase tracking-[0.18em] ${tone.textSoft}`}>
+              <label className="text-[11px] font-medium tracking-[0.04em] text-slate-500">
                 Starts at
               </label>
               <input
                 type="datetime-local"
                 value={form.starts_at}
                 onChange={handleChange("starts_at")}
-                className={`w-full rounded-xl border px-4 py-2 text-base md:text-sm focus:outline-none focus:ring-4 ${tone.input}`}
+                className={`mt-1 w-full rounded-xl border px-3.5 py-2 text-base md:text-sm focus:outline-none focus:ring-4 ${tone.input}`}
               />
             </div>
             <div>
-              <label className={`text-xs font-semibold uppercase tracking-[0.18em] ${tone.textSoft}`}>
+              <label className="text-[11px] font-medium tracking-[0.04em] text-slate-500">
                 Ends at
               </label>
               <input
                 type="datetime-local"
                 value={form.ends_at}
                 onChange={handleChange("ends_at")}
-                className={`w-full rounded-xl border px-4 py-2 text-base md:text-sm focus:outline-none focus:ring-4 ${tone.input}`}
+                className={`mt-1 w-full rounded-xl border px-3.5 py-2 text-base md:text-sm focus:outline-none focus:ring-4 ${tone.input}`}
               />
             </div>
           </div>
-          <label className={`inline-flex items-center gap-2 text-sm ${tone.textMuted}`}>
-            <input
-              type="checkbox"
-              checked={form.is_published}
-              onChange={handleChange("is_published")}
-              className="h-4 w-4"
-            />
-            Publish immediately
-          </label>
+          <div className="flex flex-col gap-2.5 pt-1 sm:flex-row sm:items-center sm:justify-between">
+            <label className={`inline-flex items-center gap-2 text-sm ${tone.textMuted}`}>
+              <input
+                type="checkbox"
+                checked={form.is_published}
+                onChange={handleChange("is_published")}
+                className="h-4 w-4"
+              />
+              Publish immediately
+            </label>
 
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={saving}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold ${tone.buttonSecondary}`}
-            >
-              {saving ? "Saving..." : editingId ? "Update announcement" : "Post announcement"}
-            </button>
-            {editingId ? (
+            <div className="flex flex-wrap items-center gap-2.5">
               <button
-                type="button"
-                onClick={resetForm}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold ${tone.buttonSecondary}`}
+                type="submit"
+                disabled={saving}
+                className="dashboard-primary-action rounded-full bg-[#6E34FF] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#5E2DE0]"
               >
-                Cancel
+                {saving ? "Saving..." : editingId ? "Update announcement" : "Post announcement"}
               </button>
-            ) : null}
+              {editingId ? (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </div>
           </div>
         </form>
       </div>
 
       {!announcements.length ? (
-        <div className={`rounded-xl border ${tone.cardBorder} ${tone.cardSoft} p-6 text-center`}>
-          <p className={`text-sm ${tone.textMuted}`}>No announcements yet.</p>
-          <p className={`text-xs ${tone.textSoft}`}>Post a quick update to keep customers in the loop.</p>
+        <div className="rounded-[18px] border border-dashed border-slate-200/90 bg-slate-50/70 px-4 py-3.5">
+          <p className={`text-sm font-medium ${tone.textStrong}`}>No updates yet</p>
+          <p className={`mt-1 text-sm ${tone.textMuted}`}>
+            Keep it brief. Short notices, promos, or schedule changes work best here.
+          </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-2.5">
           {announcements.map((item) => (
-            <div key={item.id} className={`rounded-xl border ${tone.cardBorder} ${tone.cardSoft} p-5`}>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className={`text-sm font-semibold ${tone.textStrong}`}>{item.title}</p>
-                  <p className={`text-xs ${tone.textMuted}`}>
-                    {item.starts_at ? `Starts ${new Date(item.starts_at).toLocaleDateString()}` : "No start date"}
-                    {item.ends_at ? ` · Ends ${new Date(item.ends_at).toLocaleDateString()}` : ""}
+            <article
+              key={item.id}
+              className="rounded-[18px] border border-slate-200/70 bg-white/85 px-4 py-3.5"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className={`truncate text-sm font-semibold ${tone.textStrong}`}>
+                    {item.title}
+                  </p>
+                  <p className={`mt-1 text-xs ${tone.textMuted}`}>
+                    {formatItemMeta(item)}
+                  </p>
+                  <p className={`mt-1.5 line-clamp-2 text-sm leading-6 ${tone.textMuted}`}>
+                    {item.body}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => handleTogglePublish(item)}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${tone.buttonSecondary}`}
+                    className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                   >
                     {item.is_published ? "Published" : "Draft"}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleEdit(item)}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${tone.buttonSecondary}`}
+                    className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                   >
                     Edit
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(item.id)}
-                    className="rounded-full px-3 py-1 text-xs font-semibold text-rose-500 border border-rose-200"
+                    className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-50"
                   >
                     Delete
                   </button>
                 </div>
               </div>
-              <p className={`mt-3 text-sm ${tone.textMuted}`}>{item.body}</p>
-            </div>
+            </article>
           ))}
         </div>
       )}

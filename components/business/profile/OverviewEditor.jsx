@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Clock, Globe, MapPin, Phone } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { getBusinessTypeOptions } from "@/lib/taxonomy/businessTypes";
 import {
   buildBusinessTaxonomyPayload,
-  getBusinessTypeLabel,
   getBusinessTypeSlug,
 } from "@/lib/taxonomy/compat";
 
@@ -408,47 +408,111 @@ export default function OverviewEditor({
     }
   };
 
-  const inputClass = `w-full rounded-xl border px-4 py-2 text-base md:text-sm focus:outline-none focus:ring-4 ${tone.input}`;
-  const labelClass = `text-xs font-semibold uppercase tracking-[0.18em] ${tone.textSoft}`;
+  const inputClass = `w-full rounded-2xl border px-4 py-2.5 text-base md:text-sm focus:outline-none focus:ring-4 ${tone.input}`;
+  const labelClass = `text-[11px] font-medium tracking-[0.08em] ${tone.textSoft}`;
 
-  return (
-    <div className="space-y-6">
-      <div className={`rounded-xl border ${tone.cardBorder} ${tone.cardSoft} p-5 md:p-6`}>
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className={`text-lg font-semibold ${tone.textStrong}`}>Overview</h2>
-            <p className={`text-sm ${tone.textMuted}`}>
-              Keep your profile current so customers can find you faster.
+  if (!editMode) {
+    const essentials = [
+      {
+        key: "address",
+        label: "Address",
+        icon: MapPin,
+        value: [form.address, form.city].filter(Boolean).join(", "),
+      },
+      {
+        key: "phone",
+        label: "Phone",
+        icon: Phone,
+        value: form.phone,
+      },
+      {
+        key: "website",
+        label: "Website",
+        icon: Globe,
+        value: form.website,
+      },
+    ].filter((item) => item.value);
+
+    const hours = DAYS.map(({ key, label }) => ({
+      key,
+      label,
+      value: formatHoursRange(form.hours?.[key]),
+    })).filter((item) => item.value && item.value !== "—");
+
+    return (
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
+        <div className="space-y-4">
+          <div className="max-w-[44rem]">
+            <p className={`text-[1rem] leading-7 ${tone.textMuted}`}>
+              {form.description ||
+                "Add a short description so customers can quickly understand what makes your business distinct."}
             </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setEditMode((prev) => !prev)}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold ${tone.buttonSecondary}`}
-            >
-              {editMode ? "Close editor" : "Edit profile"}
-            </button>
-            {editMode ? (
-              <button
-                type="button"
-                disabled={!(hasChanges || isDirty) || saving}
-                onClick={handleSave}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold ${tone.buttonSecondary} ${
-                  !(hasChanges || isDirty) || saving ? "opacity-60 cursor-not-allowed" : ""
-                }`}
-              >
-                {saving ? savingMessage || "Saving..." : "Save changes"}
-              </button>
-            ) : null}
           </div>
         </div>
 
-      </div>
+        <div className="space-y-3">
+          {essentials.length ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {essentials.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div
+                    key={item.key}
+                    className={`rounded-[20px] bg-slate-50/75 px-4 py-3`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-xl bg-white p-2 text-[#6a3df0] shadow-sm">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${tone.textSoft}`}>
+                          {item.label}
+                        </p>
+                        <p className={`mt-1 text-sm font-medium ${tone.textStrong}`}>
+                          {item.value}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
 
-      {editMode ? (
-        <div className={`rounded-xl border ${tone.cardBorder} ${tone.cardSoft} p-5 md:p-6`}>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className={`rounded-[20px] bg-slate-50/75 px-4 py-3`}>
+            <div className="mb-3 flex items-center gap-3">
+              <div className="rounded-xl bg-white p-2 text-[#6a3df0] shadow-sm">
+                <Clock className="h-4 w-4" />
+              </div>
+              <p className={`text-sm font-semibold ${tone.textStrong}`}>Hours</p>
+            </div>
+
+            {hours.length ? (
+              <div className="space-y-2">
+                {hours.map((entry) => (
+                  <div
+                    key={entry.key}
+                    className="flex items-center justify-between gap-4 rounded-2xl bg-white px-3 py-2 text-sm"
+                  >
+                    <span className={`font-medium ${tone.textStrong}`}>{entry.label}</span>
+                    <span className={tone.textMuted}>{entry.value}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl bg-white px-4 py-4 text-sm text-slate-500">
+                Hours not listed yet.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+      <div className="space-y-5">
+      <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className={labelClass}>Business name</label>
               <input
@@ -545,7 +609,7 @@ export default function OverviewEditor({
                   return (
                     <div
                       key={key}
-                      className={`flex flex-col gap-2 sm:flex-row sm:items-center rounded-lg border px-3 py-2 ${tone.cardBorder} ${tone.cardSoft}`}
+                      className={`flex flex-col gap-2 sm:flex-row sm:items-center rounded-2xl border px-3 py-2 ${tone.cardBorder} ${tone.cardSoft}`}
                     >
                       <div className="flex items-center justify-between sm:w-28">
                         <span className={`text-sm font-medium ${tone.textStrong}`}>{label}</span>
@@ -595,7 +659,7 @@ export default function OverviewEditor({
                           <button
                             type="button"
                             onClick={() => copyHoursToWeekdays(key)}
-                            className={`rounded px-2 py-1 text-xs ${tone.buttonSecondary}`}
+                            className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                             title="Copy to Mon-Fri"
                           >
                             Weekdays
@@ -603,7 +667,7 @@ export default function OverviewEditor({
                           <button
                             type="button"
                             onClick={() => copyHoursToAllDays(key)}
-                            className={`rounded px-2 py-1 text-xs ${tone.buttonSecondary}`}
+                            className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                             title="Copy to all days"
                           >
                             All
@@ -623,7 +687,7 @@ export default function OverviewEditor({
               <div className="mt-2 grid gap-3 sm:grid-cols-2">
                 {SOCIAL_FIELDS.map(({ key, label, placeholder }) => (
                   <div key={key} className="space-y-1">
-                    <p className={`text-xs font-semibold ${tone.textMuted}`}>{label}</p>
+                    <p className={`text-[11px] font-medium ${tone.textMuted}`}>{label}</p>
                     <input
                       type="url"
                       value={form.socials?.[key] || ""}
@@ -639,97 +703,26 @@ export default function OverviewEditor({
               </p>
             </div>
           </div>
-        </div>
-      ) : (
-        <div className={`rounded-xl border ${tone.cardBorder} ${tone.cardSoft} p-5 md:p-6`}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <InfoItem label="Business name" value={form.business_name} tone={tone} />
-            <InfoItem
-              label="Business type"
-              value={getBusinessTypeLabel({ business_type: form.business_type }, "—")}
-              tone={tone}
-            />
-            <InfoItem label="City" value={form.city} tone={tone} />
-            <InfoItem label="Phone" value={form.phone || "—"} tone={tone} />
-            <InfoItem label="Email" value={form.email || "—"} tone={tone} />
-            <InfoItem label="Website" value={form.website || "—"} tone={tone} />
-            <div className="md:col-span-2">
-              <InfoItem label="Address" value={form.address || "—"} tone={tone} />
-            </div>
-            <div className="md:col-span-2">
-              <InfoItem label="Description" value={form.description} tone={tone} />
-            </div>
-            <div className="md:col-span-2">
-              <div className="space-y-2">
-                <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${tone.textSoft}`}>
-                  Hours
-                </p>
-                {Object.values(form.hours || {}).some(
-                  (day) => day?.isClosed || (day?.open && day?.close)
-                ) ? (
-                  <div className="grid gap-2">
-                    {DAYS.map(({ key, label }) => (
-                      <div key={key} className="flex items-center justify-between gap-3">
-                        <span className={`text-sm ${tone.textMuted}`}>{label}</span>
-                        <span className={`text-sm ${tone.textStrong}`}>
-                          {formatHoursRange(form.hours?.[key])}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className={`text-sm ${tone.textStrong}`}>—</p>
-                )}
-              </div>
-            </div>
-            <div className="md:col-span-2">
-              <div className="space-y-2">
-                <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${tone.textSoft}`}>
-                  Social links
-                </p>
-                {Object.values(form.socials || {}).some((value) => value && value.trim()) ? (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {SOCIAL_FIELDS.map(({ key, label }) => {
-                      const value = form.socials?.[key];
-                      if (!value || !value.trim()) return null;
-                      return (
-                        <div key={key} className="flex items-center justify-between gap-3">
-                          <span className={`text-sm ${tone.textMuted}`}>{label}</span>
-                          <a
-                            href={value}
-                            target="_blank"
-                            rel="noreferrer"
-                            className={`text-sm font-semibold ${tone.textStrong} underline underline-offset-4`}
-                          >
-                            {value}
-                          </a>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className={`text-sm ${tone.textStrong}`}>—</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={!(hasChanges || isDirty) || saving}
+          onClick={handleSave}
+          className={`dashboard-primary-action rounded-full bg-[#6E34FF] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#5E2DE0] ${
+            !(hasChanges || isDirty) || saving ? "cursor-not-allowed opacity-60" : ""
+          }`}
+        >
+          {saving ? savingMessage || "Saving..." : "Save changes"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditMode(false)}
+          className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
-}
-
-function InfoItem({ label, value, tone }) {
-  return (
-    <div className="space-y-1">
-      <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${tone.textSoft}`}>
-        {label}
-      </p>
-      <p className={`text-sm ${tone.textStrong}`}>{value}</p>
-    </div>
-  );
-}
-
-function allowButtonStyle(tone) {
-  return `${tone.buttonSecondary} text-xs`;
 }

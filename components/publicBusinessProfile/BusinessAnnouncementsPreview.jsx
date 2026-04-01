@@ -1,53 +1,72 @@
 import { Megaphone } from "lucide-react";
+import {
+  ProfileEmptyState,
+  ProfileSection,
+  cx,
+} from "@/components/business/profile-system/ProfileSystem";
 
-export default function BusinessAnnouncementsPreview({ announcements, className = "" }) {
+export default function BusinessAnnouncementsPreview({
+  announcements,
+  className = "",
+  headerAction = null,
+  renderItemActions = null,
+}) {
   return (
-    <section
-      className={`rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 md:p-8 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.7)] ${className}`}
+    <ProfileSection
+      id="updates"
+      title="Updates"
+      description="Announcements, promos, and timely business notes."
+      action={headerAction}
+      className={className}
     >
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl md:text-2xl font-semibold">Announcements</h2>
-          <p className="text-sm text-white/70">
-            Latest updates from this business.
-          </p>
-        </div>
-      </div>
-
       {!announcements?.length ? (
-        <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-white/70">
-          No announcements yet.
-        </div>
+        <ProfileEmptyState
+          title="No updates yet"
+          detail="New announcements will show up here when this business shares them."
+        />
       ) : (
-        <div className="mt-5 grid gap-4">
-          {announcements.map((item) => (
-            <div
+        <div className="grid gap-3">
+          {announcements.map((item, index) => (
+            <article
               key={item.id}
-              className="rounded-2xl border border-white/10 bg-white/5 p-5"
+              className="rounded-[24px] border border-slate-200/80 bg-slate-50/85 px-5 py-4"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-semibold text-white/90">
-                    <Megaphone className="h-4 w-4 text-pink-300" />
-                    {item.title || "Announcement"}
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl bg-white p-2 text-[#6a3df0] shadow-sm">
+                      <Megaphone className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="truncate text-base font-semibold text-slate-950">
+                        {item.title || "Announcement"}
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        {item.created_at
+                          ? new Date(item.created_at).toLocaleDateString()
+                          : ""}
+                      </p>
+                    </div>
                   </div>
-                  <p className="mt-1 text-xs text-white/60">
-                    {item.created_at
-                      ? new Date(item.created_at).toLocaleDateString()
-                      : ""}
-                  </p>
                 </div>
-                <span className="rounded-full border border-white/10 bg-white/10 px-2 py-1 text-xs text-white/70">
-                  New
-                </span>
+
+                <div className="flex items-center gap-2">
+                  {index === 0 ? (
+                    <span className="rounded-full bg-[#efe8ff] px-2.5 py-1 text-[11px] font-medium text-[#5b37d6]">
+                      Latest
+                    </span>
+                  ) : null}
+                  {renderItemActions ? renderItemActions(item) : null}
+                </div>
               </div>
-              <p className="mt-3 text-sm text-white/70 leading-relaxed line-clamp-3">
+
+              <p className={cx("mt-3 text-sm leading-7 text-slate-600", renderItemActions ? "" : "line-clamp-3")}>
                 {item.body || "Details coming soon."}
               </p>
-            </div>
+            </article>
           ))}
         </div>
       )}
-    </section>
+    </ProfileSection>
   );
 }

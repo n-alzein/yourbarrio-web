@@ -143,15 +143,8 @@ const DateRangeControls = ({
                 href="/business/profile"
                 className={`${actionBaseClass} border border-slate-200/80 bg-white/90 text-slate-700 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white`}
               >
-                <Pencil className="h-3.5 w-3.5" />
-                Edit profile
-              </Link>
-              <Link
-                href="/business/preview"
-                className={`${actionBaseClass} border border-slate-200/80 bg-white/90 text-slate-700 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white`}
-              >
                 <Eye className="h-3.5 w-3.5" />
-                View storefront
+                View profile
               </Link>
             </div>
 
