@@ -13,10 +13,8 @@ import {
 import {
   ProfileEmptyState,
   ProfileSection,
-  normalizeUrl,
-  parseHours,
-  toObject,
 } from "@/components/business/profile-system/ProfileSystem";
+import { normalizeUrl, parseHours, toObject } from "@/lib/business/profileUtils";
 
 const SOCIAL_FIELDS = [
   { key: "instagram", label: "Instagram", icon: Instagram },
