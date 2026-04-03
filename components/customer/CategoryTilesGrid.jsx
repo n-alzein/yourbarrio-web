@@ -80,18 +80,18 @@ export default function CategoryTilesGrid({
   if (isLoading) {
     return (
       <div className="mx-auto w-full max-w-none">
-        <div className="rounded-[32px] border border-black/5 bg-[linear-gradient(180deg,#fdfbf8_0%,#f7f2eb_100%)] px-4 py-5 shadow-[0_20px_50px_-36px_rgba(15,23,42,0.28)] sm:px-5 md:px-6 md:py-7">
+        <div className="py-12">
           <div className="mb-6 flex items-center justify-between">
             <div className="h-7 w-44 rounded-full bg-black/8 animate-pulse" />
             <div className="h-10 w-24 rounded-full bg-black/8 animate-pulse" />
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-3 lg:gap-5">
+          <div className="grid grid-cols-2 gap-5 lg:grid-cols-3">
             {FALLBACK_TILES.map((_, idx) => (
               <div
                 key={`tile-skeleton-${idx}`}
                 className="overflow-hidden rounded-[24px] border border-[rgba(255,255,255,0.56)] bg-[#fdfbf8] shadow-[0_16px_34px_-24px_rgba(20,18,26,0.16)]"
               >
-                <div className="aspect-[4/5] bg-black/[0.06] animate-pulse lg:aspect-[5/4]" />
+                <div className="h-[260px] bg-black/[0.06] animate-pulse" />
                 <div className="-mt-16 px-4 pb-5 sm:px-5 sm:pb-6">
                   <div className="flex items-end justify-between gap-3">
                     <div className="space-y-2">
@@ -112,7 +112,7 @@ export default function CategoryTilesGrid({
   if (!hasCategories) {
     return (
       <div className="mx-auto w-full max-w-none">
-        <div className="rounded-[32px] border border-black/5 bg-[linear-gradient(180deg,#fdfbf8_0%,#f7f2eb_100%)] px-4 py-5 text-sm text-slate-600 shadow-[0_20px_50px_-36px_rgba(15,23,42,0.28)] sm:px-5 md:px-6 md:py-7">
+        <div className="py-12 text-sm text-slate-600">
           {error ? "Categories are unavailable right now." : "No categories yet."}
         </div>
       </div>
@@ -121,16 +121,8 @@ export default function CategoryTilesGrid({
 
   return (
     <div className="mx-auto w-full max-w-none">
-      <section className="relative overflow-hidden rounded-[32px] border border-[#2f234208] bg-[linear-gradient(180deg,#fdfbf8_0%,#faf6f0_52%,#f7f1eb_100%)] px-4 py-5 shadow-[0_22px_52px_-40px_rgba(15,23,42,0.2),inset_0_1px_0_rgba(255,255,255,0.6)] sm:px-5 sm:py-6 md:px-7 md:py-7 lg:px-8 lg:py-8">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(106,76,147,0.14),transparent)]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/70 via-white/24 to-transparent"
-        />
-        <div className="relative mb-5 flex flex-wrap items-end justify-between gap-x-5 gap-y-3 sm:mb-6 md:mb-7">
+      <section className="py-12">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-x-5 gap-y-3 sm:mb-6 md:mb-7">
           <div className="max-w-[34rem]">
             <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-[rgba(88,28,135,0.8)]">
               Browse local
@@ -153,7 +145,7 @@ export default function CategoryTilesGrid({
           ) : null}
         </div>
         <div
-          className="yb-tile-scroll-guard-y grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-3 lg:gap-5"
+          className="yb-tile-scroll-guard-y grid grid-cols-2 gap-5 lg:grid-cols-3"
           onPointerDown={onTilePointerDown}
           onPointerMove={onTilePointerMove}
           onPointerUp={onTilePointerUp}
@@ -222,7 +214,7 @@ export default function CategoryTilesGrid({
                 onNavigate={markNavStart}
                 className="tile group relative isolate overflow-hidden rounded-[24px] border border-[rgba(255,255,255,0.52)] bg-[#fdfbf8] shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-[4px] hover:shadow-[0_18px_45px_rgba(0,0,0,0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8c73bb59] focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf6f0] pointer-events-auto touch-manipulation"
               >
-                <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[inherit] bg-[linear-gradient(180deg,#d9c7b5_0%,#b59882_100%)] lg:aspect-[5/4]">
+                <div className="relative h-[260px] w-full overflow-hidden rounded-[inherit] bg-[linear-gradient(180deg,#d9c7b5_0%,#b59882_100%)]">
                   {category.tileImageUrl ? (
                     <Image
                       src={category.tileImageUrl}
