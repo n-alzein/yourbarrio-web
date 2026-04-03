@@ -37,29 +37,6 @@ const VALUE_POINTS = [
   },
 ];
 
-const STEPS = [
-  {
-    step: "01",
-    title: "Create your business account",
-    description: "Set up your account and unlock YourBarrio’s business tools.",
-  },
-  {
-    step: "02",
-    title: "Build your storefront",
-    description: "Add your details, photos, services, and what makes your business worth choosing.",
-  },
-  {
-    step: "03",
-    title: "Publish what you offer",
-    description: "List products or services so nearby customers can understand what you do at a glance.",
-  },
-  {
-    step: "04",
-    title: "Reach local customers",
-    description: "Show up with a stronger local presence in the neighborhoods you actually serve.",
-  },
-];
-
 const HERO_VISUAL_SRC = "/business_transaction.png";
 
 function SectionHeading({ eyebrow, title, body }) {
@@ -79,7 +56,7 @@ function SectionHeading({ eyebrow, title, body }) {
 function BusinessPreviewPanel() {
   return (
     <div className="mx-auto w-full max-w-[35rem] lg:mr-0 lg:max-w-[39.9rem]">
-      <div className="overflow-hidden rounded-[12px] bg-white/35">
+      <div className="yb-business-polish-transition overflow-hidden rounded-[26px] border border-white/55 bg-white/45 shadow-[var(--yb-business-shadow-soft)]">
         <Image
           src={HERO_VISUAL_SRC}
           alt="YourBarrio for Business storefront preview"
@@ -96,22 +73,22 @@ function BusinessPreviewPanel() {
 
 function BusinessValueCard({ title, description, image, alt, objectPosition }) {
   return (
-    <article className="group flex max-w-[23.5rem] flex-col">
-      <div className="overflow-hidden rounded-[26px] bg-[#f3ede6] shadow-[0_14px_34px_-24px_rgba(15,23,42,0.18)] transition duration-300 ease-out group-hover:-translate-y-0.5 group-hover:shadow-[0_20px_42px_-26px_rgba(15,23,42,0.24)]">
+    <article className="group yb-business-polish-transition flex max-w-[23.5rem] flex-col group-hover:-translate-y-0.5">
+      <div className="overflow-hidden rounded-[26px] bg-[#f3ede6] shadow-[var(--yb-business-shadow-soft)] yb-business-polish-transition group-hover:shadow-[var(--yb-business-shadow-hover)]">
         <div className="relative aspect-[4/3] min-h-[17.5rem] overflow-hidden md:min-h-[18.5rem]">
           <Image
             src={image}
             alt={alt}
             fill
-            className={`object-cover ${objectPosition} transition-transform duration-300 ease-out group-hover:scale-[1.03]`}
+            className={`object-cover ${objectPosition} yb-business-polish-transition group-hover:scale-[1.02]`}
             sizes="(max-width: 767px) 100vw, (max-width: 1279px) 50vw, 360px"
           />
         </div>
       </div>
-      <h3 className="mt-6 max-w-[18rem] text-[1.1rem] font-semibold tracking-[-0.03em] text-slate-950">
+      <h3 className="mt-5 max-w-[17.5rem] text-[1.1rem] font-semibold tracking-[-0.03em] text-slate-950">
         {title}
       </h3>
-      <p className="mt-3 max-w-[19rem] text-[0.95rem] leading-6 text-slate-600">{description}</p>
+      <p className="mt-2.5 max-w-[20rem] text-[0.95rem] leading-6 text-slate-600">{description}</p>
     </article>
   );
 }
@@ -200,29 +177,29 @@ export default async function BusinessHome() {
               <p className="inline-flex items-center rounded-full border border-[#7c3aed]/16 bg-[#7c3aed]/[0.05] px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#6d28d9]">
                 For Local Businesses
               </p>
-              <h1 className="mt-4 text-4xl font-semibold tracking-[-0.06em] text-slate-950 sm:text-[3.2rem] sm:leading-[0.98] lg:text-[4rem]">
-                Help your neighborhood discover your business first.
+              <h1 className="mt-3.5 text-4xl font-semibold tracking-[-0.06em] text-slate-950 sm:text-[3.2rem] sm:leading-[0.98] lg:text-[4rem]">
+                Be the first business your neighborhood discovers.
               </h1>
-              <p className="mt-4 max-w-md text-base leading-7 text-slate-600">
+              <p className="mt-3 max-w-md text-base leading-7 text-slate-600">
                 Get discovered by customers already searching nearby.
               </p>
 
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                 <BusinessAuthPopupLink
                   href="/business-auth/register"
-                  className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#8b33ea)] px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_22px_-18px_rgba(124,58,237,0.26)] transition duration-200 hover:-translate-y-0.5"
+                  className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#8b33ea)] px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_-18px_rgba(124,58,237,0.34)] yb-business-polish-transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_-22px_rgba(124,58,237,0.42)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed] focus-visible:ring-offset-2"
                 >
                   Create a business account
                 </BusinessAuthPopupLink>
                 <BusinessAuthPopupLink
                   href="/business/login"
-                  className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white/88 px-6 py-3 text-sm font-semibold text-slate-800 transition duration-200 hover:bg-white"
+                  className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white/88 px-6 py-3 text-sm font-semibold text-slate-800 yb-business-polish-transition hover:border-slate-400 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2"
                 >
                   Business login
                 </BusinessAuthPopupLink>
               </div>
 
-              <p className="mt-5 text-sm leading-6 text-slate-600">
+              <p className="mt-4 text-sm leading-6 text-slate-600">
                 Built for local visibility and simple business tools.
               </p>
             </div>
@@ -231,7 +208,7 @@ export default async function BusinessHome() {
           </div>
         </section>
 
-        <section className="px-6 py-20 md:px-8 md:py-24">
+        <section className="px-6 pb-14 pt-20 md:px-8 md:pb-16 md:pt-24">
           <div className="mx-auto w-full max-w-[76rem]">
             <SectionHeading
               eyebrow="Core value"
@@ -254,35 +231,8 @@ export default async function BusinessHome() {
           </div>
         </section>
 
-        <section className="px-6 py-16 md:px-8 md:py-18">
-          <div className="mx-auto w-full max-w-6xl">
-            <SectionHeading
-              eyebrow="How it works"
-              title="A simple path from setup to local discovery."
-              body="The workflow stays clear so you can focus on your business, not on learning a complicated platform."
-            />
-
-            <div className="mt-10 grid gap-4 lg:grid-cols-4">
-              {STEPS.map((item) => (
-                <div
-                  key={item.step}
-                  className="rounded-[24px] border border-slate-200/75 bg-white/78 p-5 shadow-[0_18px_40px_-34px_rgba(15,23,42,0.16)]"
-                >
-                  <div className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#7c3aed]">
-                    {item.step}
-                  </div>
-                  <h3 className="mt-4 text-[1.05rem] font-semibold tracking-[-0.03em] text-slate-950">
-                    {item.title}
-                  </h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">{item.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="px-6 pb-16 pt-8 md:px-8 md:pb-20">
-          <div className="mx-auto w-full max-w-5xl overflow-hidden rounded-[30px] border border-[#d9c6ff]/35 bg-[linear-gradient(135deg,rgba(247,240,255,0.96),rgba(242,236,251,0.98))] p-8 text-center shadow-[0_24px_70px_-48px_rgba(124,58,237,0.26)] md:p-10">
+        <section className="px-6 pb-16 pt-4 md:px-8 md:pb-20 md:pt-6">
+          <div className="mx-auto w-full max-w-5xl overflow-hidden rounded-[30px] border border-[#d9c6ff]/30 bg-[linear-gradient(135deg,rgba(249,244,255,0.98),rgba(244,240,251,0.96)_48%,rgba(239,243,252,0.94))] p-8 text-center shadow-[0_24px_70px_-48px_rgba(15,23,42,0.18)] md:p-10">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#6d28d9]">
               Get started
             </p>
@@ -292,16 +242,16 @@ export default async function BusinessHome() {
             <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-600">
               Give nearby customers a clearer reason to discover, trust, and choose your business.
             </p>
-            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
               <BusinessAuthPopupLink
                 href="/business-auth/register"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#7c3aed,#9333ea)] px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_34px_-16px_rgba(124,58,237,0.34)] transition duration-200 hover:-translate-y-0.5"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#7c3aed,#9333ea)] px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_34px_-16px_rgba(124,58,237,0.34)] yb-business-polish-transition hover:-translate-y-0.5 hover:shadow-[0_20px_40px_-20px_rgba(124,58,237,0.38)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed] focus-visible:ring-offset-2"
               >
                 Get started <ArrowRight className="h-4 w-4" />
               </BusinessAuthPopupLink>
               <BusinessAuthPopupLink
                 href="/business/login"
-                className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-slate-300/90 bg-white/92 px-6 py-3 text-sm font-semibold text-slate-800 transition duration-200 hover:bg-white"
+                className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-slate-300/90 bg-white/92 px-6 py-3 text-sm font-semibold text-slate-800 yb-business-polish-transition hover:border-slate-400 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2"
               >
                 Business login
               </BusinessAuthPopupLink>

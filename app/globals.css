@@ -362,10 +362,35 @@ button {
   }
 }
 
+.yb-business-marketing {
+  --yb-business-radius-sm: 0.75rem;
+  --yb-business-radius-md: 1.5rem;
+  --yb-business-radius-lg: 1.625rem;
+  --yb-business-shadow-soft: 0 18px 42px -30px rgba(15, 23, 42, 0.2);
+  --yb-business-shadow-card: 0 18px 42px -34px rgba(15, 23, 42, 0.16);
+  --yb-business-shadow-hover: 0 24px 48px -32px rgba(15, 23, 42, 0.24);
+  --yb-business-transition: 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.yb-business-marketing .yb-business-polish-transition {
+  transition:
+    transform var(--yb-business-transition),
+    box-shadow var(--yb-business-transition),
+    border-color var(--yb-business-transition),
+    background-color var(--yb-business-transition),
+    color var(--yb-business-transition);
+}
+
 .theme-light footer.theme-lock p,
 .theme-light footer.theme-lock h4,
 .theme-light footer.theme-lock li {
   color: inherit !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yb-business-marketing .yb-business-polish-transition {
+    transition: none !important;
+  }
 }
 
 /* Light theme — navbars are solid, no blur/gradient */

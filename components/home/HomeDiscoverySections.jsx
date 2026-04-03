@@ -2,37 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import {
-  BadgeCheck,
-  Gift,
-  Sparkles,
-  Store,
-  Truck,
-} from "lucide-react";
 import { getListingCategoryPlaceholder } from "@/lib/taxonomy/placeholders";
-
-const WHY_ITEMS = [
-  {
-    title: "Support local businesses",
-    description: "Keep more spending in your neighborhood while discovering shops worth repeating.",
-    Icon: Store,
-  },
-  {
-    title: "Curated marketplace",
-    description: "Browse a tighter, higher-quality mix of shops, products, and neighborhood favorites.",
-    Icon: Sparkles,
-  },
-  {
-    title: "Verified shops",
-    description: "Find trusted businesses with clearer business profiles and more reliable discovery.",
-    Icon: BadgeCheck,
-  },
-  {
-    title: "Fast pickup or delivery",
-    description: "Shop local with the convenience people expect from premium modern marketplaces.",
-    Icon: Truck,
-  },
-];
 
 const COLLECTIONS = [
   {
@@ -64,36 +34,6 @@ const COLLECTIONS = [
 
 function resolveHref(item, mode) {
   return mode === "customer" && item.customerHref ? item.customerHref : item.href;
-}
-
-export function WhyYourBarrioSection() {
-  return (
-    <section className="mx-auto mt-16 w-full max-w-6xl px-6 md:mt-20 md:px-8">
-      <div className="mb-7 max-w-2xl md:mb-8">
-        <p className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-white/55">
-          Why YourBarrio
-        </p>
-        <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-[2.2rem]">
-          Discovery built for local commerce, not generic directories.
-        </h2>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {WHY_ITEMS.map(({ title, description, Icon }) => (
-          <article
-            key={title}
-            className="rounded-[28px] border border-white/10 bg-white/6 p-5 shadow-[0_24px_60px_-44px_rgba(15,23,42,0.65)] backdrop-blur-xl"
-          >
-            <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-white/10 text-white">
-              <Icon className="h-5 w-5" />
-            </div>
-            <h3 className="mt-4 text-lg font-semibold tracking-[-0.03em] text-white">{title}</h3>
-            <p className="mt-2 text-sm leading-6 text-white/68">{description}</p>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
 }
 
 export function CuratedCollectionsSection({ mode = "public" }) {

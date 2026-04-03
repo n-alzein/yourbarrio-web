@@ -1532,12 +1532,12 @@ function CustomerNavbarInner({ pathname, searchParams }) {
       </div>
 
       <div
-        className="md:hidden px-0 pt-2 pb-4 border-t border-white/10"
+        className="border-t border-white/10 px-4 pt-2 pb-4 sm:px-6 md:hidden"
         data-nav-guard="1"
       >
         <form
           onSubmit={handleSubmitSearch}
-          className="relative mx-auto flex w-[92%] items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 transition-[border-color,box-shadow] duration-200 ease-out hover:border-purple-400/60 focus-within:border-purple-400/70 focus-within:ring-2 focus-within:ring-purple-500/40 md:mx-0 md:w-full"
+          className="relative mx-auto flex w-full max-w-full min-w-0 box-border items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 transition-[border-color,box-shadow] duration-200 ease-out hover:border-purple-400/60 focus-within:border-purple-400/70 focus-within:ring-2 focus-within:ring-purple-500/40 md:mx-0 md:w-full"
           style={{ boxShadow: "0 0 0 0 rgba(124,58,237,0)" }}
         >
           <Search className="h-4 w-4 text-white/70" />
@@ -1558,7 +1558,7 @@ function CustomerNavbarInner({ pathname, searchParams }) {
                 "0 0 0 0 rgba(124,58,237,0)"
               );
             }}
-            className="flex-1 bg-transparent pr-12 text-base md:text-sm placeholder:text-white/60 focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent pr-12 text-base md:text-sm placeholder:text-white/60 focus:outline-none"
             placeholder="Search YourBarrio"
             type="search"
           />

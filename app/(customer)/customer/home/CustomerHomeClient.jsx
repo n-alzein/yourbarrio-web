@@ -34,7 +34,6 @@ import PopularNearYouSection from "@/components/home/PopularNearYouSection";
 import {
   CuratedCollectionsSection,
   SellerCTASection,
-  WhyYourBarrioSection,
 } from "@/components/home/HomeDiscoverySections";
 import { useLocation } from "@/components/location/LocationProvider";
 import FeedbackSection from "@/components/browse/FeedbackSection";
@@ -698,7 +697,6 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
               limit={6}
               badgeMode="trending"
             />
-            <WhyYourBarrioSection />
             <CuratedCollectionsSection mode={mode} />
             <SellerCTASection />
           </div>
