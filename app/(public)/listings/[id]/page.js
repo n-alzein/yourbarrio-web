@@ -6,10 +6,10 @@ import {
   ArrowLeft,
   BadgeCheck,
   Heart,
+  MapPin,
   MoreHorizontal,
   Shield,
   ShoppingBag,
-  Star,
   Truck,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
@@ -466,18 +466,26 @@ export default function ListingDetails({ params }) {
   const badgeStyle = getAvailabilityBadgeStyle(inventory.availability, isLight);
   const isOutOfStock = inventory.availability === "out";
   const isCustomerListingRoute = pathname?.startsWith("/customer/listings");
+  const businessProfileHref = business?.id ? getCustomerBusinessUrl(business) : null;
+  const isBusinessVerified = ["auto_verified", "manually_verified"].includes(
+    String(business?.verification_status || "").trim().toLowerCase()
+  );
 
   return (
     <>
       <div
-        className={`min-h-screen px-4 md:px-8 lg:px-12 ${
+        className={`px-4 md:px-8 lg:px-12 ${
           isCustomerListingRoute
-            ? "pt-0 pb-4 md:pt-0 -mt-24 md:-mt-16"
-            : "py-4 md:pt-3"
+            ? "pt-0 pb-2 md:pt-0 -mt-24 md:-mt-16"
+            : "pt-4 pb-3 md:pt-3 md:pb-2"
         }`}
-        style={{ background: "var(--background)", color: "var(--text)" }}
+        style={{
+          background: "var(--background)",
+          color: "var(--text)",
+          borderBottom: "1px solid rgba(15,23,42,0.05)",
+        }}
       >
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="max-w-6xl mx-auto space-y-4">
         <div
           className={`flex flex-wrap items-center justify-between gap-3 opacity-80 mb-2 ${
             isCustomerListingRoute ? "mt-10 md:mt-12" : "mt-2"
@@ -489,20 +497,16 @@ export default function ListingDetails({ params }) {
           >
             <ArrowLeft className="h-4 w-4" /> Back to discovery
           </Link>
-          <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.22em] opacity-80">
-            <BadgeCheck className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
-            Verified local listing
-          </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
             <div
-              className="rounded-3xl shadow-lg overflow-hidden relative"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              className="relative overflow-hidden rounded-3xl shadow-[0_18px_40px_-32px_rgba(15,23,42,0.22)]"
+              style={{ background: "var(--surface)", border: "1px solid rgba(15,23,42,0.08)" }}
             >
               {galleryPhotos.length > 1 ? (
-                <div className="absolute top-4 left-4 z-10 flex flex-col gap-3">
+                <div className="absolute left-4 top-4 z-10 flex flex-col gap-2 rounded-[20px] border border-white/70 bg-white/80 p-2 shadow-[0_18px_36px_-28px_rgba(15,23,42,0.24)] backdrop-blur-sm">
                   {galleryPhotos.map((photo, idx) => {
                     const active = heroSrc === photo;
                     return (
@@ -510,11 +514,20 @@ export default function ListingDetails({ params }) {
                         key={`${photo}-${idx}`}
                         type="button"
                         onClick={() => setHeroSrc(photo)}
-                        className={`h-16 w-16 rounded-xl overflow-hidden border bg-white/5 transition shadow-sm flex items-center justify-center p-1 ${
+                        className={`flex h-[60px] w-[60px] items-center justify-center overflow-hidden rounded-[16px] border p-1.5 transition duration-200 ${
                           active
-                            ? "border-white/80 ring-2 ring-white/70"
-                            : "border-white/20 hover:border-white/50"
+                            ? "shadow-sm"
+                            : "hover:-translate-y-0.5 hover:shadow-sm"
                         }`}
+                        style={{
+                          background: "rgba(255,255,255,0.88)",
+                          borderColor: active
+                            ? "rgba(110,52,255,0.3)"
+                            : "rgba(148, 163, 184, 0.22)",
+                          boxShadow: active
+                            ? "0 0 0 2px rgba(110,52,255,0.16), 0 10px 20px -20px rgba(110,52,255,0.35)"
+                            : undefined,
+                        }}
                         aria-label={`View photo ${idx + 1}`}
                       >
                         <SafeImage
@@ -533,11 +546,13 @@ export default function ListingDetails({ params }) {
                 </div>
               ) : null}
 
-              <div className="relative h-[420px] w-full overflow-hidden flex items-center justify-center bg-transparent p-3">
+              <div className="relative flex h-[420px] w-full items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.98),rgba(247,247,245,0.98)_52%,rgba(242,242,240,1)_100%)] p-5">
+                <div className="pointer-events-none absolute inset-x-[10%] top-[10%] h-[68%] rounded-[32px] bg-[radial-gradient(circle_at_top,rgba(111,52,255,0.05),rgba(111,52,255,0)_62%)]" />
+                <div className="pointer-events-none absolute inset-x-[20%] bottom-[12%] h-10 rounded-full bg-[radial-gradient(circle,rgba(15,23,42,0.08),rgba(15,23,42,0)_72%)] blur-xl" />
                 <SafeImage
                   src={heroSrc || getListingCategoryPlaceholder(listing)}
                   alt={listing.title}
-                  className="object-contain"
+                  className="object-contain scale-[1.02]"
                   fill
                   sizes="(max-width: 1024px) 100vw, 66vw"
                   useNextImage
@@ -551,228 +566,271 @@ export default function ListingDetails({ params }) {
                   referrerPolicy="no-referrer"
                   fallbackSrc={getListingCategoryPlaceholder(listing)}
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/10 to-white/20" />
+                <div className="pointer-events-none absolute inset-0 ring-1 ring-black/5" />
               </div>
-              <div className="p-5 space-y-3">
-                <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] opacity-75">
-                  <Shield className="h-4 w-4 opacity-90" />
-                  {listingCategory}
+              <div className="space-y-0 p-5 md:p-6">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] opacity-72">
+                    <Shield className="h-3.5 w-3.5 opacity-80" />
+                    {listingCategory}
+                  </span>
                   <span
-                    className="rounded-full px-2 py-1 text-[10px] font-semibold border bg-transparent"
+                    className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]"
                     style={
                       badgeStyle
-                        ? { color: badgeStyle.color, borderColor: badgeStyle.border }
+                        ? {
+                            color: badgeStyle.color,
+                            borderColor: badgeStyle.border,
+                            background: badgeStyle.background,
+                          }
                         : undefined
                     }
                   >
                     {inventory.label}
                   </span>
                 </div>
-                <h1 className="text-3xl font-semibold leading-tight">{listing.title}</h1>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm opacity-80 min-w-0">
-                  <div className="inline-flex items-center gap-1">
-                    <Star className="h-4 w-4 text-amber-400" />
-                    <span>Local favorite</span>
+                <div className="mt-4 space-y-2.5">
+                  <h1 className="text-2xl font-semibold leading-tight tracking-[-0.02em] md:text-[2rem]">
+                    {listing.title}
+                  </h1>
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-sm opacity-80">
+                    <span>{city}</span>
+                    {address ? (
+                      <>
+                        <span className="h-1 w-1 rounded-full bg-slate-300" />
+                        <span className="truncate max-w-full">{address}</span>
+                      </>
+                    ) : null}
+                    {businessType ? (
+                      <>
+                        <span className="h-1 w-1 rounded-full bg-slate-300" />
+                        <span>{businessType}</span>
+                      </>
+                    ) : null}
                   </div>
-                  <span className="h-1 w-1 rounded-full bg-slate-300" />
-                  <span>{city}</span>
-                  {address ? (
-                    <>
-                      <span className="h-1 w-1 rounded-full bg-slate-300" />
-                      <span className="truncate max-w-full">{address}</span>
-                    </>
-                  ) : null}
-              </div>
-                <ListingDescription
-                  htmlOrText={listing.description}
-                  fallback="A local item from YourBarrio businesses."
-                  className="mt-1"
-                />
-              </div>
-            </div>
-
-            <div
-              className="rounded-3xl p-5 space-y-4 shadow-lg"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm uppercase tracking-[0.18em] opacity-70">
-                  Store details
-                </p>
-                <div className="inline-flex items-center gap-2 text-xs opacity-80">
-                  <BadgeCheck className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
-                  YourBarrio business
                 </div>
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <p className="text-lg font-semibold">{storeName}</p>
-                  <p className="text-sm opacity-80">{city}</p>
-                  {businessType ? (
-                    <p className="text-xs opacity-70 mt-1">{businessType}</p>
-                  ) : null}
-                </div>
-                <div className="flex items-center gap-3 text-sm opacity-90">
-                  {business?.website ? (
-                    <Link
-                      href={business.website}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="underline underline-offset-4 hover:opacity-100"
-                    >
-                      {business.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                    </Link>
-                  ) : null}
-                  {business?.phone ? (
-                    <Link
-                      href={`tel:${business.phone}`}
-                      className="inline-flex items-center gap-2 rounded-full px-3 py-2"
-                      style={{ background: "var(--overlay)", border: "1px solid var(--border)" }}
-                    >
-                      <PhoneIcon /> {business.phone}
-                    </Link>
-                  ) : null}
-                </div>
-              </div>
-              {showMessage ? (
-                <div className="mt-4 space-y-2">
-                  {business?.id ? (
-                    <Link
-                      href={getCustomerBusinessUrl(business)}
-                      onClick={(event) => {
-                        if (!gateBusinessProfileAccess(event, getCustomerBusinessUrl(business))) {
-                          return;
-                        }
-                      }}
-                      className="w-full inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition border bg-transparent hover:bg-white/10"
-                      style={{ borderColor: "var(--border)" }}
-                    >
-                      Visit business profile
-                    </Link>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={handleMessageBusiness}
-                    disabled={messageLoading}
-                    className={`w-full rounded-2xl px-4 py-3 text-sm font-semibold transition border ${
-                      messageLoading
-                        ? "bg-white/60 text-slate-600"
-                        : "bg-white text-slate-900 hover:bg-slate-50"
-                    }`}
-                    style={{ borderColor: "var(--border)" }}
-                  >
-                    {messageLoading ? "Opening messages..." : "Message business"}
-                  </button>
+                <div className="mt-5 border-t pt-4" style={{ borderColor: "rgba(15,23,42,0.08)" }}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div
+                        className="relative h-11 w-11 shrink-0 overflow-hidden rounded-[18px]"
+                        style={{ background: "var(--surface)", border: "1px solid rgba(15,23,42,0.08)" }}
+                      >
+                        <SafeImage
+                          src={business?.profile_photo_url || getBusinessTypePlaceholder(business)}
+                          alt={storeName}
+                          fill
+                          className="object-cover"
+                          sizes="48px"
+                          useNextImage
+                          fallbackSrc={getBusinessTypePlaceholder(business)}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="truncate text-sm font-semibold md:text-[15px]">{storeName}</p>
+                          {isBusinessVerified ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-[rgba(111,52,255,0.88)]">
+                              <BadgeCheck className="h-3.5 w-3.5" />
+                              Verified
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs opacity-75">
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin className="h-3.5 w-3.5" />
+                            {city}
+                          </span>
+                          {businessType ? <span>{businessType}</span> : null}
+                          {business?.website ? (
+                            <Link
+                              href={business.website}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline underline-offset-4 hover:opacity-100"
+                            >
+                              {business.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                            </Link>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                    {showMessage ? (
+                      <div className="flex flex-wrap items-center gap-2 pt-1 sm:justify-end">
+                        {businessProfileHref ? (
+                          <Link
+                            href={businessProfileHref}
+                            onClick={(event) => {
+                              if (!gateBusinessProfileAccess(event, businessProfileHref)) {
+                                return;
+                              }
+                            }}
+                            className="inline-flex items-center justify-center rounded-full border px-3 py-1.5 text-sm font-medium transition hover:bg-black/[0.03]"
+                            style={{ borderColor: "rgba(15,23,42,0.08)" }}
+                          >
+                            View business profile
+                          </Link>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={handleMessageBusiness}
+                          disabled={messageLoading}
+                          className={`inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                            messageLoading ? "opacity-70" : "hover:opacity-90"
+                          }`}
+                          style={{
+                            color: "var(--yb-focus)",
+                          }}
+                        >
+                          {messageLoading ? "Opening messages..." : "Message business"}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                   {messageStatus ? (
                     <div
-                      className="text-xs rounded-xl px-3 py-2 text-white/80"
-                      style={{ background: "var(--overlay)", border: "1px solid var(--border)" }}
+                      className="mt-3 rounded-xl px-3 py-2 text-xs"
+                      style={{ background: "rgba(111,52,255,0.05)", border: "1px solid rgba(111,52,255,0.1)" }}
                     >
                       {messageStatus}
                     </div>
                   ) : null}
                 </div>
-              ) : null}
+                <ListingDescription
+                  htmlOrText={listing.description}
+                  fallback="A local item from YourBarrio businesses."
+                  className="mt-5 text-[15px]"
+                />
+              </div>
             </div>
           </div>
 
-          <aside className="space-y-4">
+          <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
             <div
-              className="rounded-3xl p-5 shadow-lg"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              className="rounded-3xl p-5 shadow-[0_22px_44px_-30px_rgba(15,23,42,0.24)]"
+              style={{ background: "var(--surface)", border: "1px solid rgba(15,23,42,0.08)" }}
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm opacity-75">Price</p>
-                  <div className="text-3xl font-semibold">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-2.5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-65">
+                    Ready to order
+                  </p>
+                  <div className="text-[2rem] font-semibold leading-none tracking-[-0.03em]">
                     {formattedPrice ? `$${formattedPrice}` : "Contact store"}
                   </div>
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                    Local delivery & pickup available
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span
+                      className="rounded-full border px-2.5 py-1 text-[11px] font-semibold"
+                      style={
+                        badgeStyle
+                          ? {
+                              color: badgeStyle.color,
+                              borderColor: badgeStyle.border,
+                              background: badgeStyle.background,
+                            }
+                          : undefined
+                      }
+                    >
+                      {inventory.label}
+                    </span>
+                    <span className="opacity-75">Sold by {storeName}</span>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleToggleSave}
-                  className="rounded-full p-2 -mr-2"
-                  aria-pressed={isSaved}
-                  aria-label={isSaved ? "Unsave listing" : "Save listing"}
-                  disabled={saveLoading}
-                >
-                  <Heart
-                    className={`h-5 w-5 ${isSaved ? "text-rose-400" : "opacity-70"}`}
-                    fill={isSaved ? "currentColor" : "none"}
-                  />
-                </button>
-                <div className="relative" ref={listingMenuRef}>
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={() => setListingMenuOpen((open) => !open)}
-                    className="rounded-full p-2 -mr-2 hover:bg-gray-100"
-                    aria-expanded={listingMenuOpen}
-                    aria-label="Open listing actions menu"
+                    onClick={handleToggleSave}
+                    className="rounded-full p-2 transition hover:bg-black/[0.04]"
+                    aria-pressed={isSaved}
+                    aria-label={isSaved ? "Unsave listing" : "Save listing"}
+                    disabled={saveLoading}
                   >
-                    <MoreHorizontal className="h-5 w-5 opacity-80" />
+                    <Heart
+                      className={`h-5 w-5 ${isSaved ? "text-rose-400" : "opacity-70"}`}
+                      fill={isSaved ? "currentColor" : "none"}
+                    />
                   </button>
-                  {listingMenuOpen ? (
-                    <div className="absolute right-0 top-11 z-30 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
-                      <button
-                        type="button"
-                        onClick={handleShareListing}
-                        className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100"
-                      >
-                        Share
-                      </button>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          await handleToggleSave();
-                          setListingMenuOpen(false);
-                        }}
-                        className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100"
-                      >
-                        {isSaved ? "Unsave" : "Save"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setListingMenuOpen(false);
-                          setReportModalOpen(true);
-                        }}
-                        className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100"
-                      >
-                        Report
-                      </button>
-                    </div>
+                  <div className="relative" ref={listingMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setListingMenuOpen((open) => !open)}
+                      className="rounded-full p-2 transition hover:bg-black/[0.04]"
+                      aria-expanded={listingMenuOpen}
+                      aria-label="Open listing actions menu"
+                    >
+                      <MoreHorizontal className="h-5 w-5 opacity-80" />
+                    </button>
+                    {listingMenuOpen ? (
+                      <div className="absolute right-0 top-11 z-30 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+                        <button
+                          type="button"
+                          onClick={handleShareListing}
+                          className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100"
+                        >
+                          Share
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await handleToggleSave();
+                            setListingMenuOpen(false);
+                          }}
+                          className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100"
+                        >
+                          {isSaved ? "Unsave" : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setListingMenuOpen(false);
+                            setReportModalOpen(true);
+                          }}
+                          className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100"
+                        >
+                          Report
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+                <div className="mt-6 space-y-4 border-t pt-4" style={{ borderColor: "rgba(15,23,42,0.08)" }}>
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[rgba(111,52,255,0.08)] text-[var(--yb-focus)]">
+                    <Truck className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">Delivery available</p>
+                    <p className="text-xs opacity-75">Delivered within the business service area.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[rgba(111,52,255,0.08)] text-[var(--yb-focus)]">
+                    <ShoppingBag className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">Pickup available</p>
+                    <p className="text-xs opacity-75">Choose in-store pickup at checkout.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">
+                    Quantity
+                  </label>
+                  {!isOutOfStock ? (
+                    <span className="text-xs opacity-70">Choose delivery or pickup at checkout</span>
                   ) : null}
                 </div>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center gap-2 text-sm opacity-90">
-                  <Truck className="h-4 w-4 opacity-70" />
-                  <span>Delivery within your area</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm opacity-90">
-                  <ShoppingBag className="h-4 w-4 opacity-70" />
-                  <span>Pickup at the business</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm opacity-90">
-                  <Shield className="h-4 w-4 opacity-70" />
-                  <span>Backed by YourBarrio protections</span>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                <label className="text-xs uppercase tracking-[0.16em] opacity-70">
-                  Quantity
-                </label>
                 <select
                   value={quantity}
                   onChange={(e) => setQuantity(Number(e.target.value))}
                   disabled={isOutOfStock || purchaseRestricted || purchaseEligibilityPending}
-                  className="w-full rounded-xl px-3 py-2 text-base md:text-sm font-semibold"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
+                  className="w-full rounded-xl px-3 py-3 text-base font-semibold md:text-sm"
+                  style={{ background: "var(--surface)", border: "1px solid rgba(15,23,42,0.08)", color: "var(--text)" }}
                 >
                   {Array.from({ length: 5 }).map((_, idx) => (
                     <option key={idx + 1} value={idx + 1}>
@@ -783,7 +841,7 @@ export default function ListingDetails({ params }) {
 
                 {purchaseEligibilityPending ? (
                   <div
-                    className="mt-2 rounded-2xl border px-4 py-3"
+                    className="mt-4 rounded-2xl border px-4 py-3"
                     style={{ background: "var(--overlay)", borderColor: "var(--border)" }}
                   >
                     <button
@@ -800,7 +858,7 @@ export default function ListingDetails({ params }) {
                   </div>
                 ) : purchaseRestricted ? (
                   <div
-                    className="mt-2 rounded-2xl border px-4 py-3"
+                    className="mt-4 rounded-2xl border px-4 py-3"
                     style={{ background: "var(--overlay)", borderColor: "var(--border)" }}
                   >
                     <button
@@ -820,53 +878,56 @@ export default function ListingDetails({ params }) {
                     type="button"
                     onClick={handleAddToCart}
                     disabled={isOutOfStock}
-                    className="mt-2 w-full rounded-xl px-3 py-3 text-sm font-semibold transition border"
-                    style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+                    className="yb-auth-cta mt-5 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-semibold transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(111,52,255,0.24)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                    style={{
+                      background: isOutOfStock ? "rgba(15,23,42,0.12)" : "var(--yb-focus)",
+                      color: isOutOfStock ? "rgba(15,23,42,0.46)" : "#ffffff",
+                      boxShadow: isOutOfStock
+                        ? "none"
+                        : "0 12px 24px -20px rgba(110,52,255,0.38)",
+                    }}
                   >
                     Add to cart
                   </button>
                 )}
 
                 {isOutOfStock ? (
-                  <div
-                    className="mt-2 text-xs rounded-xl px-3 py-2"
-                    style={{ background: "var(--overlay)", border: "1px solid var(--border)" }}
-                  >
-                    Currently unavailable. Check back soon.
+                  <div className="mt-4 text-xs opacity-75">
+                    This item is currently out of stock
                   </div>
                 ) : statusMessage ? (
                   <div
-                    className="mt-2 text-xs rounded-xl px-3 py-2"
-                    style={{ background: "var(--overlay)", border: "1px solid var(--border)" }}
+                    className="mt-4 text-xs rounded-xl px-3 py-2"
+                    style={{ background: "var(--overlay)", border: "1px solid rgba(15,23,42,0.08)" }}
                   >
                     {statusMessage}
                   </div>
                 ) : purchaseEligibilityPending ? (
-                  <div className="mt-2 text-xs opacity-80">
+                  <div className="mt-4 text-xs opacity-80">
                     We’re confirming your account before enabling checkout.
                   </div>
                 ) : purchaseRestricted ? (
-                  <div className="mt-2 text-xs opacity-80">
+                  <div className="mt-4 text-xs opacity-80">
                     Browse listings with your business account, but switch to a customer account to place orders.
                   </div>
                 ) : (
-                  <div className="mt-2 text-xs opacity-80">
+                  <div className="mt-4 text-xs leading-5 opacity-75">
                     Choose delivery or pickup at checkout. Charges apply after business confirms.
                   </div>
                 )}
-              </div>
-            </div>
 
-            <div
-              className="rounded-2xl p-4 space-y-3 shadow"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-            >
-              <p className="text-sm font-semibold">What to expect</p>
-              <ul className="text-sm opacity-90 space-y-2 list-disc list-inside">
-                <li>Messaging with the business to confirm details</li>
-                <li>Local delivery windows shared after confirmation</li>
-                <li>Pickup instructions sent by the business</li>
-              </ul>
+                <div className="mt-6 border-t pt-4" style={{ borderColor: "rgba(15,23,42,0.08)" }}>
+                  <div className="flex items-center gap-2 text-[13px] font-semibold">
+                    <Shield className="h-4 w-4 text-[var(--yb-focus)] opacity-80" />
+                    <p>What to expect</p>
+                  </div>
+                  <ul className="mt-2.5 space-y-2 text-[13px] leading-6 opacity-70">
+                    <li>Message the business to confirm any final details.</li>
+                    <li>Delivery windows are shared after the order is confirmed.</li>
+                    <li>Pickup instructions are sent directly by the business.</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </aside>
         </div>
@@ -920,24 +981,5 @@ export default function ListingDetails({ params }) {
         </div>
       ) : null}
     </>
-  );
-}
-
-function PhoneIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-    >
-      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.12.81.37 1.6.72 2.34a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.74-1.23a2 2 0 0 1 2.11-.45c.74.35 1.53.6 2.34.72A2 2 0 0 1 22 16.92Z" />
-    </svg>
   );
 }

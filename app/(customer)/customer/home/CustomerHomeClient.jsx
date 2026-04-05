@@ -31,8 +31,8 @@ import { BUSINESS_CATEGORIES, normalizeCategoryName } from "@/lib/businessCatego
 import { logDataDiag } from "@/lib/dataDiagnostics";
 import CategoryTilesGrid from "@/components/customer/CategoryTilesGrid";
 import PopularNearYouSection from "@/components/home/PopularNearYouSection";
+import TrendingListingsSection from "@/components/home/TrendingListingsSection";
 import {
-  CuratedCollectionsSection,
   SellerCTASection,
 } from "@/components/home/HomeDiscoverySections";
 import { useLocation } from "@/components/location/LocationProvider";
@@ -117,12 +117,19 @@ class CustomerHomeErrorBoundary extends React.Component {
   }
 }
 
-function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesError, initialListings: _initialListings = [] }) {
+function CustomerHomePageInner({
+  mode,
+  featuredCategories,
+  featuredCategoriesError,
+  initialListings = [],
+  initialCity = null,
+}) {
   const searchParams = useSearchParams();
   const { user, loadingUser } = useAuth();
   const { theme, hydrated } = useTheme();
   const isLight = hydrated ? theme === "light" : true;
   const { location, hasLocation, hydrated: locationHydrated } = useLocation();
+  const activeCity = String(location?.city || initialCity || "").trim();
   // Slightly stronger light-theme tones to preserve contrast on white surfaces.
   const textTone = useMemo(
     () => ({
@@ -136,10 +143,14 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
     }),
     [isLight]
   );
-  const locationHeading = useMemo(() => {
-    const city = String(location?.city || "").trim();
-    return city ? `Trending in ${city}` : "Trending near you";
-  }, [location?.city]);
+  const businessHeading = useMemo(() => {
+    return activeCity ? `Top businesses in ${activeCity}` : "Top businesses near you";
+  }, [activeCity]);
+  const businessSubtitle = useMemo(() => {
+    return activeCity
+      ? `Verified local shops and storefronts around ${activeCity}`
+      : "Verified local shops and storefronts nearby";
+  }, [activeCity]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const showLocationEmpty = locationHydrated && !hasLocation;
@@ -529,7 +540,10 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
         <div className="pointer-events-none absolute top-40 -right-24 h-[480px] w-[480px] rounded-full bg-pink-500/30 blur-[120px]" />
       </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-6xl px-6 md:px-8" data-home-content="1">
+      <div
+        className="relative z-10 mx-auto w-full max-w-6xl px-6 after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-8 after:bg-gradient-to-b after:from-transparent after:to-white/10 md:px-8 md:after:h-10"
+        data-home-content="1"
+      >
         <div className="w-full max-w-none">
           {showLocationEmpty ? (
             <div className="mb-4 rounded-2xl border border-white/12 bg-white/5 backdrop-blur-xl p-4 text-sm text-white/70">
@@ -671,7 +685,13 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
       </div>
       {!search ? (
         <>
-          <div className="w-full bg-[linear-gradient(180deg,#f8f4ee_0%,#faf7f2_52%,#f7f3ed_100%)] pb-16 pt-16 md:pb-20 md:pt-20">
+          <TrendingListingsSection
+            mode={mode}
+            listings={initialListings}
+            city={activeCity || null}
+            limit={8}
+          />
+          <div className="w-full bg-[#fcfcfd] pb-16 pt-2 md:pb-20 md:pt-3">
             <div className="mx-auto w-full max-w-6xl px-6 md:px-8">
               <div id="browse-categories" className="relative z-10" data-home-tiles="1">
                 <CategoryTilesGrid
@@ -692,12 +712,12 @@ function CustomerHomePageInner({ mode, featuredCategories, featuredCategoriesErr
             </div>
             <PopularNearYouSection
               mode={mode}
-              title={locationHeading}
-              sectionId="trending-near-you"
+              title={businessHeading}
+              subtitle={businessSubtitle}
+              sectionId="top-businesses-near-you"
               limit={6}
               badgeMode="trending"
             />
-            <CuratedCollectionsSection mode={mode} />
             <SellerCTASection />
           </div>
         </>
@@ -712,6 +732,7 @@ export default function CustomerHomeClient({
   featuredCategories,
   featuredCategoriesError,
   initialListings = [],
+  initialCity = null,
 }) {
   const safeNavFlag = process.env.NEXT_PUBLIC_HOME_BISECT_SAFE_NAV === "1";
   const isPublicMode = mode === "public";
@@ -725,6 +746,7 @@ export default function CustomerHomeClient({
         featuredCategories={featuredCategories}
         featuredCategoriesError={featuredCategoriesError}
         initialListings={initialListings}
+        initialCity={initialCity}
       />
     </>
   );

@@ -89,7 +89,7 @@ export default function HeroBanner({
         </div>
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-b from-transparent via-[rgba(248,244,238,0.08)] to-[rgba(248,244,238,0.76)]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-b from-transparent via-[rgba(248,244,238,0.05)] to-[rgba(248,244,238,0.5)] sm:h-8"
         />
       </div>
     </article>

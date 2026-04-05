@@ -9,6 +9,7 @@ export type BrowseMode = "public" | "customer";
 
 export type ListingSummary = {
   id: string;
+  public_id?: string | null;
   title: string | null;
   description: string | null;
   price: number | string | null;
@@ -19,6 +20,7 @@ export type ListingSummary = {
   city: string | null;
   photo_url: unknown;
   business_id: string | null;
+  business_name?: string | null;
   created_at: string | null;
   inventory_status?: string | null;
   inventory_quantity?: number | null;
@@ -66,6 +68,42 @@ const PUBLIC_LISTING_SELECT = [
   "low_stock_threshold",
   "inventory_last_updated_at",
 ].join(",");
+
+async function attachBusinessNames(listings: ListingSummary[]) {
+  if (!Array.isArray(listings) || listings.length === 0) return [];
+
+  const businessIds = Array.from(
+    new Set(
+      listings
+        .map((listing) => String(listing?.business_id || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  if (businessIds.length === 0) return listings;
+
+  const supabase = getPublicSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("users")
+    .select("id,business_name,full_name")
+    .in("id", businessIds);
+
+  if (error || !Array.isArray(data)) {
+    return listings;
+  }
+
+  const businessNameById = new Map(
+    data.map((row) => [
+      String(row?.id || ""),
+      String(row?.business_name || row?.full_name || "").trim() || null,
+    ])
+  );
+
+  return listings.map((listing) => ({
+    ...listing,
+    business_name: businessNameById.get(String(listing?.business_id || "").trim()) || null,
+  }));
+}
 
 function normalizeText(value: string | null | undefined) {
   const trimmed = String(value ?? "").trim();
@@ -151,7 +189,7 @@ export async function getHomeBrowseData({
 
   let featuredCategories: FeaturedCategory[] = [];
   let featuredCategoriesError: string | null = null;
-  const [categoriesResult, listings, banners] = await Promise.all([
+  const [categoriesResult, listingsResult, banners] = await Promise.all([
     fetchFeaturedCategories()
       .then((data) => ({ data, error: null as string | null }))
       .catch((error) => {
@@ -164,7 +202,7 @@ export async function getHomeBrowseData({
     loadPublicSafeListings({
       location: normalizedLocation,
       limit: safeLimit,
-    }),
+    }).then((listings) => attachBusinessNames(listings)),
     fetchStrapiBanners().catch(() => []),
   ]);
 
@@ -174,7 +212,7 @@ export async function getHomeBrowseData({
   return {
     featuredCategories,
     featuredCategoriesError,
-    listings,
+    listings: listingsResult,
     banners: Array.isArray(banners) ? banners : [],
     city: safeCity,
     zip: safeZip,

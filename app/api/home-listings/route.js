@@ -7,6 +7,43 @@ import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
 import { findBusinessOwnerIdsForLocation } from "@/lib/location/businessLocationSearch";
 import { getNormalizedLocation, hasUsableLocationFilter } from "@/lib/location/filter";
 
+async function attachBusinessNames(client, listings) {
+  if (!client || !Array.isArray(listings) || listings.length === 0) {
+    return Array.isArray(listings) ? listings : [];
+  }
+
+  const businessIds = Array.from(
+    new Set(
+      listings
+        .map((listing) => String(listing?.business_id || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  if (businessIds.length === 0) return listings;
+
+  const { data, error } = await client
+    .from("users")
+    .select("id,business_name,full_name")
+    .in("id", businessIds);
+
+  if (error || !Array.isArray(data)) {
+    return listings;
+  }
+
+  const businessNameById = new Map(
+    data.map((row) => [
+      String(row?.id || "").trim(),
+      String(row?.business_name || row?.full_name || "").trim() || null,
+    ])
+  );
+
+  return listings.map((listing) => ({
+    ...listing,
+    business_name: businessNameById.get(String(listing?.business_id || "").trim()) || null,
+  }));
+}
+
 async function runHomeListingsQuery(client, { limit, category, searchQuery, businessIds }) {
   if (!Array.isArray(businessIds) || businessIds.length === 0) {
     return { data: [], error: null };
@@ -15,7 +52,7 @@ async function runHomeListingsQuery(client, { limit, category, searchQuery, busi
   let query = client
     .from("public_listings_v")
     .select(
-      "id,title,price,category,category_id,city,photo_url,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
+      "id,public_id,title,price,category,category_id,city,photo_url,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
     )
     .order("created_at", { ascending: false })
     .limit(limit)
@@ -137,6 +174,10 @@ export async function GET(request) {
       sourceTried: source,
       errors,
     });
+  }
+
+  if (listings.length > 0) {
+    listings = await attachBusinessNames(serviceClient || sessionClient, listings);
   }
 
   if (!listings.length && errors.length) {

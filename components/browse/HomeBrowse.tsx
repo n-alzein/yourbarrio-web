@@ -22,6 +22,7 @@ export default async function HomeBrowse({ mode, initialData }: HomeBrowseProps)
         featuredCategories={initialData.featuredCategories}
         featuredCategoriesError={initialData.featuredCategoriesError}
         initialListings={initialData.listings}
+        initialCity={initialData.city}
       />
     </>
   );

@@ -1,0 +1,20 @@
+export type ListingItem = {
+  id: string | number;
+  public_id?: string | null;
+  title?: string | null;
+  description?: string | null;
+  price?: number | string | null;
+  category?: string | null;
+  listing_category?: string | null;
+  category_id?: string | number | null;
+  city?: string | null;
+  photo_url?: unknown;
+  business_id?: string | null;
+  business_name?: string | null;
+  created_at?: string | null;
+  inventory_status?: string | null;
+  inventory_quantity?: number | null;
+  low_stock_threshold?: number | null;
+  inventory_last_updated_at?: string | null;
+  distance_miles?: number | null;
+};

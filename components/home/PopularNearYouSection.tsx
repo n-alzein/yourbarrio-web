@@ -111,7 +111,7 @@ function createBusinessBadges(
 
 function PopularNearYouSkeleton() {
   return (
-    <section className="mt-16 md:mt-20">
+    <section className="mt-16 md:mt-20 lg:mt-12">
       <div className="mx-auto max-w-6xl px-6 md:px-8">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div className="space-y-2">
@@ -255,7 +255,7 @@ export default function PopularNearYouSection({
   if (!visibleBusinesses.length) return null;
 
   return (
-    <section id={sectionId} className="mt-16 md:mt-20">
+    <section id={sectionId} className="mt-16 md:mt-20 lg:mt-12">
       <div className="mx-auto max-w-6xl px-6 md:px-8">
         <div className="mb-7 flex flex-wrap items-start justify-between gap-x-4 gap-y-2 md:mb-8">
           <div className="min-w-0">

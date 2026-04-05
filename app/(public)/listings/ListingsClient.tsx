@@ -1,69 +1,355 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
-import Link from "next/link";
-import { primaryPhotoUrl } from "@/lib/listingPhotos";
-import SafeImage from "@/components/SafeImage";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useTheme } from "@/components/ThemeProvider";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { X } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocation } from "@/components/location/LocationProvider";
-import {
-  getAvailabilityBadgeStyle,
-  normalizeInventory,
-  sortListingsByAvailability,
-} from "@/lib/inventory";
+import { sortListingsByAvailability } from "@/lib/inventory";
 import { getLocationCacheKey } from "@/lib/location";
 import { installNetTrace } from "@/lib/netTrace";
-import { getListingUrl } from "@/lib/ids/publicRefs";
+import ListingMarketplaceCard from "./components/ListingMarketplaceCard";
+import ListingsToolbar from "./components/ListingsToolbar";
+import type { ListingItem } from "./types";
 
-function formatPrice(value) {
-  if (value === null || value === undefined || value === "") return "Price TBD";
-  const number = Number(value);
-  if (Number.isNaN(number)) return String(value);
-  return `$${number.toFixed(2)}`;
+const CATEGORY_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "food", label: "Food" },
+  { value: "shops", label: "Shops" },
+  { value: "services", label: "Services" },
+  { value: "tech", label: "Tech" },
+  { value: "beauty", label: "Beauty" },
+  { value: "home", label: "Home" },
+  { value: "clothing", label: "Clothing" },
+];
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  food: ["food", "drink", "grocery", "gourmet"],
+  shops: ["artisan", "craft", "book", "media", "gift", "toy", "pet", "music", "jewelry"],
+  services: ["service", "professional", "fitness", "wellness", "automotive", "hospitality"],
+  tech: ["tech", "electronic", "computer", "mobile", "smart home", "video game"],
+  beauty: ["beauty", "health", "spa", "cosmetic"],
+  home: ["home", "kitchen", "furniture", "garden", "bath", "bedding", "tool"],
+  clothing: ["clothing", "accessories", "shoes", "fashion"],
+};
+
+const SORT_OPTIONS = [
+  { value: "recommended", label: "Recommended" },
+  { value: "newest", label: "Newest" },
+  { value: "price-asc", label: "Price: low to high" },
+  { value: "price-desc", label: "Price: high to low" },
+];
+
+const PRICE_OPTIONS = [
+  { value: "all", label: "Any price" },
+  { value: "under-50", label: "Under $50" },
+  { value: "under-100", label: "Under $100" },
+  { value: "premium", label: "$100+" },
+];
+
+const DISTANCE_OPTIONS = [
+  { value: "any", label: "Anywhere nearby" },
+  { value: "in-city", label: "In this city" },
+  { value: "closest", label: "Closest first" },
+];
+
+function normalizeText(value: unknown) {
+  return String(value || "").trim().toLowerCase();
 }
 
-function splitPrice(value) {
-  const formatted = formatPrice(value);
-  if (formatted === "Price TBD") {
-    return { formatted, dollars: null, cents: null };
+function normalizePrice(value: ListingItem["price"]) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function inferCategoryKey(value: string | null | undefined) {
+  const normalized = normalizeText(value);
+  if (!normalized) return "all";
+  if (CATEGORY_OPTIONS.some((option) => option.value === normalized)) return normalized;
+
+  for (const [key, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (keywords.some((keyword) => normalized.includes(keyword))) {
+      return key;
+    }
   }
-  const normalized = formatted.replace("$", "");
-  const [dollars, cents = "00"] = normalized.split(".");
-  return { formatted, dollars, cents };
+
+  return "all";
+}
+
+function matchesCategory(listing: ListingItem, categoryKey: string) {
+  if (!categoryKey || categoryKey === "all") return true;
+  const categoryText = [
+    listing?.listing_category,
+    listing?.category,
+    listing?.title,
+    listing?.description,
+  ]
+    .map((value) => normalizeText(value))
+    .filter(Boolean)
+    .join(" ");
+
+  return CATEGORY_KEYWORDS[categoryKey]?.some((keyword) => categoryText.includes(keyword)) || false;
+}
+
+function LoadingGridSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5">
+      {Array.from({ length: 18 }).map((_, index) => (
+        <div
+          key={index}
+          className="overflow-hidden rounded-[20px] border border-black/5 bg-white/80 shadow-[0_12px_32px_-30px_rgba(15,23,42,0.22)]"
+        >
+          <div className="aspect-[4/3] animate-pulse bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.9),rgba(248,248,246,0.96)_58%,rgba(244,244,242,0.98)_100%)]" />
+          <div className="grid min-h-[96px] grid-rows-[auto_minmax(2.3rem,2.3rem)_auto] gap-1 px-3 pb-3 pt-2.5">
+            <div className="h-4 w-20 rounded-full bg-slate-200/70" />
+            <div className="space-y-1">
+              <div className="h-4 w-full rounded-full bg-slate-200/70" />
+              <div className="h-4 w-4/5 rounded-full bg-slate-200/70" />
+            </div>
+            <div className="h-3.5 w-2/3 self-end rounded-full bg-slate-100" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FiltersModal({
+  open,
+  onClose,
+  category,
+  onCategoryChange,
+  priceFilter,
+  onPriceChange,
+  distanceFilter,
+  onDistanceChange,
+  openNow,
+  onOpenNowToggle,
+}: {
+  open: boolean;
+  onClose: () => void;
+  category: string;
+  onCategoryChange: (value: string) => void;
+  priceFilter: string;
+  onPriceChange: (value: string) => void;
+  distanceFilter: string;
+  onDistanceChange: (value: string) => void;
+  openNow: boolean;
+  onOpenNowToggle: () => void;
+}) {
+  if (!open) return null;
+
+  const fieldClassName =
+    "h-11 w-full rounded-2xl border border-black/5 bg-white px-3 text-sm text-slate-700 shadow-[0_10px_30px_-28px_rgba(15,23,42,0.24)] outline-none transition focus:border-[#7c5cff26] focus:bg-[#faf7ff]";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/28 p-3 sm:items-center"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="w-full max-w-md rounded-[28px] bg-[#fcfcfe] p-5 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.42)]">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold tracking-[-0.03em] text-slate-950">Filters</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/5 bg-white text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cff]/30"
+            aria-label="Close filters"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-slate-700">Category</span>
+            <select
+              value={category}
+              onChange={(event) => onCategoryChange(event.target.value)}
+              className={fieldClassName}
+            >
+              {CATEGORY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-slate-700">Price</span>
+            <select
+              value={priceFilter}
+              onChange={(event) => onPriceChange(event.target.value)}
+              className={fieldClassName}
+            >
+              {PRICE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-slate-700">Distance</span>
+            <select
+              value={distanceFilter}
+              onChange={(event) => onDistanceChange(event.target.value)}
+              className={fieldClassName}
+            >
+              {DISTANCE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex items-center justify-between rounded-2xl border border-black/5 bg-white px-3 py-3 shadow-[0_10px_30px_-28px_rgba(15,23,42,0.24)]">
+            <span className="text-sm font-medium text-slate-700">Open now</span>
+            <button
+              type="button"
+              onClick={onOpenNowToggle}
+              className={[
+                "relative inline-flex h-7 w-12 items-center rounded-full transition",
+                openNow ? "bg-[#7c5cff]" : "bg-slate-200",
+              ].join(" ")}
+              aria-pressed={openNow}
+            >
+              <span
+                className={[
+                  "inline-block h-5 w-5 rounded-full bg-white shadow-sm transition",
+                  openNow ? "translate-x-6" : "translate-x-1",
+                ].join(" ")}
+              />
+            </button>
+          </label>
+        </div>
+
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 items-center justify-center rounded-full border border-[#7c5cff1f] bg-[#f5f0ff] px-4 text-sm font-medium text-[#4b2aad] transition hover:bg-[#efe7ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cff]/30"
+          >
+            Apply
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ListingsClient() {
-  const [listings, setListings] = useState([]);
+  const [listings, setListings] = useState<ListingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [loadError, setLoadError] = useState(null);
+  const [loadError, setLoadError] = useState<{ message?: string } | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [sortBy, setSortBy] = useState("recommended");
+  const [priceFilter, setPriceFilter] = useState("all");
+  const [distanceFilter, setDistanceFilter] = useState("any");
+  const [openNow, setOpenNow] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { theme, hydrated } = useTheme();
-  const isLight = hydrated ? theme === "light" : true;
+  const pathname = usePathname();
   const { location, hydrated: locationHydrated } = useLocation();
-  const category = searchParams.get("category")?.trim();
-  const searchTerm = searchParams.get("q")?.trim();
-  const showListView = Boolean(category);
+  const searchTerm = searchParams.get("q")?.trim() || "";
+  const category = inferCategoryKey(searchParams.get("category")?.trim() || "");
   const locationKey = getLocationCacheKey(location);
-  const cacheKey = `${locationKey}::${category || "all"}::${searchTerm || "all"}`;
+  const cacheKey = `${locationKey}::${searchTerm || "all"}`;
   const hasLocation = locationKey !== "none";
   const showLocationEmpty = locationHydrated && !hasLocation;
+  const marketCity = String(location?.city || "").trim() || "Long Beach";
+  const didInitTraceRef = useRef(false);
+  const loggedErrorRef = useRef<string | null>(null);
+
   const sortedListings = useMemo(
-    () => sortListingsByAvailability(listings),
+    () => sortListingsByAvailability(Array.isArray(listings) ? listings : []),
     [listings]
   );
-  const didInitTraceRef = useRef(false);
-  const loggedErrorRef = useRef(null);
+
+  const filteredListings = useMemo(() => {
+    const categoryFiltered = sortedListings.filter((listing) => matchesCategory(listing, category));
+
+    const priceFiltered = categoryFiltered.filter((listing) => {
+      const amount = normalizePrice(listing?.price);
+      if (priceFilter === "under-50") return amount !== null && amount < 50;
+      if (priceFilter === "under-100") return amount !== null && amount < 100;
+      if (priceFilter === "premium") return amount !== null && amount >= 100;
+      return true;
+    });
+
+    const distanceFiltered = priceFiltered.filter((listing) => {
+      if (distanceFilter !== "in-city") return true;
+      return normalizeText(listing?.city) === normalizeText(marketCity);
+    });
+
+    const withDistanceOrder =
+      distanceFilter === "closest"
+        ? [...distanceFiltered].sort((left, right) => {
+            const leftInCity = normalizeText(left?.city) === normalizeText(marketCity) ? 0 : 1;
+            const rightInCity = normalizeText(right?.city) === normalizeText(marketCity) ? 0 : 1;
+            return leftInCity - rightInCity;
+          })
+        : distanceFiltered;
+
+    const openFiltered = openNow
+      ? withDistanceOrder.filter((listing) => {
+          const status = normalizeText(listing?.inventory_status);
+          if (!status) return true;
+          return !["out of stock", "out_of_stock", "unavailable", "sold out"].includes(status);
+        })
+      : withDistanceOrder;
+
+    if (sortBy === "newest") {
+      return [...openFiltered].sort(
+        (left, right) =>
+          new Date(right?.created_at || 0).getTime() - new Date(left?.created_at || 0).getTime()
+      );
+    }
+
+    if (sortBy === "price-asc") {
+      return [...openFiltered].sort((left, right) => {
+        const leftPrice = normalizePrice(left?.price);
+        const rightPrice = normalizePrice(right?.price);
+        if (leftPrice === null) return 1;
+        if (rightPrice === null) return -1;
+        return leftPrice - rightPrice;
+      });
+    }
+
+    if (sortBy === "price-desc") {
+      return [...openFiltered].sort((left, right) => {
+        const leftPrice = normalizePrice(left?.price);
+        const rightPrice = normalizePrice(right?.price);
+        if (leftPrice === null) return 1;
+        if (rightPrice === null) return -1;
+        return rightPrice - leftPrice;
+      });
+    }
+
+    return openFiltered;
+  }, [category, distanceFilter, marketCity, openNow, priceFilter, sortBy, sortedListings]);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (priceFilter !== "all") count += 1;
+    if (distanceFilter !== "any") count += 1;
+    if (openNow) count += 1;
+    return count;
+  }, [distanceFilter, openNow, priceFilter]);
 
   useEffect(() => {
     if (didInitTraceRef.current) return;
     didInitTraceRef.current = true;
     if (process.env.NEXT_PUBLIC_LISTINGS_NETTRACE === "1") {
       installNetTrace({ enabled: true, tag: "LISTINGS" });
-      const onError = (event) => {
+      const onError = (event: ErrorEvent) => {
         console.error("[LISTINGS][window:error]", {
           message: event?.message,
           filename: event?.filename,
@@ -72,7 +358,7 @@ export default function ListingsClient() {
           error: event?.error?.stack || event?.error,
         });
       };
-      const onUnhandled = (event) => {
+      const onUnhandled = (event: PromiseRejectionEvent) => {
         console.error("[LISTINGS][window:unhandledrejection]", {
           reason: event?.reason?.stack || event?.reason,
         });
@@ -86,7 +372,7 @@ export default function ListingsClient() {
     }
     return undefined;
   }, []);
-  // Hydrate from session cache so the page feels instant on back/forward
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!hasLocation) return;
@@ -103,7 +389,6 @@ export default function ListingsClient() {
     }
   }, [cacheKey, hasLocation]);
 
-  // Safety: don't leave loading true forever
   useEffect(() => {
     if (!loading) return;
     const timer = setTimeout(() => setLoading(false), 8000);
@@ -118,13 +403,13 @@ export default function ListingsClient() {
       setLoading(false);
       return undefined;
     }
+
     let active = true;
     const controller = new AbortController();
 
-    async function getListingsSafe({ signal }) {
+    async function getListingsSafe({ signal }: { signal: AbortSignal }) {
       try {
         const params = new URLSearchParams();
-        if (category) params.set("category", category);
         if (searchTerm) params.set("q", searchTerm);
         params.set("limit", "120");
         const response = await fetch(`/api/home-listings?${params.toString()}`, {
@@ -136,7 +421,7 @@ export default function ListingsClient() {
           return { ok: false, error: payload, status: response.status };
         }
         return { ok: true, data: Array.isArray(payload?.listings) ? payload.listings : [] };
-      } catch (error) {
+      } catch (error: any) {
         const message = typeof error?.message === "string" ? error.message : "";
         const isAbort =
           error?.name === "AbortError" || message.toLowerCase().includes("aborted");
@@ -153,11 +438,10 @@ export default function ListingsClient() {
       try {
         const result = await getListingsSafe({ signal: controller.signal });
         if (!active) return;
-          if (!result.ok) {
-            if (result.aborted) return;
-          const requestKey = `${category || "all"}::${searchTerm || "all"}`;
-          const loggedKey = loggedErrorRef.current;
-          if (loggedKey !== requestKey) {
+        if (!result.ok) {
+          if (result.aborted) return;
+          const requestKey = searchTerm || "all";
+          if (loggedErrorRef.current !== requestKey) {
             loggedErrorRef.current = requestKey;
             console.error("[LISTINGS][load:error]", {
               route: "/listings",
@@ -167,8 +451,7 @@ export default function ListingsClient() {
             });
           }
           setLoadError({
-            message:
-              result.error?.message || "We couldn't load listings right now.",
+            message: result.error?.message || "We couldn't load listings right now.",
           });
           setListings([]);
           return;
@@ -183,8 +466,8 @@ export default function ListingsClient() {
             // ignore cache errors
           }
         }
-      } catch (err) {
-        console.error("Failed to load listings", err);
+      } catch (error) {
+        console.error("Failed to load listings", error);
         if (active) setListings([]);
       } finally {
         if (active) setLoading(false);
@@ -196,121 +479,117 @@ export default function ListingsClient() {
       active = false;
       controller.abort();
     };
-  }, [category, cacheKey, hasLoaded, retryKey, searchTerm, hasLocation]);
+  }, [cacheKey, hasLoaded, hasLocation, retryKey, searchTerm]);
+
+  function updateQueryParam(key: string, value: string | null) {
+    const next = new URLSearchParams(searchParams.toString());
+    if (!value || value === "all") {
+      next.delete(key);
+    } else {
+      next.set(key, value);
+    }
+    const query = next.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }
 
   return (
-    <div className="max-w-6xl mx-auto py-2 md:pt-1">
-      {showListView ? (
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="mb-3 inline-flex items-center text-sm text-gray-600 hover:text-gray-900 transition"
-        >
-          ← Go back
-        </button>
-      ) : null}
-      <div className="pt-4">
-        <h1 className="text-3xl font-bold mb-2">
-          {searchTerm
-            ? `Search results for “${searchTerm}”`
-            : "Explore listings"}
-        </h1>
-        {category ? (
-          <p className="text-gray-600">
-            Category: <span className="font-semibold">{category}</span>
-          </p>
-        ) : null}
-      </div>
-
-      {showLocationEmpty ? (
-        <div className="mt-6 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-gray-600">
-          Select a location to see listings near you.
-        </div>
-      ) : null}
-
-      {loadError ? (
-        <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
-          <div className="font-semibold">Unable to load listings</div>
-          <p className="text-sm mt-1">{loadError.message}</p>
+    <>
+      <div className="mx-auto w-full max-w-7xl px-5 pb-8 pt-3 sm:px-6 lg:px-8">
+        {(searchTerm || category !== "all") && (
           <button
             type="button"
-            onClick={() => setRetryKey((prev) => prev + 1)}
-            className="mt-3 inline-flex items-center rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-semibold text-red-700"
+            onClick={() => router.back()}
+            className="inline-flex items-center text-sm text-slate-500 transition hover:text-slate-900"
           >
-            Try again
+            ← Go back
           </button>
-        </div>
-      ) : null}
+        )}
 
-      {loading ? (
-        <div className="mt-6">Loading listings...</div>
-      ) : null}
+        <section className="pb-3 pt-4">
+          <h1 className="text-[2rem] font-semibold tracking-[-0.055em] text-slate-950 sm:text-[2.35rem]">
+            {`Explore listings in ${marketCity}`}
+          </h1>
 
-      {!loading && !loadError && !showLocationEmpty && sortedListings.length === 0 ? (
-        <div className="mt-8 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-gray-600">
-          No listings found. Try a different search.
-        </div>
-      ) : null}
+          <div className="mt-3">
+            <ListingsToolbar
+              category={category}
+              onCategoryChange={(value) => updateQueryParam("category", value)}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              onOpenFilters={() => setFiltersOpen(true)}
+              categoryOptions={CATEGORY_OPTIONS}
+              sortOptions={SORT_OPTIONS}
+              activeFilterCount={activeFilterCount}
+            />
+          </div>
+        </section>
 
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {sortedListings.map((listing) => {
-          const inventory = normalizeInventory(listing);
-          const availability = getAvailabilityBadgeStyle(inventory);
-          return (
-            <div
-              key={listing.id}
-              className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+        {showLocationEmpty ? (
+          <div className="rounded-[24px] border border-dashed border-slate-200 bg-[#fbfbfd] p-6 text-slate-600">
+            Select a location to see listings near you.
+          </div>
+        ) : loadError ? (
+          <div className="rounded-[24px] border border-red-200 bg-red-50 p-5 text-red-700">
+            <div className="font-semibold">Unable to load listings</div>
+            <p className="mt-1 text-sm">{loadError.message}</p>
+            <button
+              type="button"
+              onClick={() => setRetryKey((prev) => prev + 1)}
+              className="mt-3 inline-flex items-center rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
             >
-              <Link href={getListingUrl(listing)} className="block">
-                <div className="relative w-full h-[200px] sm:h-[220px] lg:h-[240px] overflow-hidden bg-gray-50 p-2">
-                  <SafeImage
-                    src={primaryPhotoUrl(listing.photo_url)}
-                    alt={listing.title || "Listing photo"}
-                    className="h-full w-full object-contain transition duration-500 group-hover:scale-105"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
-                    onError={() => {}}
-                    onLoad={() => {}}
-                  />
-                  {availability ? (
-                    <span
-                      className={`${availability.className} absolute left-3 top-3`}
-                    >
-                      {availability.label}
-                    </span>
-                  ) : null}
-                </div>
-                <div className="flex flex-col gap-2 p-4">
-                  <div className="text-gray-900 tabular-nums leading-none">
-                    {(() => {
-                      const price = splitPrice(listing.price);
-                      if (!price.dollars) {
-                        return (
-                          <span className="text-2xl font-bold leading-none">
-                            {price.formatted}
-                          </span>
-                        );
-                      }
-                      return (
-                        <span className="inline-flex items-start gap-0">
-                          <span className="text-2xl font-bold leading-none">
-                            ${price.dollars}
-                          </span>
-                          <span className="relative top-[0.1em] text-[0.65em] font-semibold uppercase leading-none align-top">
-                            {price.cents}
-                          </span>
-                        </span>
-                      );
-                    })()}
-                  </div>
-                  <h2 className="text-sm font-semibold text-gray-900 line-clamp-3">
-                    {listing.title || "Untitled listing"}
-                  </h2>
-                </div>
-              </Link>
+              Try again
+            </button>
+          </div>
+        ) : null}
+
+        {!showLocationEmpty && !loadError ? (
+          <>
+            <div className="mt-3 border-t border-black/6" />
+            <div className="pb-2 pt-3">
+              {!loading ? (
+                <p className="text-sm text-slate-400">
+                  {filteredListings.length} {filteredListings.length === 1 ? "listing" : "listings"}
+                </p>
+              ) : null}
             </div>
-          );
-        })}
+          </>
+        ) : null}
+
+        {!loading && !loadError && !showLocationEmpty && filteredListings.length === 0 ? (
+          <div className="rounded-[24px] border border-dashed border-slate-200 bg-[#fbfbfd] p-6 text-slate-600">
+            No listings match the current filters.
+          </div>
+        ) : null}
+
+        <div className="pt-1">
+          {loading && !showLocationEmpty && !loadError ? <LoadingGridSkeleton /> : null}
+
+          {!loading && !loadError && !showLocationEmpty ? (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5">
+              {filteredListings.map((listing, index) => (
+                <ListingMarketplaceCard
+                  key={listing.public_id || listing.id || `${listing.title}-${index}`}
+                  listing={listing}
+                  fallbackLocationLabel={marketCity}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
       </div>
-    </div>
+
+      <FiltersModal
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        category={category}
+        onCategoryChange={(value) => updateQueryParam("category", value)}
+        priceFilter={priceFilter}
+        onPriceChange={setPriceFilter}
+        distanceFilter={distanceFilter}
+        onDistanceChange={setDistanceFilter}
+        openNow={openNow}
+        onOpenNowToggle={() => setOpenNow((current) => !current)}
+      />
+    </>
   );
 }
