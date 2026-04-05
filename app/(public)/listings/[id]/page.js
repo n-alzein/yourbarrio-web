@@ -506,7 +506,7 @@ export default function ListingDetails({ params }) {
               style={{ background: "var(--surface)", border: "1px solid rgba(15,23,42,0.08)" }}
             >
               {galleryPhotos.length > 1 ? (
-                <div className="absolute left-4 top-4 z-10 flex flex-col gap-2 rounded-[20px] border border-white/70 bg-white/80 p-2 shadow-[0_18px_36px_-28px_rgba(15,23,42,0.24)] backdrop-blur-sm">
+                <div className="absolute left-4 top-4 z-10 flex flex-col gap-2 rounded-[20px] border p-2 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.18)]">
                   {galleryPhotos.map((photo, idx) => {
                     const active = heroSrc === photo;
                     return (
@@ -520,12 +520,12 @@ export default function ListingDetails({ params }) {
                             : "hover:-translate-y-0.5 hover:shadow-sm"
                         }`}
                         style={{
-                          background: "rgba(255,255,255,0.88)",
+                          background: "#ffffff",
                           borderColor: active
                             ? "rgba(110,52,255,0.3)"
-                            : "rgba(148, 163, 184, 0.22)",
+                            : "rgba(15,23,42,0.08)",
                           boxShadow: active
-                            ? "0 0 0 2px rgba(110,52,255,0.16), 0 10px 20px -20px rgba(110,52,255,0.35)"
+                            ? "0 0 0 2px rgba(110,52,255,0.14)"
                             : undefined,
                         }}
                         aria-label={`View photo ${idx + 1}`}
@@ -546,13 +546,21 @@ export default function ListingDetails({ params }) {
                 </div>
               ) : null}
 
-              <div className="relative flex h-[420px] w-full items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.98),rgba(247,247,245,0.98)_52%,rgba(242,242,240,1)_100%)] p-5">
-                <div className="pointer-events-none absolute inset-x-[10%] top-[10%] h-[68%] rounded-[32px] bg-[radial-gradient(circle_at_top,rgba(111,52,255,0.05),rgba(111,52,255,0)_62%)]" />
-                <div className="pointer-events-none absolute inset-x-[20%] bottom-[12%] h-10 rounded-full bg-[radial-gradient(circle,rgba(15,23,42,0.08),rgba(15,23,42,0)_72%)] blur-xl" />
+              <div
+                className="relative flex h-[420px] w-full items-center justify-center overflow-hidden p-5"
+                style={{ background: "#ffffff" }}
+              >
+                <div
+                  className="pointer-events-none absolute inset-4 rounded-[28px]"
+                  style={{
+                    boxShadow:
+                      "inset 0 0 0 1px rgba(15,23,42,0.05), inset 0 -18px 32px -32px rgba(15,23,42,0.12)",
+                  }}
+                />
                 <SafeImage
                   src={heroSrc || getListingCategoryPlaceholder(listing)}
                   alt={listing.title}
-                  className="object-contain scale-[1.02]"
+                  className="object-contain"
                   fill
                   sizes="(max-width: 1024px) 100vw, 66vw"
                   useNextImage
@@ -563,10 +571,11 @@ export default function ListingDetails({ params }) {
                       setHeroSrc(fallback);
                     }
                   }}
+                  style={{ objectPosition: "center center" }}
                   referrerPolicy="no-referrer"
                   fallbackSrc={getListingCategoryPlaceholder(listing)}
                 />
-                <div className="pointer-events-none absolute inset-0 ring-1 ring-black/5" />
+                <div className="pointer-events-none absolute inset-0 ring-1 ring-black/[0.04]" />
               </div>
               <div className="space-y-0 p-5 md:p-6">
                 <div className="flex flex-wrap items-center gap-2">
