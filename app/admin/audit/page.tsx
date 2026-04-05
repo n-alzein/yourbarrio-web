@@ -150,7 +150,7 @@ export default async function AdminAuditPage({
         <input name="action" defaultValue={action} placeholder="action" className="h-10 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm" />
         <input type="date" name="from" defaultValue={fromDate} className="h-10 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm" />
         <input type="date" name="to" defaultValue={toDate} className="h-10 rounded border border-neutral-700 bg-neutral-950 px-3 text-sm" />
-        <button type="submit" className="h-10 rounded bg-sky-600 px-3 text-sm font-medium hover:bg-sky-500 md:col-span-2">
+        <button type="submit" className="yb-primary-button h-10 rounded px-3 text-sm font-medium text-white md:col-span-2">
           Apply filters
         </button>
       </form>

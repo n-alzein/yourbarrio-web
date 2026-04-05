@@ -104,7 +104,7 @@ export default function OauthCallbackPage() {
           <button
             type="button"
             onClick={() => continueToCallback(trace.finalCallbackUrl)}
-            className="w-full py-3 rounded-xl font-semibold bg-[#6E34FF] text-white transition hover:opacity-95"
+            className="yb-primary-button w-full rounded-xl py-3 font-semibold text-white"
           >
             Continue
           </button>

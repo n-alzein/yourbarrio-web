@@ -299,7 +299,7 @@ export default async function AdminModerationPage({
             </select>
             <button
               type="submit"
-              className="h-10 rounded bg-sky-600 px-3 text-sm font-medium hover:bg-sky-500 md:col-span-4"
+              className="yb-primary-button h-10 rounded px-3 text-sm font-medium text-white md:col-span-4"
             >
               Apply filters
             </button>
@@ -520,7 +520,7 @@ export default async function AdminModerationPage({
                         {selectedContext?.listing ? (
                           <Link
                             href={getListingUrl(selectedContext.listing)}
-                            className="rounded bg-sky-600 px-3 py-1 text-xs font-medium hover:bg-sky-500"
+                            className="yb-primary-button rounded px-3 py-1 text-xs font-medium text-white"
                           >
                             Open listing
                           </Link>
@@ -571,7 +571,7 @@ export default async function AdminModerationPage({
                         {selectedContext?.listing ? (
                           <Link
                             href={getListingUrl(selectedContext.listing)}
-                            className="rounded bg-sky-600 px-3 py-1 text-xs font-medium hover:bg-sky-500"
+                            className="yb-primary-button rounded px-3 py-1 text-xs font-medium text-white"
                           >
                             Open listing
                           </Link>
@@ -614,7 +614,7 @@ export default async function AdminModerationPage({
                             href={`/admin/businesses?q=${encodeURIComponent(
                               selectedContext.businessUser.public_id || selectedContext.businessUser.id
                             )}`}
-                            className="rounded bg-sky-600 px-3 py-1 text-xs font-medium hover:bg-sky-500"
+                            className="yb-primary-button rounded px-3 py-1 text-xs font-medium text-white"
                           >
                             Open business
                           </Link>
@@ -645,7 +645,7 @@ export default async function AdminModerationPage({
                         {selectedContext?.targetUser ? (
                           <Link
                             href={getAdminUserUrl(selectedContext.targetUser)}
-                            className="rounded bg-sky-600 px-3 py-1 text-xs font-medium hover:bg-sky-500"
+                            className="yb-primary-button rounded px-3 py-1 text-xs font-medium text-white"
                           >
                             Open user
                           </Link>
@@ -682,7 +682,7 @@ export default async function AdminModerationPage({
                     <ActionButtonClient
                       label="Take case"
                       pendingLabel="Taking case..."
-                      className="w-full rounded bg-sky-600 px-3 py-2 text-sm font-medium hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="yb-primary-button w-full rounded px-3 py-2 text-sm font-medium text-white"
                     />
                   </form>
 

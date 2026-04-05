@@ -197,7 +197,7 @@ export default function AdminUserNotesPanel({
           {errorMessage ? <p className="mt-2 text-sm text-rose-300">{errorMessage}</p> : null}
           <button
             type="submit"
-            className="mt-2 rounded bg-sky-600 px-3 py-2 text-sm hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-70"
+            className="yb-primary-button mt-2 rounded px-3 py-2 text-sm text-white"
             disabled={isSubmitting}
           >
             {isSubmitting ? "Saving..." : "Save note"}
@@ -231,7 +231,7 @@ export default function AdminUserNotesPanel({
                       <button
                         type="button"
                         onClick={() => handleSaveEdit(note.id)}
-                        className="rounded bg-sky-600 px-2 py-1 text-xs hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-70"
+                        className="yb-primary-button rounded px-2 py-1 text-xs text-white"
                         disabled={busyNoteId === note.id}
                       >
                         Save

@@ -179,13 +179,7 @@ export default function CustomerSignupModal({ onClose }) {
         <button
           type="submit"
           disabled={loading}
-          className={`
-            mt-2 w-full py-3 rounded-xl font-semibold text-white text-base
-            bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500
-            shadow-lg hover:brightness-110 active:scale-[0.97]
-            transition-all duration-200
-            ${loading ? "opacity-60 cursor-not-allowed" : ""}
-          `}
+          className="yb-primary-button mt-2 w-full rounded-xl py-3 text-base font-semibold text-white"
         >
           {loading ? "Creating account..." : "Create account"}
         </button>

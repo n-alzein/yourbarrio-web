@@ -341,7 +341,7 @@ export default async function AdminUserDetailPage({
               <h3 className="mb-2 font-medium">Toggle internal user</h3>
               <input type="hidden" name="userId" value={user.id} />
               <input type="hidden" name="isInternal" value={String(!mergedUser.is_internal)} />
-              <button type="submit" className="rounded bg-sky-600 px-3 py-2 text-sm hover:bg-sky-500">
+              <button type="submit" className="yb-primary-button rounded px-3 py-2 text-sm text-white">
                 Set is_internal = {String(!mergedUser.is_internal)}
               </button>
             </form>

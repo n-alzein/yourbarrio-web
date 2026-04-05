@@ -36,7 +36,7 @@ export default async function ConfirmStartPage({
         <div className="mt-6">
           <Link
             href="/auth/forgot-password"
-            className="inline-flex h-11 items-center justify-center rounded-xl bg-black px-5 text-sm font-semibold text-white hover:bg-black/90"
+            className="yb-primary-button inline-flex h-11 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white"
           >
             Request a new link
           </Link>

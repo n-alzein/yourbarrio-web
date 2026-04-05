@@ -177,7 +177,7 @@ function BusinessRegisterInner() {
               <button
                 type="submit"
                 disabled={loading}
-                className="mt-2 w-full py-3 rounded-xl font-semibold bg-[#6E34FF] text-white transition hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="yb-primary-button mt-2 w-full rounded-xl py-3 font-semibold text-white"
               >
                 {loading ? "Sending..." : "Continue"}
               </button>
@@ -219,7 +219,7 @@ function BusinessRegisterInner() {
                 type="button"
                 onClick={handleResend}
                 disabled={loading}
-                className="w-full py-3 rounded-xl font-semibold bg-[#6E34FF] text-white transition hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="yb-primary-button w-full rounded-xl py-3 font-semibold text-white"
               >
                 {loading ? "Sending..." : "Resend email"}
               </button>

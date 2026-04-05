@@ -619,7 +619,7 @@ export default function EditListingPage() {
           <button
             type="submit"
             disabled={saving}
-            className="flex-1 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-base font-semibold shadow-xl hover:opacity-90 transition"
+            className="yb-primary-button flex-1 py-4 rounded-xl text-white text-base font-semibold"
           >
             {saving ? "Saving..." : "Save changes"}
           </button>

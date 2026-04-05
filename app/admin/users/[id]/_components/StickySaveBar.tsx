@@ -39,7 +39,7 @@ export default function StickySaveBar({
             form={formId}
             onClick={formId ? undefined : onSave}
             disabled={isSaving}
-            className="rounded bg-sky-600 px-3 py-1.5 text-sm text-white hover:bg-sky-500 disabled:opacity-60"
+            className="yb-primary-button rounded px-3 py-1.5 text-sm text-white"
           >
             {isSaving ? "Saving..." : saveLabel}
           </button>

@@ -257,7 +257,7 @@ export default function BusinessCreatePasswordClient({
         <button
           type="submit"
           disabled={submitting || !ready}
-          className="mt-2 inline-flex h-12 w-full items-center justify-center rounded-xl bg-[#6E34FF] px-4 text-sm font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+          className="yb-primary-button mt-2 inline-flex h-12 w-full items-center justify-center rounded-xl px-4 text-sm font-semibold text-white"
         >
           {!ready ? "Finalizing session..." : submitting ? "Saving..." : "Create password"}
         </button>

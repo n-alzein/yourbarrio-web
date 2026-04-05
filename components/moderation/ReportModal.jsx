@@ -179,7 +179,7 @@ export default function ReportModal({
             <button
               type="submit"
               disabled={submitting || !reason}
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+              className="yb-primary-button rounded-lg px-4 py-2 text-sm font-semibold text-white"
             >
               {submitting ? "Submitting..." : "Submit report"}
             </button>

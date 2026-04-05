@@ -42,16 +42,16 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 const SalesOverTimeChart = ({ data }: SalesOverTimeChartProps) => {
   return (
-    <div className="relative h-full rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-0.5 hover:border-slate-300/80 hover:shadow-[0_18px_36px_rgba(15,23,42,0.1)] sm:p-6">
+    <div className="dashboard-panel relative h-full p-5 transition duration-200 hover:-translate-y-[1px] hover:border-slate-300 sm:p-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+          <p className="text-[0.66rem] font-semibold uppercase tracking-[0.2em] text-slate-400/85">
             Sales
           </p>
           <h3 className="text-lg font-semibold text-slate-900">Sales over time</h3>
         </div>
       </div>
-      <div className="mt-5 h-[240px] rounded-[24px] border border-slate-200/55 p-2 sm:h-[260px]">
+      <div className="dashboard-panel-inner mt-6 h-[240px] p-4 sm:h-[260px] sm:p-5">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
@@ -65,7 +65,7 @@ const SalesOverTimeChart = ({ data }: SalesOverTimeChartProps) => {
                 <stop offset="100%" stopColor={chartColorTokens.primary} stopOpacity={0.35} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="4 4" stroke="var(--dashboard-chart-grid)" vertical={false} />
+            <CartesianGrid strokeDasharray="4 4" stroke="rgba(148,163,184,0.12)" vertical={false} />
             <XAxis
               dataKey="date"
               tickLine={false}

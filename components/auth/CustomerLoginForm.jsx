@@ -439,7 +439,7 @@ export default function CustomerLoginForm({
         <button
           type="submit"
           disabled={loading || loadingUser}
-          className={`w-full rounded-xl bg-gradient-to-r from-purple-600 via-pink-500 to-rose-500 py-3 text-base font-semibold text-white shadow-lg shadow-pink-500/30 transition-all duration-200 hover:brightness-110 active:scale-[0.98] ${(loading || loadingUser) ? "cursor-not-allowed opacity-60" : ""}`}
+          className="yb-primary-button w-full rounded-xl py-3 text-base font-semibold text-white"
         >
           {loading ? "Logging in..." : "Log in"}
         </button>

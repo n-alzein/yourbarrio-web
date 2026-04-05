@@ -39,7 +39,7 @@ const TopProductsTable = ({ products }: TopProductsTableProps) => {
         cell: (info) => (
           <div>
             <p className="font-semibold text-slate-900">{info.getValue<string>()}</p>
-            <p className="text-xs text-slate-500">{info.row.original.category}</p>
+            <p className="mt-1 text-xs text-slate-400">{info.row.original.category}</p>
           </div>
         ),
       },
@@ -82,7 +82,7 @@ const TopProductsTable = ({ products }: TopProductsTableProps) => {
   const rows = table.getRowModel().rows;
 
   return (
-    <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition duration-200 hover:border-slate-300/80 hover:shadow-[0_18px_36px_rgba(15,23,42,0.1)] sm:p-6">
+    <div className="dashboard-panel p-5 transition duration-200 hover:border-slate-300 sm:p-6">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -93,33 +93,33 @@ const TopProductsTable = ({ products }: TopProductsTableProps) => {
         {rows.length > 0 ? (
           <Link
             href="/business/listings"
-            className="rounded-full border border-slate-200/80 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
+            className="dashboard-toolbar-button px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:bg-white"
           >
             View all
           </Link>
         ) : null}
       </div>
-      <div className="mt-5 overflow-hidden rounded-[24px] border border-slate-200/60">
+      <div className="dashboard-panel-inner mt-5 overflow-hidden">
         {rows.length === 0 ? (
-          <div className="min-h-[190px] p-4">
+          <div className="min-h-[200px] p-4">
             <DashboardEmptyState
               compact
-              title="No products yet"
-              description="Your first product will appear here once it is live."
+              title="No products live yet"
+              description="Add your first product to start showing inventory, revenue, and performance here."
               primaryAction={{ href: "/business/listings/new", label: "Add product" }}
-              className="min-h-[158px]"
+              className="min-h-[168px] border-dashed bg-white"
             />
           </div>
         ) : (
           <div className="h-[300px] overflow-auto">
             <table className="dashboard-table dashboard-table--no-hover-dark w-full min-w-[520px] text-sm">
-              <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+              <thead className="sticky top-0 z-10 bg-slate-50/80 text-[0.66rem] uppercase tracking-[0.18em] text-slate-400/85">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <tr key={headerGroup.id}>
                     {headerGroup.headers.map((header) => (
                       <th
                         key={header.id}
-                        className="px-4 py-3 text-left"
+                        className="px-5 py-3.5 text-left"
                         scope="col"
                         aria-sort={
                           header.column.getIsSorted()
@@ -133,7 +133,7 @@ const TopProductsTable = ({ products }: TopProductsTableProps) => {
                           <button
                             type="button"
                             onClick={header.column.getToggleSortingHandler()}
-                            className="flex items-center gap-1 font-semibold text-slate-500 hover:text-slate-700"
+                            className="flex items-center gap-1 font-semibold text-slate-400 hover:text-slate-600"
                           >
                             {flexRender(
                               header.column.columnDef.header,
@@ -157,7 +157,7 @@ const TopProductsTable = ({ products }: TopProductsTableProps) => {
                 {rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="cursor-pointer border-t border-slate-200 hover:bg-slate-50"
+                    className="cursor-pointer border-t border-slate-200 hover:bg-slate-50/60"
                     onClick={() => router.push("/business/listings")}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") router.push("/business/listings");
@@ -166,7 +166,7 @@ const TopProductsTable = ({ products }: TopProductsTableProps) => {
                     role="row"
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3 text-slate-600">
+                      <td key={cell.id} className="px-5 py-[1.15rem] text-slate-600">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}

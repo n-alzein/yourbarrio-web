@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, PackagePlus, ShoppingBag } from "lucide-react";
+import { ArrowRight, PackagePlus, ShoppingBag } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import DateRangeControls from "@/components/DateRangeControls";
 import TopProductsTable from "@/components/TopProductsTable";
@@ -100,11 +100,11 @@ const DashboardErrorState = ({ onRetry }: { onRetry: () => void }) => (
 function PanelSkeleton({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] sm:p-6 ${className}`}
+      className={`dashboard-panel p-5 sm:p-6 ${className}`}
     >
-      <div className="h-3 w-24 animate-pulse rounded-full bg-slate-200" />
-      <div className="mt-3 h-8 w-40 animate-pulse rounded-full bg-slate-100" />
-      <div className="mt-5 h-32 animate-pulse rounded-[20px] bg-slate-100" />
+      <div className="h-3 w-24 animate-pulse rounded-md bg-slate-200" />
+      <div className="mt-3 h-8 w-40 animate-pulse rounded-md bg-slate-100" />
+      <div className="mt-5 h-32 animate-pulse rounded-[18px] bg-slate-100" />
     </div>
   );
 }
@@ -123,18 +123,20 @@ function QuickActionCard({
   return (
     <Link
       href={href}
-      className="group flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-[var(--surface)] px-5 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-0.5 hover:border-slate-300/80 hover:shadow-[0_18px_36px_rgba(15,23,42,0.1)]"
+      className="dashboard-panel group flex items-center justify-between gap-4 bg-white px-5 py-4 transition duration-200 hover:border-slate-300/90 hover:bg-slate-50/[0.35] sm:px-6 sm:py-5"
     >
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-slate-200/70 bg-slate-50 text-slate-700">
           {icon}
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900">{title}</p>
-          <p className="truncate text-sm text-slate-500">{detail}</p>
+          <p className="text-base font-semibold text-slate-900">{title}</p>
+          <p className="mt-2 truncate text-sm text-slate-400/90">{detail}</p>
         </div>
       </div>
-      <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-400 transition duration-200 group-hover:text-slate-700" />
+      <span className="text-[0.64rem] font-medium uppercase tracking-[0.1em] text-slate-300 transition duration-200 group-hover:text-slate-400">
+        Open
+      </span>
     </Link>
   );
 }
@@ -151,18 +153,20 @@ function InsightCard({
   action?: { href: string; label: string };
 }) {
   return (
-    <div className="flex h-full flex-col justify-between rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-0.5 hover:border-slate-300/80 hover:shadow-[0_18px_36px_rgba(15,23,42,0.1)] sm:p-6">
+    <div className="dashboard-panel flex h-full flex-col justify-between p-5 transition duration-200 hover:-translate-y-[1px] hover:border-slate-300 sm:p-6">
       <div>
-        <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-400/85">
           {label}
         </p>
-        <p className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-slate-950">{value}</p>
-        <p className="mt-3 text-sm text-slate-500/85">{helper}</p>
+        <p className="mt-5 text-[2.5rem] font-semibold tracking-[-0.055em] text-slate-950">
+          {value}
+        </p>
+        <p className="mt-4 max-w-[24ch] text-sm leading-6 text-slate-400/90">{helper}</p>
       </div>
       {action ? (
         <Link
           href={action.href}
-          className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#6d28d9] transition duration-200 hover:text-[#5b21b6]"
+          className="mt-8 inline-flex w-fit items-center gap-2 text-sm font-extrabold text-[#4c1d95] transition duration-200 hover:text-[#3b0764]"
         >
           {action.label}
           <ArrowRight className="h-4 w-4" />
@@ -176,7 +180,7 @@ function DashboardLoadingState() {
   return (
     <div className="space-y-6">
       <PanelSkeleton className="h-[220px]" />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <PanelSkeleton className="h-[92px]" />
         <PanelSkeleton className="h-[92px]" />
       </div>
@@ -251,7 +255,7 @@ const DashboardPage = () => {
 
     const quickActions = [
       {
-        href: "/business/listings/new",
+        href: listingCount > 0 ? "/business/listings" : "/business/listings/new",
         title: listingCount > 0 ? "Manage products" : "Add first product",
         detail:
           listingCount > 0
@@ -319,7 +323,7 @@ const DashboardPage = () => {
           "radial-gradient(circle at 10% 10%, var(--glow-1), transparent 55%), radial-gradient(circle at 80% 0%, var(--glow-2), transparent 50%)",
       }}
     >
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 sm:gap-[1.625rem]">
         {status === "loading" ? (
           <DashboardLoadingState />
         ) : null}

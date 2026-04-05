@@ -114,7 +114,7 @@ export default async function AdminAdminsPage({
                 </option>
               ))}
             </select>
-            <button type="submit" className="rounded bg-sky-600 px-3 py-2 text-sm font-medium hover:bg-sky-500">
+            <button type="submit" className="yb-primary-button rounded px-3 py-2 text-sm font-medium text-white">
               Invite or update admin
             </button>
           </form>

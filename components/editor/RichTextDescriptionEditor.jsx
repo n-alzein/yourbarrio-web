@@ -21,7 +21,7 @@ function ToolButton({ onClick, active = false, disabled = false, label }) {
       disabled={disabled}
       className={`${BUTTON_BASE} ${
         active
-          ? "border-blue-300/80 bg-blue-500/30 text-blue-50"
+          ? "border-purple-300/80 bg-purple-500/30 text-white"
           : "border-white/20 bg-white/5 text-white/80 hover:bg-white/10"
       }`}
       aria-label={label}

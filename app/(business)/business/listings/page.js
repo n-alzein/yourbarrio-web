@@ -387,7 +387,7 @@ export default function BusinessListingsPage() {
         <div className="theme-lock">
           <button
             onClick={() => router.push("/business/listings/new")}
-            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-white text-sm font-semibold shadow-md shadow-indigo-200/60 dark:shadow-indigo-900/40 hover:bg-indigo-700 transition"
+            className="yb-primary-button inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
           >
             + Create new listing
           </button>
@@ -408,7 +408,7 @@ export default function BusinessListingsPage() {
           <div className="mt-6">
             <button
               onClick={() => router.push("/business/listings/new")}
-              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-semibold shadow-md hover:bg-indigo-700 transition"
+              className="yb-primary-button inline-flex items-center gap-2 rounded-xl px-5 py-3 font-semibold text-white"
             >
               Add your first listing
             </button>

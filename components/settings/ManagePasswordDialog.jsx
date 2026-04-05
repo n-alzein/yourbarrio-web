@@ -33,9 +33,9 @@ const classes = {
   primaryButton:
     "inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-rgb),0.35)]",
   primaryButtonEnabled:
-    "bg-[var(--yb-focus)] text-white hover:brightness-95",
+    "yb-primary-button text-white",
   primaryButtonDisabled:
-    "cursor-not-allowed border border-[var(--yb-border)] bg-slate-100 text-slate-500",
+    "yb-primary-button text-white",
   label: "mb-1.5 block text-sm font-medium text-[var(--yb-text-secondary)]",
   input:
     "h-11 w-full appearance-none rounded-xl border border-[var(--yb-border)] bg-[var(--yb-bg)] px-3 text-base text-[var(--yb-text)] placeholder:text-[var(--yb-text-muted)] transition md:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-rgb),0.35)] focus-visible:border-[var(--yb-focus)]",

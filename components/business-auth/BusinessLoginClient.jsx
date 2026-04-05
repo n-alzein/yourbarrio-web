@@ -635,8 +635,8 @@ function BusinessLoginInner({ isPopup, callbackError = "" }) {
                 id="business-login-email"
                 name="email"
                 type="email"
-                placeholder="you@company.com"
                 className="w-full px-4 py-3 rounded-xl border border-[var(--yb-border)] bg-white text-slate-900 placeholder:text-slate-500 transition focus:outline-none focus:ring-2 focus:ring-[var(--yb-focus)] focus:border-[var(--yb-focus)]"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -654,8 +654,8 @@ function BusinessLoginInner({ isPopup, callbackError = "" }) {
                 id="business-login-password"
                 name="password"
                 type="password"
-                placeholder="••••••••"
                 className="w-full px-4 py-3 rounded-xl border border-[var(--yb-border)] bg-white text-slate-900 placeholder:text-slate-500 transition focus:outline-none focus:ring-2 focus:ring-[var(--yb-focus)] focus:border-[var(--yb-focus)]"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -673,7 +673,7 @@ function BusinessLoginInner({ isPopup, callbackError = "" }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl font-semibold text-lg bg-[#6E34FF] text-white transition hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="yb-primary-button yb-auth-cta w-full rounded-xl py-3 text-lg font-semibold text-white"
             >
               {loading ? "Signing in..." : "Log in"}
             </button>

@@ -172,7 +172,7 @@ export default function AdminUserActivityPanel({
             type="button"
             onClick={() => fetchRows(0)}
             disabled={isLoading || (!includeActor && !includeTarget)}
-            className="h-10 rounded bg-sky-600 px-3 text-sm font-medium hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-5"
+            className="yb-primary-button h-10 rounded px-3 text-sm font-medium text-white md:col-span-5"
             data-testid="activity-apply-filters"
           >
             {isLoading ? "Loading..." : "Apply filters"}
