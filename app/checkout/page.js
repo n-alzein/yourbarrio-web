@@ -12,6 +12,7 @@ import {
 } from "@/lib/auth/purchaseAccess";
 import { US_STATES } from "@/lib/constants/usStates";
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
+import { calculatePlatformFeeDollars } from "@/lib/stripe/fees";
 
 const formatMoney = (value) => {
   const amount = Number(value || 0);
@@ -71,7 +72,7 @@ export default function CheckoutPage() {
     () => items.reduce((sum, item) => sum + Number(item.unit_price || 0) * Number(item.quantity || 0), 0),
     [items]
   );
-  const fees = 0;
+  const fees = useMemo(() => calculatePlatformFeeDollars(subtotal), [subtotal]);
   const total = subtotal + fees;
 
   useEffect(() => {
@@ -482,7 +483,7 @@ export default function CheckoutPage() {
                   <span>${formatMoney(subtotal)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="opacity-80">Fees</span>
+                  <span className="opacity-80">Service fee</span>
                   <span>${formatMoney(fees)}</span>
                 </div>
                 <div className="flex items-center justify-between border-t pt-3" style={{ borderColor: "var(--border)" }}>

@@ -5,12 +5,13 @@ import { getListingUrl } from "@/lib/ids/publicRefs";
 import { isUuid } from "@/lib/ids/isUuid";
 import { createOrderWithItems } from "@/lib/orders/persistence";
 import { STRIPE_PENDING_ORDER_STATUS } from "@/lib/orders/marketplace";
-import { getAppUrl, getStripe, calculatePlatformFeeAmount, dollarsToCents } from "@/lib/stripe";
+import { getAppUrl, getStripe, dollarsToCents } from "@/lib/stripe";
 import { getStripeModeFromSecretKey, getStripeSecretKey } from "@/lib/stripe/env";
 import { getBusinessStripeStatus } from "@/lib/stripe/status";
 import { getSupabaseServerClient as getServiceClient } from "@/lib/supabase/server";
 import { getSupabaseServerClient, getUserCached } from "@/lib/supabaseServer";
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
+import { calculatePlatformFeeAmount } from "@/lib/stripe/fees";
 
 function jsonError(message: string, status = 400, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ error: message, ...extra }, { status });
@@ -243,8 +244,6 @@ export async function POST(request: Request) {
     orderInput = {
       ...orderInput,
       vendor_id: business.owner_user_id,
-      subtotal: subtotalCents / 100,
-      total: subtotalCents / 100,
     };
   } else {
     const activeCart = await getActiveCart(serviceClient, user.id, {
@@ -308,8 +307,6 @@ export async function POST(request: Request) {
       ...orderInput,
       vendor_id: business.owner_user_id,
       cart_id: activeCart.id,
-      subtotal: subtotalCents / 100,
-      total: subtotalCents / 100,
     };
   }
 
@@ -332,7 +329,16 @@ export async function POST(request: Request) {
     return jsonError("This business is not ready to accept payments yet", 400);
   }
   const platformFeeAmount = calculatePlatformFeeAmount(subtotalCents);
-  const total = subtotalCents / 100;
+  const totalCents = subtotalCents + platformFeeAmount;
+  const subtotal = subtotalCents / 100;
+  const fees = platformFeeAmount / 100;
+  const total = totalCents / 100;
+  orderInput = {
+    ...orderInput,
+    subtotal,
+    fees,
+    total,
+  };
   let orderRecord:
     | { id: string; order_number: string; status?: string | null; vendor_id?: string | null; user_id?: string | null }
     | null = null;
@@ -346,8 +352,10 @@ export async function POST(request: Request) {
         customerUserId: user.id,
         quantity: orderItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
         fulfillmentType,
+        checkoutFlow,
         subtotalCents,
         platformFeeAmount,
+        totalCents,
       });
     }
 
@@ -360,6 +368,17 @@ export async function POST(request: Request) {
       },
       items: orderItems,
     });
+
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[STRIPE_BUY_NOW_TRACE]", "create_order_ready_for_checkout", {
+        orderId: orderRecord.id,
+        orderNumber: orderRecord.order_number,
+        checkoutFlow,
+        subtotalCents,
+        platformFeeAmount,
+        totalCents,
+      });
+    }
 
     const stripe = getStripe();
     const appUrl = getAppUrl();
@@ -379,7 +398,16 @@ export async function POST(request: Request) {
             name: item.title || "Marketplace order",
           },
         },
-      })),
+      })).concat({
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: platformFeeAmount,
+          product_data: {
+            name: "Service fee",
+          },
+        },
+      }),
       customer_email: contactEmail || user.email?.trim() || undefined,
       metadata: {
         checkout_flow: checkoutFlow,
@@ -392,6 +420,9 @@ export async function POST(request: Request) {
         fulfillment_type: fulfillmentType,
         quantity: String(orderItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0)),
         cart_id: String(cartId || orderInput.cart_id || ""),
+        subtotal_cents: String(subtotalCents),
+        platform_fee_amount: String(platformFeeAmount),
+        total_cents: String(totalCents),
       },
       payment_intent_data: {
         application_fee_amount: platformFeeAmount,
@@ -408,6 +439,9 @@ export async function POST(request: Request) {
           fulfillment_type: fulfillmentType,
           quantity: String(orderItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0)),
           cart_id: String(cartId || orderInput.cart_id || ""),
+          subtotal_cents: String(subtotalCents),
+          platform_fee_amount: String(platformFeeAmount),
+          total_cents: String(totalCents),
         },
       },
     });
@@ -439,6 +473,10 @@ export async function POST(request: Request) {
         vendorUserId: business.owner_user_id,
         customerUserId: user.id,
         fulfillmentType,
+        checkoutFlow,
+        subtotalCents,
+        platformFeeAmount,
+        totalCents,
       });
     }
 
@@ -447,6 +485,9 @@ export async function POST(request: Request) {
         url: session.url,
         orderId: orderRecord.id,
         orderNumber: orderRecord.order_number,
+        subtotal,
+        fees,
+        total,
       },
       { status: 200 }
     );
@@ -469,6 +510,10 @@ export async function POST(request: Request) {
         vendorUserId: business.owner_user_id,
         customerUserId: user.id,
         fulfillmentType,
+        checkoutFlow,
+        subtotalCents,
+        platformFeeAmount,
+        totalCents,
         message: error?.message || null,
       });
     }

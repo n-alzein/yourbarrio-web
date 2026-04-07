@@ -135,7 +135,7 @@ export default function OrderReceiptClient({ order, vendor, purchasedAtLabel }) 
               <span>${formatMoney(order?.subtotal)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="opacity-80">Fees</span>
+              <span className="opacity-80">Service fee</span>
               <span>${formatMoney(order?.fees)}</span>
             </div>
             <div className="flex items-center justify-between">

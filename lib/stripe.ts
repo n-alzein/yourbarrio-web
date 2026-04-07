@@ -2,6 +2,7 @@ import "server-only";
 
 import Stripe from "stripe";
 import { getStripeSecretKey } from "@/lib/stripe/env";
+import { calculatePlatformFeeAmount } from "@/lib/stripe/fees";
 
 let stripeClient: Stripe | null = null;
 
@@ -36,12 +37,6 @@ export function getAppUrl() {
     );
   }
   return appUrl.replace(/\/+$/, "");
-}
-
-export function calculatePlatformFeeAmount(amountCents: number) {
-  const normalized = Number(amountCents || 0);
-  if (!Number.isFinite(normalized) || normalized <= 0) return 0;
-  return Math.round(normalized * 0.1);
 }
 
 export function dollarsToCents(value: number | string | null | undefined) {

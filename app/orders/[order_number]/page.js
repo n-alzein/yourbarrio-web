@@ -1,18 +1,28 @@
 import { requireRole } from "@/lib/auth/server";
 import { formatOrderDateTime } from "@/lib/orders";
+import { reconcilePendingStripeOrders } from "@/lib/orders/persistence";
+import { getSupabaseServerClient as getServiceClient } from "@/lib/supabase/server";
 import OrderReceiptClient from "./OrderReceiptClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function OrderPage({ params }) {
+export default async function OrderPage({ params, searchParams }) {
   const resolvedParams =
     params && typeof params.then === "function"
       ? await params
       : params;
+  const resolvedSearchParams =
+    searchParams && typeof searchParams.then === "function"
+      ? await searchParams
+      : searchParams;
   const orderNumber =
     typeof resolvedParams?.order_number === "string"
       ? resolvedParams.order_number.trim()
+      : "";
+  const checkoutSessionId =
+    typeof resolvedSearchParams?.checkout_session_id === "string"
+      ? resolvedSearchParams.checkout_session_id.trim()
       : "";
   const { supabase, user } = await requireRole("customer");
 
@@ -27,12 +37,36 @@ export default async function OrderPage({ params }) {
     );
   }
 
-  const { data: order } = await supabase
+  let { data: order } = await supabase
     .from("orders")
     .select("*, order_items(*)")
     .ilike("order_number", orderNumber)
     .eq("user_id", user.id)
     .maybeSingle();
+
+  if (
+    order?.id &&
+    order?.status === "pending_payment" &&
+    checkoutSessionId &&
+    order?.stripe_checkout_session_id === checkoutSessionId
+  ) {
+    await reconcilePendingStripeOrders({
+      client: getServiceClient() ?? supabase,
+      userId: user.id,
+      orderIds: [order.id],
+      limit: 1,
+      logPrefix: "[ORDER_FINALIZATION_TRACE]",
+    });
+
+    const { data: reconciledOrder } = await supabase
+      .from("orders")
+      .select("*, order_items(*)")
+      .eq("id", order.id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    order = reconciledOrder || order;
+  }
 
   if (!order) {
     return (

@@ -10,6 +10,7 @@ import {
   getPurchaseRestrictionHelpText,
   getPurchaseRestrictionMessage,
 } from "@/lib/auth/purchaseAccess";
+import { calculatePlatformFeeDollars } from "@/lib/stripe/fees";
 
 const formatMoney = (value) => {
   const amount = Number(value || 0);
@@ -31,7 +32,10 @@ export default function CartPage() {
     () => items.reduce((sum, item) => sum + Number(item.unit_price || 0) * Number(item.quantity || 0), 0),
     [items]
   );
-  const fees = 0;
+  const fees = useMemo(
+    () => vendorGroups.reduce((sum, group) => sum + calculatePlatformFeeDollars(group.subtotal), 0),
+    [vendorGroups]
+  );
   const total = allItemsSubtotal + fees;
 
   const handleQuantityChange = async (item, delta) => {
@@ -264,7 +268,7 @@ export default function CartPage() {
                   <span>${formatMoney(allItemsSubtotal)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="opacity-80">Fees</span>
+                  <span className="opacity-80">Estimated service fees</span>
                   <span>${formatMoney(fees)}</span>
                 </div>
                 <div className="flex items-center justify-between border-t pt-3" style={{ borderColor: "var(--border)" }}>
