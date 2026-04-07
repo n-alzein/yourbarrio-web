@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/auth/server";
+import { formatOrderDateTime } from "@/lib/orders";
 import OrderReceiptClient from "./OrderReceiptClient";
 
 export const dynamic = "force-dynamic";
@@ -50,5 +51,11 @@ export default async function OrderPage({ params }) {
     .eq("id", order.vendor_id)
     .maybeSingle();
 
-  return <OrderReceiptClient order={order} vendor={vendor} />;
+  return (
+    <OrderReceiptClient
+      order={order}
+      vendor={vendor}
+      purchasedAtLabel={formatOrderDateTime(order.created_at)}
+    />
+  );
 }

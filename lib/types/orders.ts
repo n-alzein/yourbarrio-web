@@ -1,6 +1,8 @@
 import type { FulfillmentType } from "./cart";
 
 export type OrderStatus =
+  | "pending_payment"
+  | "payment_failed"
   | "requested"
   | "confirmed"
   | "ready"
@@ -42,6 +44,12 @@ export type Order = {
   subtotal: number;
   fees: number;
   total: number;
+  stripe_checkout_session_id?: string | null;
+  stripe_payment_intent_id?: string | null;
+  stripe_charge_id?: string | null;
+  platform_fee_amount?: number;
+  currency?: string | null;
+  paid_at?: string | null;
   created_at?: string | null;
   order_items?: OrderItem[];
 };

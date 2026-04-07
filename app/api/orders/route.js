@@ -3,14 +3,10 @@ import { getSupabaseServerClient, getUserCached } from "@/lib/supabaseServer";
 import { getPurchaseRestrictionMessage } from "@/lib/auth/purchaseAccess";
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
 import { getCurrentAccountContext } from "@/lib/auth/getCurrentAccountContext";
+import { createOrderWithItems } from "@/lib/orders/persistence";
 
 function jsonError(message, status = 400, extra = {}) {
   return NextResponse.json({ error: message, ...extra }, { status });
-}
-
-function buildOrderNumber() {
-  const fragment = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `YB-${fragment}`;
 }
 
 async function getActiveCart(supabase, userId, { cartId, businessId } = {}) {
@@ -39,6 +35,7 @@ async function getActiveCart(supabase, userId, { cartId, businessId } = {}) {
 export async function POST(request) {
   const supabase = await getSupabaseServerClient();
   const { user, error: userError } = await getUserCached(supabase);
+  const diagEnabled = process.env.NODE_ENV !== "production";
 
   if (userError || !user) {
     return jsonError("Unauthorized", 401);
@@ -121,15 +118,11 @@ export async function POST(request) {
   const total = subtotal + fees;
 
   let orderRecord = null;
-  let orderNumber = null;
-  let lastError = null;
-
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const candidate = buildOrderNumber();
-    const { data, error } = await supabase
-      .from("orders")
-      .insert({
-        order_number: candidate,
+  try {
+    orderRecord = await createOrderWithItems({
+      client: supabase,
+      logPrefix: "[STRIPE_CART_TRACE]",
+      order: {
         user_id: user.id,
         vendor_id: activeCart.vendor_id,
         cart_id: activeCart.id,
@@ -149,41 +142,40 @@ export async function POST(request) {
         subtotal,
         fees,
         total,
-      })
-      .select("id,order_number")
-      .single();
-
-    if (!error) {
-      orderRecord = data;
-      orderNumber = candidate;
-      break;
+      },
+      items: items.map((item) => ({
+        listing_id: item.listing_id,
+        title: item.title,
+        unit_price: item.unit_price,
+        image_url: item.image_url,
+        quantity: item.quantity,
+      })),
+    });
+  } catch (error) {
+    if (diagEnabled) {
+      console.warn("[STRIPE_CART_TRACE]", "create_order_failed", {
+        userId: user.id,
+        cartId: activeCart?.id || null,
+        vendorId: activeCart?.vendor_id || null,
+        businessIdParam: businessId,
+        listingIds: items.map((item) => item.listing_id).filter(Boolean),
+        message: error?.message || null,
+      });
     }
-
-    if (error?.code !== "23505") {
-      lastError = error;
-      break;
-    }
+    return jsonError(error?.message || "Failed to create order", 500);
   }
 
-  if (!orderRecord) {
-    return jsonError(lastError?.message || "Failed to create order", 500);
-  }
-
-  const orderItems = items.map((item) => ({
-    order_id: orderRecord.id,
-    listing_id: item.listing_id,
-    title: item.title,
-    unit_price: item.unit_price,
-    image_url: item.image_url,
-    quantity: item.quantity,
-  }));
-
-  const { error: itemsError } = await supabase
-    .from("order_items")
-    .insert(orderItems);
-
-  if (itemsError) {
-    return jsonError(itemsError.message || "Failed to save order items", 500);
+  if (diagEnabled) {
+    console.warn("[STRIPE_CART_TRACE]", "create_order_success", {
+      orderId: orderRecord.id,
+      orderNumber: orderRecord.order_number,
+      customerUserId: user.id,
+      activeCartId: activeCart.id,
+      activeCartVendorId: activeCart.vendor_id,
+      insertedOrderVendorId: orderRecord.vendor_id || null,
+      businessIdParam: businessId,
+      listingIds: items.map((item) => item.listing_id).filter(Boolean),
+    });
   }
 
   await supabase
@@ -191,5 +183,5 @@ export async function POST(request) {
     .update({ status: "submitted", updated_at: new Date().toISOString() })
     .eq("id", activeCart.id);
 
-  return NextResponse.json({ order_number: orderNumber }, { status: 200 });
+  return NextResponse.json({ order_number: orderRecord.order_number }, { status: 200 });
 }

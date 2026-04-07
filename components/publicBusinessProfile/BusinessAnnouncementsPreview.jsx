@@ -2,8 +2,8 @@ import { Megaphone } from "lucide-react";
 import {
   ProfileEmptyState,
   ProfileSection,
-  cx,
 } from "@/components/business/profile-system/ProfileSystem";
+import { cx } from "@/lib/utils/cx";
 
 export default function BusinessAnnouncementsPreview({
   announcements,

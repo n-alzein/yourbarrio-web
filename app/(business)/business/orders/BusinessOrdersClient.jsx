@@ -35,6 +35,13 @@ const baseButton =
 const fieldBase =
   "w-full rounded-full border px-4 h-11 text-sm bg-transparent transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 focus-visible:ring-offset-2";
 
+const getLocalRangeStart = (days) => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (days - 1));
+  return start.getTime();
+};
+
 export default function BusinessOrdersClient() {
   const searchParams = useSearchParams();
   const initialTab = searchParams?.get("tab") || "new";
@@ -149,7 +156,7 @@ export default function BusinessOrdersClient() {
     }
     if (dateRange !== "all") {
       const days = Number(dateRange);
-      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+      const cutoff = getLocalRangeStart(days);
       next = next.filter((order) => {
         const createdAt = Date.parse(order.created_at);
         if (Number.isNaN(createdAt)) return true;

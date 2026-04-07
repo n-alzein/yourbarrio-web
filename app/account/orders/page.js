@@ -9,7 +9,14 @@ import {
 import { requireRole } from "@/lib/auth/server";
 import { getSupportAwareClient } from "@/lib/support/supportAwareData";
 
-const PENDING_STATUSES = ["requested", "confirmed", "ready", "out_for_delivery"];
+const PENDING_STATUSES = [
+  "pending_payment",
+  "payment_failed",
+  "requested",
+  "confirmed",
+  "ready",
+  "out_for_delivery",
+];
 
 export default async function AccountOrdersPage({ searchParams }) {
   await requireRole("customer");

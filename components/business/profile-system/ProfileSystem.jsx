@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import FastImage from "@/components/FastImage";
+import { cx } from "@/lib/utils/cx";
 import {
   Clock3,
   Globe,
@@ -25,10 +26,6 @@ import {
   parseHours,
   toObject,
 } from "@/lib/business/profileUtils";
-
-export function cx(...values) {
-  return values.filter(Boolean).join(" ");
-}
 
 const NAV_OFFSET = 152;
 

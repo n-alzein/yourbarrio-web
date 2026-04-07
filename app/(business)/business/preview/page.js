@@ -12,6 +12,13 @@ import {
 } from "@/components/business/profile-system/ProfileSystem";
 import ViewerContextEnhancer from "@/components/public/ViewerContextEnhancer";
 import { getCustomerBusinessUrl } from "@/lib/ids/publicRefs";
+import {
+  sanitizeAnnouncements,
+  sanitizeGalleryPhotos,
+  sanitizeListings,
+  sanitizePublicProfile,
+  sanitizeReviews,
+} from "@/lib/publicBusinessProfile/normalize";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -203,7 +210,7 @@ async function fetchReviewRatings(supabase, businessId) {
 export default async function BusinessPreviewPage() {
   const { supabase, effectiveUserId } = await requireEffectiveRole("business");
 
-  const profile = await fetchProfile(supabase, effectiveUserId);
+  const profile = sanitizePublicProfile(await fetchProfile(supabase, effectiveUserId));
 
   if (!profile) {
     return (
@@ -220,7 +227,7 @@ export default async function BusinessPreviewPage() {
     );
   }
 
-  const [gallery, announcements, listings, reviews, reviewRatings] =
+  const [galleryResult, announcementsResult, listingsResult, reviewsResult, reviewRatings] =
     await Promise.all([
       fetchGallery(supabase, effectiveUserId),
       fetchAnnouncements(supabase, effectiveUserId),
@@ -228,6 +235,11 @@ export default async function BusinessPreviewPage() {
       fetchReviews(supabase, effectiveUserId),
       fetchReviewRatings(supabase, effectiveUserId),
     ]);
+
+  const gallery = sanitizeGalleryPhotos(galleryResult);
+  const announcements = sanitizeAnnouncements(announcementsResult);
+  const listings = sanitizeListings(listingsResult);
+  const reviews = sanitizeReviews(reviewsResult);
 
   const ratingSummary = buildRatingSummary(reviewRatings || []);
 

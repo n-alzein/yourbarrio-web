@@ -260,6 +260,11 @@ function BusinessNavbarInner({ pathname, forcedAuth = null }) {
   }, [supabase, resolvedUser?.id, canLoadUnread]);
 
   useEffect(() => {
+    if (canLoadUnread) return;
+    setUnreadCount(0);
+  }, [canLoadUnread, resolvedUser?.id, resolvedRole]);
+
+  useEffect(() => {
     if (!badgeReady || !canLoadUnread) return;
     queueMicrotask(() => {
       loadUnreadCount();
@@ -314,6 +319,12 @@ function BusinessNavbarInner({ pathname, forcedAuth = null }) {
       .is("read_at", null);
     setNotificationUnreadCount(count || 0);
   }, [supabase, resolvedUser?.id, resolvedRole]);
+
+  useEffect(() => {
+    if (resolvedRole === "business" && resolvedUser?.id) return;
+    setNotifications([]);
+    setNotificationUnreadCount(0);
+  }, [resolvedRole, resolvedUser?.id]);
 
   const loadNotifications = useCallback(async () => {
     if (!supabase || !resolvedUser?.id || resolvedRole !== "business") return;

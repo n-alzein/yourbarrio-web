@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerClient as getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getBusinessDataClientForRequest } from "@/lib/business/getBusinessDataClientForRequest";
 import { getLowStockThreshold } from "@/lib/inventory";
+import { reconcilePendingStripeOrders } from "@/lib/orders/persistence";
 import {
   ORDER_STATUSES,
   canTransition,
@@ -12,10 +13,12 @@ const STATUS_TABS = {
   new: ["requested"],
   progress: ["confirmed", "ready", "out_for_delivery"],
   completed: ["fulfilled"],
-  cancelled: ["cancelled"],
+  cancelled: ["payment_failed", "cancelled"],
 };
 
 const STATUS_LABELS = {
+  pending_payment: "Pending payment",
+  payment_failed: "Payment failed",
   requested: "Requested",
   confirmed: "Confirmed",
   ready: "Ready for pickup",
@@ -142,12 +145,24 @@ export async function GET(request) {
   if (!access.ok) {
     return jsonError(access.error, access.status);
   }
+  const diagEnabled = process.env.NODE_ENV !== "production";
   const supabase = access.client;
+  const serviceClient = getSupabaseServiceClient();
   const effectiveUserId = access.effectiveUserId;
+  const businessId = access.businessId || null;
 
   const { searchParams } = new URL(request.url);
   const tab = searchParams.get("tab") || "new";
   const statusList = STATUS_TABS[tab] || STATUS_TABS.new;
+
+  if (tab === "new") {
+    await reconcilePendingStripeOrders({
+      client: serviceClient ?? supabase,
+      vendorId: effectiveUserId,
+      limit: 50,
+      logPrefix: "[ORDER_FINALIZATION_TRACE]",
+    });
+  }
 
   const { data, error } = await supabase
     .from("orders")
@@ -157,7 +172,27 @@ export async function GET(request) {
     .order("created_at", { ascending: false });
 
   if (error) {
+    if (diagEnabled) {
+      console.warn("[BUSINESS_ORDERS_TRACE]", "read_failed", {
+        effectiveUserId,
+        businessId,
+        tab,
+        statusList,
+        code: error.code || null,
+        message: error.message || null,
+      });
+    }
     return jsonError(error.message || "Failed to load orders", 500);
+  }
+
+  if (diagEnabled) {
+    console.warn("[BUSINESS_ORDERS_TRACE]", "read", {
+      effectiveUserId,
+      businessId,
+      tab,
+      statusList,
+      rowCount: Array.isArray(data) ? data.length : 0,
+    });
   }
 
   return NextResponse.json({ orders: data || [] }, { status: 200 });

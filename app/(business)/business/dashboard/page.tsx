@@ -2,11 +2,12 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowRight, PackagePlus, ShoppingBag } from "lucide-react";
+import { ArrowRight, BadgeCheck, Landmark, Loader2, PackagePlus, ShoppingBag } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import DateRangeControls from "@/components/DateRangeControls";
 import TopProductsTable from "@/components/TopProductsTable";
 import RecentOrders from "@/components/RecentOrders";
+import type { BusinessStripeStatus } from "@/lib/stripe/status";
 import type {
   DashboardData,
   DashboardFilters,
@@ -30,22 +31,28 @@ const ProfileViewsChart = dynamic(
 );
 
 type DashboardStatus = "loading" | "ready" | "error";
+type StripeConnectStatus = BusinessStripeStatus;
 
 const DEFAULT_FILTERS: DashboardFilters = {
   categories: [],
 };
 
-const formatDate = (date: Date) => date.toISOString().slice(0, 10);
+const startOfLocalDay = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+
+const endOfLocalDay = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
 
 const resolveDateRange = (range: DateRangeKey) => {
   const today = new Date();
-  const start = new Date(today);
+  const start = startOfLocalDay(today);
+  const end = endOfLocalDay(today);
   if (range === "7d") {
-    start.setDate(today.getDate() - 6);
+    start.setDate(start.getDate() - 6);
   } else if (range === "30d") {
-    start.setDate(today.getDate() - 29);
+    start.setDate(start.getDate() - 29);
   }
-  return { from: formatDate(start), to: formatDate(today) };
+  return { from: start.toISOString(), to: end.toISOString() };
 };
 
 const formatCurrency = (value: number) =>
@@ -197,6 +204,93 @@ function DashboardLoadingState() {
   );
 }
 
+function StripeStatusCard({
+  status,
+  loading,
+  actionLoading,
+  error,
+  onAction,
+  onRetry,
+}: {
+  status: StripeConnectStatus | null;
+  loading: boolean;
+  actionLoading: boolean;
+  error: string;
+  onAction: () => void;
+  onRetry: () => void;
+}) {
+  const label = status?.badgeLabel || "Not connected";
+  const showAction = !loading;
+  const actionLabel = status?.hasStripeAccount ? "Continue Stripe onboarding" : "Connect Stripe";
+  const isPositive = status?.uiStatus === "active" || status?.uiStatus === "connected_for_testing";
+  const bodyCopy =
+    status?.helpText ||
+    "Connect Stripe to accept customer payments and route payouts to your business account.";
+
+  return (
+    <section className="dashboard-panel p-5 sm:p-6">
+      <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[14px] border border-slate-200 bg-slate-50 text-slate-700">
+              <Landmark className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-400/85">
+                Stripe
+              </p>
+              <h2 className="mt-1 text-xl font-semibold text-slate-950">
+                Marketplace payouts
+              </h2>
+            </div>
+          </div>
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-700">
+            {isPositive ? <BadgeCheck className="h-4 w-4 text-emerald-600" /> : null}
+            {loading ? "Loading Stripe status..." : label}
+          </div>
+          <p className="max-w-2xl text-sm leading-6 text-slate-500">
+            {bodyCopy}
+          </p>
+          {status?.isTestMode && status?.hasStripeAccount ? (
+            <p className="max-w-2xl text-sm leading-6 text-slate-400">
+              Stripe test verification may still appear incomplete in Stripe dashboard, but sandbox testing is enabled.
+            </p>
+          ) : null}
+          {status?.accountId ? (
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+              Account {status.accountId}
+            </p>
+          ) : null}
+          {error ? (
+            <p className="text-sm text-rose-600">{error}</p>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 flex-col gap-2 md:items-end">
+          {showAction ? (
+            <button
+              type="button"
+              onClick={onAction}
+              disabled={loading || actionLoading}
+              className="yb-primary-button inline-flex min-w-[180px] items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {actionLoading ? "Opening Stripe..." : actionLabel}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={loading || actionLoading}
+            className="dashboard-toolbar-button px-4 py-2 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Refresh status
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const DashboardPage = () => {
   const [status, setStatus] = useState<DashboardStatus>("loading");
   const [data, setData] = useState<DashboardData | null>(null);
@@ -204,10 +298,18 @@ const DashboardPage = () => {
   const [dateRange, setDateRange] = useState<DateRangeKey>("30d");
   const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_FILTERS);
   const [reloadKey, setReloadKey] = useState(0);
+  const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
+  const [stripeLoading, setStripeLoading] = useState(true);
+  const [stripeError, setStripeError] = useState("");
+  const [stripeActionLoading, setStripeActionLoading] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadDashboard = async () => {
-      setStatus("loading");
+      if (!cancelled) {
+        setStatus((current) => (current === "ready" ? "ready" : "loading"));
+      }
       const { from, to } = resolveDateRange(dateRange);
       const query = new URLSearchParams({
         from,
@@ -225,16 +327,76 @@ const DashboardPage = () => {
           throw new Error(`dashboard_fetch_failed:${response.status}`);
         }
         const payload = (await response.json()) as DashboardData;
+        if (cancelled) return;
         setData(payload);
         setCategories(payload.categories ?? []);
         setStatus("ready");
       } catch (err) {
+        if (cancelled) return;
         console.error("Dashboard load failed", err);
         setStatus("error");
       }
     };
+
     loadDashboard();
+
+    const handleVisibilityRefresh = () => {
+      if (document.visibilityState === "visible") {
+        loadDashboard();
+      }
+    };
+
+    window.addEventListener("focus", loadDashboard);
+    document.addEventListener("visibilitychange", handleVisibilityRefresh);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", loadDashboard);
+      document.removeEventListener("visibilitychange", handleVisibilityRefresh);
+    };
   }, [dateRange, filters, reloadKey]);
+
+  const loadStripeStatus = async () => {
+    setStripeLoading(true);
+    setStripeError("");
+    try {
+      const response = await fetch("/api/stripe/connect/status", {
+        cache: "no-store",
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to load Stripe status");
+      }
+      setStripeStatus(payload as StripeConnectStatus);
+    } catch (err: any) {
+      setStripeError(err?.message || "Failed to load Stripe status");
+    } finally {
+      setStripeLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadStripeStatus();
+  }, []);
+
+  const handleStripeAction = async () => {
+    setStripeActionLoading(true);
+    setStripeError("");
+    try {
+      const response = await fetch("/api/stripe/connect/start", {
+        method: "POST",
+        credentials: "include",
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload?.url) {
+        throw new Error(payload?.error || "Failed to start Stripe onboarding");
+      }
+      window.location.href = payload.url;
+    } catch (err: any) {
+      setStripeError(err?.message || "Failed to start Stripe onboarding");
+      setStripeActionLoading(false);
+    }
+  };
 
   const dashboardState = useMemo(() => {
     if (!data) return null;
@@ -344,6 +506,15 @@ const DashboardPage = () => {
               setupItems={dashboardState.setupItems}
               onDateRangeChange={setDateRange}
               onFiltersChange={setFilters}
+            />
+
+            <StripeStatusCard
+              status={stripeStatus}
+              loading={stripeLoading}
+              actionLoading={stripeActionLoading}
+              error={stripeError}
+              onAction={handleStripeAction}
+              onRetry={loadStripeStatus}
             />
 
             <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">

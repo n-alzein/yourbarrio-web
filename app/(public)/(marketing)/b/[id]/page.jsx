@@ -13,6 +13,13 @@ import PublicBusinessPreviewClient from "@/components/publicBusinessProfile/Publ
 import ProfileViewTracker from "@/components/publicBusinessProfile/ProfileViewTracker";
 import ViewerContextEnhancer from "@/components/public/ViewerContextEnhancer";
 import { ProfileSectionNav } from "@/components/business/profile-system/ProfileSystem";
+import {
+  sanitizeAnnouncements,
+  sanitizeGalleryPhotos,
+  sanitizeListings,
+  sanitizePublicProfile,
+  sanitizeReviews,
+} from "@/lib/publicBusinessProfile/normalize";
 
 const PUBLIC_CACHE_SECONDS = 300;
 const PERF_ENV_FLAG = "YB_PROFILE_PERF";
@@ -408,9 +415,10 @@ export default async function PublicBusinessProfilePage({
   const supabase = useAuthenticatedClient
     ? await getSupabaseServerClient()
     : null;
-  const profile = await perf.time("profile", () =>
+  const profileResult = await perf.time("profile", () =>
     getPublicProfileCached(businessId)
   );
+  const profile = sanitizePublicProfile(profileResult);
 
   if (!profile) {
     perf.end({ outcome: "missing-profile" });
@@ -430,7 +438,7 @@ export default async function PublicBusinessProfilePage({
     notFound();
   }
 
-  const [gallery, announcements, listings, reviews, reviewRatings] =
+  const [galleryResult, announcementsResult, listingsResult, reviewsResult, reviewRatings] =
     await Promise.all([
       perf.time("gallery", () =>
         useAuthenticatedClient
@@ -458,6 +466,11 @@ export default async function PublicBusinessProfilePage({
           : getPublicReviewRatingsCached(businessId)
       ),
     ]);
+
+  const gallery = sanitizeGalleryPhotos(galleryResult);
+  const announcements = sanitizeAnnouncements(announcementsResult);
+  const listings = sanitizeListings(listingsResult);
+  const reviews = sanitizeReviews(reviewsResult);
 
   const ratingSummary = buildRatingSummary(reviewRatings || []);
   perf.end({ outcome: "ok" });

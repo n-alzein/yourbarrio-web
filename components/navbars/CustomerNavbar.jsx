@@ -968,6 +968,11 @@ function CustomerNavbarInner({ pathname, searchParams }) {
   }, [supabase, user?.id, canLoadUnread]);
 
   useEffect(() => {
+    if (canLoadUnread) return;
+    setUnreadCount(0);
+  }, [canLoadUnread, user?.id, authStatus]);
+
+  useEffect(() => {
     if (!badgeReady || !canLoadUnread) return;
     queueMicrotask(() => {
       loadUnreadCount();

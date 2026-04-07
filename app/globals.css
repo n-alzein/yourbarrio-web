@@ -256,6 +256,12 @@ button {
   --status-border: #fdba74;
 }
 
+.theme-light .status-badge[data-status="pending_payment"] {
+  --status-bg: #f5f3ff;
+  --status-text: #6d28d9;
+  --status-border: #c4b5fd;
+}
+
 .theme-light .status-badge[data-status="confirmed"] {
   --status-bg: #eff6ff;
   --status-text: #1d4ed8;
@@ -282,10 +288,22 @@ button {
   --status-border: #fda4af;
 }
 
+.theme-light .status-badge[data-status="payment_failed"] {
+  --status-bg: #fef2f2;
+  --status-text: #b91c1c;
+  --status-border: #fca5a5;
+}
+
 .theme-dark .status-badge[data-status="requested"] {
   --status-bg: rgba(251, 146, 60, 0.16);
   --status-text: #fdba74;
   --status-border: rgba(251, 146, 60, 0.45);
+}
+
+.theme-dark .status-badge[data-status="pending_payment"] {
+  --status-bg: rgba(139, 92, 246, 0.16);
+  --status-text: #c4b5fd;
+  --status-border: rgba(139, 92, 246, 0.4);
 }
 
 .theme-dark .status-badge[data-status="confirmed"] {
@@ -312,6 +330,12 @@ button {
   --status-bg: rgba(244, 63, 94, 0.16);
   --status-text: #fda4af;
   --status-border: rgba(244, 63, 94, 0.4);
+}
+
+.theme-dark .status-badge[data-status="payment_failed"] {
+  --status-bg: rgba(239, 68, 68, 0.18);
+  --status-text: #fca5a5;
+  --status-border: rgba(239, 68, 68, 0.4);
 }
 
 

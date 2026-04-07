@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useCart } from "@/components/cart/CartProvider";
 import { useAuth } from "@/components/AuthProvider";
 import { useCurrentAccountContext } from "@/lib/auth/useCurrentAccountContext";
@@ -29,11 +29,10 @@ const TIME_OPTIONS = [
 ];
 
 export default function CheckoutPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { user, profile } = useAuth();
   const accountContext = useCurrentAccountContext();
-  const { loading, refreshCart, setFulfillmentType, vendorGroups } = useCart();
+  const { loading, setFulfillmentType, vendorGroups } = useCart();
   const businessIdParam = (searchParams.get("business_id") || "").trim();
   const purchaseRestricted = accountContext.purchaseRestricted;
   const purchaseEligibilityPending = accountContext.rolePending;
@@ -139,7 +138,7 @@ export default function CheckoutPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const response = await fetch("/api/orders", {
+      const response = await fetch("/api/stripe/checkout/create-session", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -152,14 +151,13 @@ export default function CheckoutPage() {
       });
 
       const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload?.error || "Failed to submit order");
+      if (!response.ok || !payload?.url) {
+        throw new Error(payload?.error || "Failed to start checkout");
       }
 
-      await refreshCart();
-      router.push(`/orders/${payload.order_number}`);
+      window.location.href = payload.url;
     } catch (err) {
-      setError(err?.message || "Failed to submit order");
+      setError(err?.message || "Failed to start checkout");
     } finally {
       setSubmitting(false);
     }
@@ -450,8 +448,8 @@ export default function CheckoutPage() {
             >
               <p className="font-semibold">Review &amp; confirm</p>
               <ul className="mt-2 space-y-1 text-xs opacity-80">
-                <li>Payment collected at pickup/delivery.</li>
-                <li>Totals may be estimates until the business confirms.</li>
+                <li>Your contact and fulfillment details will be sent with the Stripe checkout.</li>
+                <li>Review and pay securely in Stripe after this step.</li>
               </ul>
             </div>
 
@@ -463,7 +461,7 @@ export default function CheckoutPage() {
               className="w-full rounded-full px-5 py-3 text-sm font-semibold"
               style={{ background: "var(--text)", color: "var(--background)", opacity: submitting ? 0.7 : 1 }}
             >
-              {submitting ? "Submitting..." : "Place order request"}
+              {submitting ? "Redirecting..." : "Continue to Stripe"}
             </button>
           </form>
 
@@ -492,6 +490,7 @@ export default function CheckoutPage() {
                   <span className="text-sm font-semibold">${formatMoney(total)}</span>
                 </div>
               </div>
+              <p className="mt-3 text-xs opacity-70">You’ll review payment and billing details on Stripe next.</p>
             </div>
           </div>
         </div>

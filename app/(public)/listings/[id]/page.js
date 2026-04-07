@@ -50,7 +50,7 @@ export default function ListingDetails({ params }) {
   const router = useRouter();
   const { theme, hydrated } = useTheme();
   const isLight = hydrated ? theme === "light" : true;
-  const { addItem } = useCart();
+  const { addItem, setFulfillmentType: updateCartFulfillmentType } = useCart();
   const routeParams = useParams();
   const pathname = usePathname();
   const [resolvedParams, setResolvedParams] = useState(params);
@@ -75,7 +75,9 @@ export default function ListingDetails({ params }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
+  const [fulfillmentType, setFulfillmentType] = useState("pickup");
   const [statusMessage, setStatusMessage] = useState("");
+  const [cartActionLoading, setCartActionLoading] = useState(false);
   const [messageStatus, setMessageStatus] = useState("");
   const [messageLoading, setMessageLoading] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -355,34 +357,50 @@ export default function ListingDetails({ params }) {
       return;
     }
     if (!requireAuth("place orders", setStatusMessage)) return;
+    setCartActionLoading(true);
     setStatusMessage("");
+    try {
+      const result = await addItem({
+        listingId: listing.id,
+        quantity,
+      });
 
-    const result = await addItem({
-      listingId: listing.id,
-      quantity,
-    });
+      if (result?.error) {
+        setStatusMessage(result.error);
+        return;
+      }
 
-    if (result?.error) {
-      setStatusMessage(result.error);
-      return;
+      const fulfillmentResult = await updateCartFulfillmentType(fulfillmentType, {
+        cartId: result?.cart?.id || null,
+        businessId: listing.business_id || null,
+      });
+
+      if (fulfillmentResult?.error) {
+        setStatusMessage(fulfillmentResult.error);
+        return;
+      }
+
+      setStatusMessage("Added to cart.");
+      setCartToast({
+        message: "Added to cart",
+        actions: [
+          { label: "View cart", onClick: () => router.push("/cart") },
+          {
+            label: "Checkout",
+            onClick: () =>
+              router.push(
+                listing.business_id
+                  ? `/checkout?business_id=${encodeURIComponent(listing.business_id)}`
+                  : "/checkout"
+              ),
+          },
+        ],
+      });
+    } catch (err) {
+      setStatusMessage(err?.message || "Failed to add this item to your cart.");
+    } finally {
+      setCartActionLoading(false);
     }
-
-    setStatusMessage("Added to cart.");
-    setCartToast({
-      message: "Added to cart",
-      actions: [
-        { label: "View cart", onClick: () => router.push("/cart") },
-        {
-          label: "Checkout",
-          onClick: () =>
-            router.push(
-              listing.business_id
-                ? `/checkout?business_id=${encodeURIComponent(listing.business_id)}`
-                : "/checkout"
-            ),
-        },
-      ],
-    });
   };
 
   const handleShareListing = async () => {
@@ -828,10 +846,43 @@ export default function ListingDetails({ params }) {
               <div className="mt-6 space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <label className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">
+                    Fulfillment
+                  </label>
+                  <span className="text-xs opacity-70">Saved profile details will be used at checkout</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: "pickup", label: "Pickup" },
+                    { id: "delivery", label: "Delivery" },
+                  ].map((option) => {
+                    const active = fulfillmentType === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setFulfillmentType(option.id)}
+                        disabled={purchaseRestricted || purchaseEligibilityPending || cartActionLoading}
+                        className={`rounded-xl px-3 py-3 text-sm font-semibold transition ${
+                          active ? "ring-2 ring-indigo-500/20" : ""
+                        }`}
+                        style={{
+                          background: active ? "rgba(79,70,229,0.08)" : "var(--surface)",
+                          border: "1px solid rgba(15,23,42,0.08)",
+                          color: "var(--text)",
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">
                     Quantity
                   </label>
                   {!isOutOfStock ? (
-                    <span className="text-xs opacity-70">Choose delivery or pickup at checkout</span>
+                    <span className="text-xs opacity-70">Review address and payment at checkout</span>
                   ) : null}
                 </div>
                 <select
@@ -883,21 +934,32 @@ export default function ListingDetails({ params }) {
                     </p>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={handleAddToCart}
-                    disabled={isOutOfStock}
-                    className="yb-auth-cta mt-5 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-semibold transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(111,52,255,0.24)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-                    style={{
-                      background: isOutOfStock ? "rgba(15,23,42,0.12)" : "var(--yb-focus)",
-                      color: isOutOfStock ? "rgba(15,23,42,0.46)" : "#ffffff",
-                      boxShadow: isOutOfStock
-                        ? "none"
-                        : "0 12px 24px -20px rgba(110,52,255,0.38)",
-                    }}
-                  >
-                    Add to cart
-                  </button>
+                  <div className="mt-5 grid gap-3">
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      disabled={isOutOfStock || cartActionLoading}
+                      className="yb-auth-cta flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-semibold transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(111,52,255,0.24)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                      style={{
+                        background: isOutOfStock ? "rgba(15,23,42,0.12)" : "var(--yb-focus)",
+                        color: isOutOfStock ? "rgba(15,23,42,0.46)" : "#ffffff",
+                        boxShadow: isOutOfStock
+                          ? "none"
+                          : "0 12px 24px -20px rgba(110,52,255,0.38)",
+                      }}
+                    >
+                      {cartActionLoading ? "Adding..." : "Add to cart"}
+                    </button>
+                    <Link
+                      href={listing.business_id
+                        ? `/checkout?business_id=${encodeURIComponent(listing.business_id)}`
+                        : "/checkout"}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3.5 text-sm font-semibold transition hover:bg-black/[0.03]"
+                      style={{ borderColor: "rgba(15,23,42,0.08)" }}
+                    >
+                      View checkout
+                    </Link>
+                  </div>
                 )}
 
                 {isOutOfStock ? (
@@ -921,7 +983,7 @@ export default function ListingDetails({ params }) {
                   </div>
                 ) : (
                   <div className="mt-4 text-xs leading-5 opacity-75">
-                    Choose delivery or pickup at checkout. Charges apply after business confirms.
+                    Choose pickup or delivery here, add the item to your cart, and finish payment at checkout.
                   </div>
                 )}
 

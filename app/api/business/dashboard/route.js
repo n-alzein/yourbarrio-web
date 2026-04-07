@@ -1,9 +1,31 @@
 import { NextResponse } from "next/server";
 import { getBusinessByUserId } from "@/lib/business/getBusinessByUserId";
 import { getBusinessDataClientForRequest } from "@/lib/business/getBusinessDataClientForRequest";
+import { reconcilePendingStripeOrders } from "@/lib/orders/persistence";
+import { getSupabaseServerClient as getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getListingCategoryLabel } from "@/lib/taxonomy/compat";
 
 const SALES_STATUSES = ["fulfilled", "completed"];
+const ORDER_COUNT_STATUSES = [
+  "pending_payment",
+  "requested",
+  "confirmed",
+  "ready",
+  "out_for_delivery",
+  "fulfilled",
+  "completed",
+];
+const BUSINESS_VISIBLE_STATUSES = [
+  "pending_payment",
+  "payment_failed",
+  "requested",
+  "confirmed",
+  "ready",
+  "out_for_delivery",
+  "fulfilled",
+  "completed",
+  "cancelled",
+];
 
 const parseDate = (value, fallback) => {
   if (!value) return fallback;
@@ -20,8 +42,8 @@ const buildDateRange = (fromParam, toParam) => {
   fallbackFrom.setDate(today.getDate() - 29);
   const from = parseDate(fromParam, fallbackFrom);
   const to = parseDate(toParam, today);
-  const start = new Date(Date.UTC(from.getFullYear(), from.getMonth(), from.getDate()));
-  const end = new Date(Date.UTC(to.getFullYear(), to.getMonth(), to.getDate()));
+  const start = new Date(from);
+  const end = new Date(to);
   return { from: start, to: end };
 };
 
@@ -63,16 +85,34 @@ const aggregateByDate = (rows, accessor) => {
 
 const mapOrderStatus = (status) => {
   if (status === "fulfilled" || status === "completed") return "fulfilled";
+  if (status === "payment_failed") return "refunded";
   if (status === "cancelled") return "refunded";
   if (["confirmed", "ready", "out_for_delivery"].includes(status)) return "on_hold";
   return "pending";
 };
 
 const mapOrderTab = (status) => {
-  if (status === "requested") return "new";
+  if (status === "pending_payment" || status === "requested") return "new";
   if (["confirmed", "ready", "out_for_delivery"].includes(status)) return "progress";
+  if (status === "payment_failed") return "cancelled";
   if (status === "cancelled") return "cancelled";
   return "completed";
+};
+
+const buildScopedIds = (...values) =>
+  Array.from(
+    new Set(
+      values
+        .flat()
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+const applyScopedIdFilter = (query, field, scopedIds) => {
+  if (!Array.isArray(scopedIds) || scopedIds.length === 0) return query;
+  if (scopedIds.length === 1) return query.eq(field, scopedIds[0]);
+  return query.in(field, scopedIds);
 };
 
 export async function GET(request) {
@@ -80,8 +120,13 @@ export async function GET(request) {
   if (!access.ok) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
+  const diagEnabled = process.env.NODE_ENV !== "production";
   const supabase = access.client;
+  const serviceClient = getSupabaseServiceClient();
   const businessUserId = access.effectiveUserId;
+  const businessId = access.businessId || null;
+  const vendorScopedIds = buildScopedIds(businessId, businessUserId);
+  const businessScopedIds = buildScopedIds(businessId, businessUserId);
 
   const { searchParams } = new URL(request.url);
   const fromParam = searchParams.get("from");
@@ -94,39 +139,75 @@ export async function GET(request) {
 
   const { from, to } = buildDateRange(fromParam, toParam);
   const compareRange = getCompareRange(from, to, compare);
-  const dateKeys = buildDateBuckets(from, to);
-  const fromIso = new Date(from);
-  const toIso = new Date(to);
-  const fromStr = fromIso.toISOString();
-  const toStr = new Date(toIso.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString();
+  const dateKeys = buildDateBuckets(
+    new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate())),
+    new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate()))
+  );
+  const fromStr = from.toISOString();
+  const toStr = to.toISOString();
 
-  const [ordersRes, viewsRes, listingsRes, recentOrdersRes, businessProfile] =
+  await Promise.all(
+    vendorScopedIds.map((vendorScopedId) =>
+      reconcilePendingStripeOrders({
+        client: serviceClient ?? supabase,
+        vendorId: vendorScopedId,
+        limit: 50,
+        logPrefix: "[ORDER_FINALIZATION_TRACE]",
+      })
+    )
+  );
+
+  const [ordersRes, orderCountRes, viewsRes, listingsRes, recentOrdersRes, businessProfile] =
     await Promise.all([
-      supabase
+      applyScopedIdFilter(
+        supabase
         .from("orders")
         .select("id, order_number, created_at, total, status, contact_name, user_id")
-        .eq("vendor_id", businessUserId)
         .in("status", SALES_STATUSES)
         .gte("created_at", fromStr)
         .lte("created_at", toStr),
-      supabase
+        "vendor_id",
+        vendorScopedIds
+      ),
+      applyScopedIdFilter(
+        supabase
+        .from("orders")
+        .select("id")
+        .in("status", ORDER_COUNT_STATUSES)
+        .gte("created_at", fromStr)
+        .lte("created_at", toStr),
+        "vendor_id",
+        vendorScopedIds
+      ),
+      applyScopedIdFilter(
+        supabase
         .from("business_views")
         .select("viewed_at")
-        .eq("business_id", businessUserId)
         .gte("viewed_at", fromStr)
         .lte("viewed_at", toStr),
-      supabase
+        "business_id",
+        businessScopedIds
+      ),
+      applyScopedIdFilter(
+        supabase
         .from("listings")
         .select(
           "id, title, category, category_info:business_categories(name,slug), inventory_quantity"
         )
-        .eq("business_id", businessUserId),
-      supabase
+        ,
+        "business_id",
+        businessScopedIds
+      ),
+      applyScopedIdFilter(
+        supabase
         .from("orders")
         .select("id, order_number, created_at, total, status, contact_name, user_id")
-        .eq("vendor_id", businessUserId)
+        .in("status", BUSINESS_VISIBLE_STATUSES)
         .order("created_at", { ascending: false })
         .limit(8),
+        "vendor_id",
+        vendorScopedIds
+      ),
       getBusinessByUserId({
         client: supabase,
         userId: businessUserId,
@@ -145,6 +226,12 @@ export async function GET(request) {
       { status: 500 }
     );
   }
+  if (orderCountRes.error) {
+    return NextResponse.json(
+      { error: orderCountRes.error.message || "Failed to load order count" },
+      { status: 500 }
+    );
+  }
   if (listingsRes.error) {
     return NextResponse.json(
       { error: listingsRes.error.message || "Failed to load listings" },
@@ -157,6 +244,21 @@ export async function GET(request) {
       { status: 500 }
     );
   }
+
+  if (diagEnabled) {
+    console.warn("[BUSINESS_ORDERS_TRACE]", "dashboard_read", {
+      effectiveUserId: businessUserId,
+      businessId,
+      vendorScopedIds,
+      businessScopedIds,
+      ordersCount: Array.isArray(ordersRes.data) ? ordersRes.data.length : 0,
+      orderCount: Array.isArray(orderCountRes.data) ? orderCountRes.data.length : 0,
+      viewsCount: Array.isArray(viewsRes.data) ? viewsRes.data.length : 0,
+      listingsCount: Array.isArray(listingsRes.data) ? listingsRes.data.length : 0,
+      recentOrdersCount: Array.isArray(recentOrdersRes.data) ? recentOrdersRes.data.length : 0,
+    });
+  }
+
   const listingRows = listingsRes.data || [];
   const listingMap = new Map(
     listingRows.map((row) => [
@@ -195,24 +297,28 @@ export async function GET(request) {
 
   if (compareRange) {
     const compareFromStr = compareRange.from.toISOString();
-    const compareToStr = new Date(
-      compareRange.to.getTime() + 24 * 60 * 60 * 1000 - 1
-    ).toISOString();
+    const compareToStr = compareRange.to.toISOString();
 
     const [compareOrdersRes, compareViewsRes] = await Promise.all([
-      supabase
+      applyScopedIdFilter(
+        supabase
         .from("orders")
         .select("created_at, total")
-        .eq("vendor_id", businessUserId)
         .in("status", SALES_STATUSES)
         .gte("created_at", compareFromStr)
         .lte("created_at", compareToStr),
-      supabase
+        "vendor_id",
+        vendorScopedIds
+      ),
+      applyScopedIdFilter(
+        supabase
         .from("business_views")
         .select("viewed_at")
-        .eq("business_id", businessUserId)
         .gte("viewed_at", compareFromStr)
         .lte("viewed_at", compareToStr),
+        "business_id",
+        businessScopedIds
+      ),
     ]);
 
     if (compareOrdersRes.error) {
@@ -391,7 +497,7 @@ export async function GET(request) {
       recentOrders,
       categories,
       listingCount: listingRows.length,
-      orderCount: orders.length,
+      orderCount: (orderCountRes.data || []).length,
       viewCount: views.length,
       businessName:
         access.effectiveProfile?.business_name ||

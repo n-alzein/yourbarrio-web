@@ -16,6 +16,7 @@ import {
   ProfileSection,
 } from "@/components/business/profile-system/ProfileSystem";
 import { normalizeUrl, toObject } from "@/lib/business/profileUtils";
+import { hasHoursData } from "@/lib/publicBusinessProfile/normalize";
 
 const SOCIAL_FIELDS = [
   { key: "instagram", label: "Instagram", icon: Instagram },
@@ -56,7 +57,7 @@ function EssentialsItem({ icon: Icon, label, value, href }) {
 }
 
 export default function BusinessAbout({ profile, className = "" }) {
-  const address = [profile?.address, profile?.city, profile?.state]
+  const address = [profile?.address, profile?.address_2, profile?.city, profile?.state]
     .filter(Boolean)
     .join(", ");
   const website = profile?.website ? normalizeUrl(profile.website) : "";
@@ -133,7 +134,7 @@ export default function BusinessAbout({ profile, className = "" }) {
             ) : null}
           </div>
 
-          {profile?.hours_json ? (
+          {hasHoursData(profile?.hours_json) ? (
             <BusinessHoursSummaryCard hoursJson={profile.hours_json} />
           ) : (
             <ProfileEmptyState

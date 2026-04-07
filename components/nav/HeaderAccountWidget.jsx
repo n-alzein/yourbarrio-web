@@ -139,6 +139,13 @@ export default function HeaderAccountWidget({
     }
   }, [supabase, canLoadUnread, unreadUserId]);
 
+  useEffect(() => {
+    if (canLoadUnread) return;
+    unreadRequestIdRef.current += 1;
+    lastUnreadKeyRef.current = null;
+    setUnreadCount(0);
+  }, [canLoadUnread, unreadUserId, effectiveRole]);
+
   const scheduleUnreadRefresh = useCallback(() => {
     if (refreshTimerRef.current) {
       clearTimeout(refreshTimerRef.current);

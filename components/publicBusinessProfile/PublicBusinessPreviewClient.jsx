@@ -14,6 +14,13 @@ import {
   ProfileSectionNav,
 } from "@/components/business/profile-system/ProfileSystem";
 import { getCustomerBusinessUrl } from "@/lib/ids/publicRefs";
+import {
+  sanitizeAnnouncements,
+  sanitizeGalleryPhotos,
+  sanitizeListings,
+  sanitizePublicProfile,
+  sanitizeReviews,
+} from "@/lib/publicBusinessProfile/normalize";
 
 const EMPTY_SUMMARY = {
   count: 0,
@@ -50,6 +57,17 @@ function readPreviewCache(businessId) {
   } catch {
     return null;
   }
+}
+
+function sanitizePreviewPayload(payload) {
+  return {
+    profile: sanitizePublicProfile(payload?.profile),
+    announcements: sanitizeAnnouncements(payload?.announcements),
+    gallery: sanitizeGalleryPhotos(payload?.gallery),
+    listings: sanitizeListings(payload?.listings),
+    reviews: sanitizeReviews(payload?.reviews),
+    ratingSummary: payload?.ratingSummary || EMPTY_SUMMARY,
+  };
 }
 
 function PreviewSkeleton({ withContainer = true }) {
@@ -115,13 +133,14 @@ export default function PublicBusinessPreviewClient({
   const initState = (id) => {
     const cached = readPreviewCache(id);
     if (cached?.profile) {
+      const safePayload = sanitizePreviewPayload(cached);
       return {
-        profile: cached.profile ?? null,
-        announcements: cached.announcements || [],
-        gallery: cached.gallery || [],
-        listings: cached.listings || [],
-        reviews: cached.reviews || [],
-        ratingSummary: cached.ratingSummary || EMPTY_SUMMARY,
+        profile: safePayload.profile,
+        announcements: safePayload.announcements,
+        gallery: safePayload.gallery,
+        listings: safePayload.listings,
+        reviews: safePayload.reviews,
+        ratingSummary: safePayload.ratingSummary,
         loading: false,
         error: null,
       };
@@ -134,17 +153,20 @@ export default function PublicBusinessPreviewClient({
       case "RESET":
         return initialState;
       case "HYDRATE_FROM_CACHE":
+        {
+          const safePayload = sanitizePreviewPayload(action.payload);
         return {
           ...state,
-          profile: action.payload.profile ?? null,
-          announcements: action.payload.announcements || [],
-          gallery: action.payload.gallery || [],
-          listings: action.payload.listings || [],
-          reviews: action.payload.reviews || [],
-          ratingSummary: action.payload.ratingSummary || EMPTY_SUMMARY,
+          profile: safePayload.profile,
+          announcements: safePayload.announcements,
+          gallery: safePayload.gallery,
+          listings: safePayload.listings,
+          reviews: safePayload.reviews,
+          ratingSummary: safePayload.ratingSummary,
           loading: false,
           error: null,
         };
+      }
       case "REQUEST":
         return {
           ...state,
@@ -152,16 +174,19 @@ export default function PublicBusinessPreviewClient({
           error: null,
         };
       case "SUCCESS":
+        {
+          const safePayload = sanitizePreviewPayload(action.payload);
         return {
-          profile: action.payload.profile ?? null,
-          announcements: action.payload.announcements || [],
-          gallery: action.payload.gallery || [],
-          listings: action.payload.listings || [],
-          reviews: action.payload.reviews || [],
-          ratingSummary: action.payload.ratingSummary || EMPTY_SUMMARY,
+          profile: safePayload.profile,
+          announcements: safePayload.announcements,
+          gallery: safePayload.gallery,
+          listings: safePayload.listings,
+          reviews: safePayload.reviews,
+          ratingSummary: safePayload.ratingSummary,
           loading: false,
           error: null,
         };
+      }
       case "ERROR":
         return {
           ...state,
@@ -297,20 +322,22 @@ export default function PublicBusinessPreviewClient({
 
       if (!active) return;
 
+      const safeProfile = profileResult?.data
+        ? sanitizePublicProfile({
+            ...profileResult.data,
+            id: profileResult.data.owner_user_id,
+            full_name: null,
+          })
+        : null;
+
       dispatch({
         type: "SUCCESS",
         payload: {
-          profile: profileResult?.data
-            ? {
-                ...profileResult.data,
-                id: profileResult.data.owner_user_id,
-                full_name: null,
-              }
-            : null,
-          announcements: announcementsResult?.data || [],
-          gallery: galleryResult?.data || [],
-          listings: listingsResult?.data || [],
-          reviews: reviewsResult?.data || [],
+          profile: safeProfile,
+          announcements: sanitizeAnnouncements(announcementsResult?.data),
+          gallery: sanitizeGalleryPhotos(galleryResult?.data),
+          listings: sanitizeListings(listingsResult?.data),
+          reviews: sanitizeReviews(reviewsResult?.data),
           ratingSummary: ratingsResult?.data
             ? buildRatingSummary(ratingsResult.data)
             : EMPTY_SUMMARY,

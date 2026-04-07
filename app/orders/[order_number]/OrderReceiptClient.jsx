@@ -1,7 +1,5 @@
 "use client";
 
-import { formatOrderDateTime } from "@/lib/orders";
-
 /** @typedef {import("@/lib/types/orders").Order} Order */
 /** @typedef {import("@/lib/types/cart").VendorSummary} VendorSummary */
 
@@ -14,6 +12,8 @@ const formatMoney = (value) => {
 };
 
 const statusCopy = {
+  pending_payment: "Pending payment",
+  payment_failed: "Payment failed",
   requested: "Request received",
   confirmed: "Confirmed",
   ready: "Ready",
@@ -23,8 +23,8 @@ const statusCopy = {
   cancelled: "Cancelled",
 };
 
-/** @param {{ order: Order, vendor: VendorSummary }} props */
-export default function OrderReceiptClient({ order, vendor }) {
+/** @param {{ order: Order, vendor: VendorSummary, purchasedAtLabel: string }} props */
+export default function OrderReceiptClient({ order, vendor, purchasedAtLabel }) {
   const items = order?.order_items || [];
   const statusLabel = statusCopy[order?.status] || "Processing";
 
@@ -36,7 +36,7 @@ export default function OrderReceiptClient({ order, vendor }) {
           <h1 className="text-3xl font-semibold">Order {order?.order_number}</h1>
           <p className="text-sm opacity-80">Status: {statusLabel}</p>
           <p className="text-xs opacity-70 mb-3">
-            Purchased {formatOrderDateTime(order?.created_at)}
+            Purchased {purchasedAtLabel}
           </p>
         </div>
 
@@ -44,7 +44,13 @@ export default function OrderReceiptClient({ order, vendor }) {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
               <p className="text-sm font-semibold">Receipt</p>
-              <p className="text-xs opacity-70 mb-6">Payment collected at pickup/delivery</p>
+              <p className="text-xs opacity-70 mb-6">
+                {order?.status === "pending_payment"
+                  ? "Complete Stripe Checkout to finalize your payment."
+                  : order?.status === "payment_failed"
+                    ? "Stripe could not complete your payment."
+                    : "Payment completed with Stripe."}
+              </p>
             </div>
             <button
               type="button"
@@ -136,7 +142,11 @@ export default function OrderReceiptClient({ order, vendor }) {
               <span className="font-semibold">Total</span>
               <span className="font-semibold">${formatMoney(order?.total)}</span>
             </div>
-            <p className="text-xs opacity-70">Totals may be estimates until confirmed.</p>
+            <p className="text-xs opacity-70">
+              {order?.status === "pending_payment"
+                ? "Your order will move forward after Stripe confirms payment."
+                : "The business will confirm fulfillment details next."}
+            </p>
           </div>
         </div>
       </div>

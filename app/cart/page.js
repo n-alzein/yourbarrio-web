@@ -272,7 +272,7 @@ export default function CartPage() {
                   <span className="text-sm font-semibold">${formatMoney(total)}</span>
                 </div>
               </div>
-              <p className="mt-3 text-xs opacity-70">Payment collected at pickup/delivery.</p>
+              <p className="mt-3 text-xs opacity-70">Payment is collected after you confirm delivery or pickup details at checkout.</p>
             </div>
           </aside>
         </div>
