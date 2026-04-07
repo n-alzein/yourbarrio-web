@@ -290,9 +290,13 @@ export function getStripeAccountStatusInput(
   account?: Stripe.Account | Stripe.DeletedAccount | null
 ): StripeAccountLike {
   if (!account || "deleted" in account) return null;
+  const livemode =
+    "livemode" in account && typeof account.livemode === "boolean"
+      ? account.livemode
+      : null;
   return {
     id: account.id,
-    livemode: account.livemode,
+    livemode,
     charges_enabled: account.charges_enabled,
     payouts_enabled: account.payouts_enabled,
     details_submitted: account.details_submitted,
