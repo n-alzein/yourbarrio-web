@@ -1,49 +1,39 @@
 import Image from "next/image";
-import { MapPin } from "lucide-react";
+import Link from "next/link";
 
-type HeroBannerProps = {
-  banner: any;
-  imageUrl?: string | null;
-  locationName?: string | null;
-  priority?: boolean;
-};
+import type { HomeHeroConfig } from "@/lib/home/homeHero";
 
 function isExternalHref(href?: string | null) {
   return /^https?:\/\//i.test(href || "");
 }
 
-function normalizeLocationName(value?: string | null) {
-  const trimmed = String(value || "").trim();
-  return trimmed || null;
-}
+type HeroBannerProps = {
+  hero: HomeHeroConfig;
+  priority?: boolean;
+};
 
 export default function HeroBanner({
-  banner,
-  imageUrl,
-  locationName,
+  hero,
   priority = false,
 }: HeroBannerProps) {
-  const title = banner?.title || "Featured";
-  const subtitle = banner?.subtitle;
-  const ctaHref = banner?.ctaURL || "/";
-  const ctaText = banner?.ctaText || "Explore local businesses";
-  const safeLocationName = normalizeLocationName(locationName);
-  const trustLine = safeLocationName
-    ? `Supporting local shops in ${safeLocationName}`
-    : "Supporting local shops near you";
-  const ctaProps = isExternalHref(ctaHref)
-    ? { target: "_blank", rel: "noreferrer" as const }
-    : {};
+  const title = hero.headline || "Featured";
+  const subtitle = hero.subtitle;
+  const imageSrc = hero.imageSrc || "";
+  const ctaHref = hero.primaryCtaHref || "/";
+  const ctaText = hero.primaryCtaLabel || "Explore local businesses";
+  const supportingText = hero.supportingText || "Supporting local shops near you";
+  const SupportingIcon = hero.supportingIcon;
+  const isExternal = isExternalHref(ctaHref);
 
   return (
     <article className="relative isolate overflow-hidden bg-[#05010d]">
-      <div className="relative min-h-[360px] overflow-hidden sm:min-h-[420px] lg:min-h-[460px]">
-        {imageUrl ? (
+      <div className="relative min-h-[220px] overflow-hidden sm:min-h-[250px] md:min-h-[44vh] lg:min-h-[48vh] xl:min-h-[52vh]">
+        {imageSrc ? (
           <Image
-            src={imageUrl}
+            src={imageSrc}
             alt={title}
             fill
-            className="yb-hero-image object-cover object-center saturate-[1.04] brightness-[1.03] contrast-[1.03]"
+            className="yb-hero-image object-cover object-center saturate-[1.05] brightness-[1.13] contrast-[0.98]"
             sizes="100vw"
             priority={priority}
             quality={86}
@@ -51,15 +41,19 @@ export default function HeroBanner({
         ) : (
           <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-950 to-black" />
         )}
-        <div aria-hidden="true" className="absolute inset-0 bg-[rgba(0,0,0,0.25)]" />
+        <div aria-hidden="true" className="absolute inset-0 bg-[rgba(18,12,28,0.06)]" />
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.25)_0%,rgba(0,0,0,0.45)_100%)]"
+          className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(28,20,44,0.13)_0%,rgba(22,17,38,0.21)_42%,rgba(18,15,32,0.28)_100%)]"
         />
-        <div className="relative z-10 flex min-h-[360px] items-center sm:min-h-[420px] lg:min-h-[460px]">
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-center px-6 pb-12 pt-14 sm:pb-14 sm:pt-16 md:px-8 lg:pb-16 lg:pt-16">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,214,170,0.07)_0%,rgba(255,255,255,0.03)_45%,rgba(168,85,247,0.05)_100%)]"
+        />
+        <div className="relative z-10 flex min-h-[220px] items-center sm:min-h-[250px] md:min-h-[44vh] lg:min-h-[48vh] xl:min-h-[52vh]">
+          <div className="mx-auto flex w-full max-w-6xl items-center justify-center px-6 pb-5 pt-7 sm:pb-6 sm:pt-8 md:px-8 md:pb-7 md:pt-8 lg:pb-8 lg:pt-8">
             <div className="yb-fade-up mx-auto flex max-w-[40rem] flex-col items-center text-center [animation-delay:120ms] motion-reduce:[animation-delay:0ms]">
-              <h1 className="max-w-[12ch] text-[2rem] font-bold tracking-[-0.04em] text-[#ffffff] [text-shadow:0_2px_10px_rgba(0,0,0,0.4)] sm:text-[2.5rem] sm:leading-[1.05] lg:text-[3.25rem] lg:leading-[1.02]">
+              <h1 className="max-w-[14ch] text-[2rem] font-bold tracking-[-0.04em] text-[#ffffff] [text-shadow:0_2px_8px_rgba(0,0,0,0.22)] sm:max-w-[15ch] sm:text-[2.45rem] sm:leading-[1.05] lg:max-w-[15.5ch] lg:text-[3.15rem] lg:leading-[1.02]">
                 {title}
               </h1>
               {subtitle ? (
@@ -68,28 +62,44 @@ export default function HeroBanner({
                 </p>
               ) : null}
 
-              <div className="yb-fade-up mt-6 [animation-delay:220ms] motion-reduce:[animation-delay:0ms]">
-                <a
-                  href={ctaHref}
-                  {...ctaProps}
-                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#a855f7)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_28px_rgba(124,58,237,0.28)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(124,58,237,0.34)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/25 active:translate-y-0 sm:text-[0.95rem]"
-                >
-                  {ctaText}
-                </a>
+              <div className="yb-fade-up mt-5 [animation-delay:220ms] motion-reduce:[animation-delay:0ms]">
+                {isExternal ? (
+                  <a
+                    href={ctaHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#a855f7)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(124,58,237,0.22),0_1px_2px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(124,58,237,0.28),0_2px_6px_rgba(15,23,42,0.1)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/25 active:translate-y-0 sm:text-[0.95rem]"
+                  >
+                    {ctaText}
+                  </a>
+                ) : (
+                  <Link
+                    href={ctaHref}
+                    prefetch={false}
+                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#a855f7)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(124,58,237,0.22),0_1px_2px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(124,58,237,0.28),0_2px_6px_rgba(15,23,42,0.1)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/25 active:translate-y-0 sm:text-[0.95rem]"
+                  >
+                    {ctaText}
+                  </Link>
+                )}
               </div>
 
-              <div className="yb-fade-up mt-5 flex items-center gap-2.5 text-sm text-[rgba(255,255,255,0.7)] [animation-delay:320ms] motion-reduce:[animation-delay:0ms]">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-black/15">
-                  <MapPin className="h-3.5 w-3.5 text-purple-200" aria-hidden="true" />
-                </span>
-                <p>{trustLine}</p>
+              <div className="yb-fade-up mt-4 flex items-center gap-2.5 text-sm text-[rgba(255,255,255,0.88)] [animation-delay:320ms] motion-reduce:[animation-delay:0ms]">
+                {SupportingIcon ? (
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/12">
+                    <SupportingIcon
+                      className="h-3.5 w-3.5 text-purple-50"
+                      aria-hidden="true"
+                    />
+                  </span>
+                ) : null}
+                <p>{supportingText}</p>
               </div>
             </div>
           </div>
         </div>
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-b from-transparent via-[rgba(248,244,238,0.05)] to-[rgba(248,244,238,0.5)] sm:h-8"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-b from-transparent via-[rgba(252,252,253,0.08)] to-[rgba(252,252,253,0.72)] sm:h-12"
         />
       </div>
     </article>

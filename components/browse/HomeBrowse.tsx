@@ -1,5 +1,6 @@
-import StrapiBannersServer from "@/components/banners/StrapiBannersServer";
+import HeroBanner from "@/components/home/HeroBanner";
 import CustomerHomeClient from "@/app/(customer)/customer/home/CustomerHomeClient";
+import { homeHeroConfig } from "@/lib/home/homeHero";
 import type { BrowseMode, HomeBrowseData } from "@/lib/browse/getHomeBrowseData";
 
 type HomeBrowseProps = {
@@ -11,10 +12,7 @@ export default async function HomeBrowse({ mode, initialData }: HomeBrowseProps)
   return (
     <>
       <div className="relative z-10 mt-0 md:-mt-12">
-        <StrapiBannersServer
-          banners={initialData.banners}
-          locationName={initialData.city}
-        />
+        <HeroBanner hero={homeHeroConfig} priority />
       </div>
 
       <CustomerHomeClient

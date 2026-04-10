@@ -1,6 +1,6 @@
 import "server-only";
 
-import { fetchFeaturedCategories, fetchStrapiBanners, type FeaturedCategory } from "@/lib/strapi";
+import { fetchFeaturedCategories, type FeaturedCategory } from "@/lib/strapi";
 import { getPublicSupabaseServerClient } from "@/lib/supabasePublicServer";
 import { findBusinessOwnerIdsForLocation } from "@/lib/location/businessLocationSearch";
 import { getNormalizedLocation } from "@/lib/location/filter";
@@ -34,7 +34,6 @@ export type HomeBrowseData = {
   featuredCategories: CategorySummary[];
   featuredCategoriesError: string | null;
   listings: ListingSummary[];
-  banners: unknown[];
   city: string | null;
   zip: string | null;
 };
@@ -189,7 +188,7 @@ export async function getHomeBrowseData({
 
   let featuredCategories: FeaturedCategory[] = [];
   let featuredCategoriesError: string | null = null;
-  const [categoriesResult, listingsResult, banners] = await Promise.all([
+  const [categoriesResult, listingsResult] = await Promise.all([
     fetchFeaturedCategories()
       .then((data) => ({ data, error: null as string | null }))
       .catch((error) => {
@@ -203,7 +202,6 @@ export async function getHomeBrowseData({
       location: normalizedLocation,
       limit: safeLimit,
     }).then((listings) => attachBusinessNames(listings)),
-    fetchStrapiBanners().catch(() => []),
   ]);
 
   featuredCategories = categoriesResult.data;
@@ -213,7 +211,6 @@ export async function getHomeBrowseData({
     featuredCategories,
     featuredCategoriesError,
     listings: listingsResult,
-    banners: Array.isArray(banners) ? banners : [],
     city: safeCity,
     zip: safeZip,
   };
