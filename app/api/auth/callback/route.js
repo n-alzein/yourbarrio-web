@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { normalizeAppRole } from "@/lib/auth/redirects";
 import { getCookieBaseOptions } from "@/lib/authCookies";
+import { ensureUserProvisionedForUser } from "@/lib/auth/ensureUserProvisioning";
 import { ensureBusinessProvisionedForUser } from "@/lib/auth/ensureBusinessProvisioning";
 import {
   getBusinessPasswordGateState,
@@ -104,6 +105,16 @@ async function ensureBusinessProvisioned({ user, debug }) {
   await ensureBusinessProvisionedForUser({
     userId: user?.id,
     email: user?.email || "",
+    debug,
+    source: "api_auth_callback",
+  });
+}
+
+async function ensureUserProvisioned({ user, debug }) {
+  await ensureUserProvisionedForUser({
+    userId: user?.id,
+    email: user?.email || "",
+    fallbackRole: normalizeAppRole(user?.app_metadata?.role),
     debug,
     source: "api_auth_callback",
   });
@@ -338,6 +349,20 @@ export async function GET(request) {
       return buildLoginRedirectResponse({
         reason: "no_user_after_callback",
         authError: callbackError ? "invalid_link" : "session_missing",
+      });
+    }
+
+    try {
+      await ensureUserProvisioned({ user, debug });
+    } catch (provisionError) {
+      console.warn("[AUTH_REDIRECT_TRACE] user_provisioning:failed", {
+        userId: user.id,
+        safeNext,
+        error: provisionError?.message || String(provisionError),
+      });
+      return buildLoginRedirectResponse({
+        reason: "user_provisioning_failed",
+        authError: "auth_callback_failed",
       });
     }
 
