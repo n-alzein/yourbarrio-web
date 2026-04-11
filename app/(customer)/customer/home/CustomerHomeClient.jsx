@@ -169,9 +169,14 @@ function CustomerHomePageInner({
     [featuredCategories]
   );
   const featuredCategoriesLoading = featuredCategories == null;
+  const [homeListings, setHomeListings] = useState(() =>
+    Array.isArray(initialListings) ? initialListings : []
+  );
+  const [homeListingsLoading, setHomeListingsLoading] = useState(false);
   const [hybridItems, setHybridItems] = useState([]);
   const [hybridItemsLoading, setHybridItemsLoading] = useState(false);
   const [hybridItemsError, setHybridItemsError] = useState(null);
+  const homeListingsRequestIdRef = useRef(0);
   const hybridRequestIdRef = useRef(0);
   const isPublicMode = mode === "public";
   const authReady = isPublicMode ? true : !loadingUser || !!user;
@@ -410,6 +415,73 @@ function CustomerHomePageInner({
     setSearch(urlQuery);
     setCategoryFilter(matchedCategory?.name || "All");
   }, [searchParams]);
+
+  useEffect(() => {
+    setHomeListings(Array.isArray(initialListings) ? initialListings : []);
+  }, [initialListings]);
+
+  useEffect(() => {
+    if (!locationHydrated) return undefined;
+    if (!hasLocation) return undefined;
+
+    const normalizedLocationCity = String(location?.city || "").trim().toLowerCase();
+    const normalizedInitialCity = String(initialCity || "").trim().toLowerCase();
+    const shouldRefreshHomeListings =
+      homeListings.length === 0 || normalizedLocationCity !== normalizedInitialCity;
+
+    if (!shouldRefreshHomeListings) return undefined;
+
+    let isActive = true;
+    const requestId = ++homeListingsRequestIdRef.current;
+    const controller = new AbortController();
+
+    const loadHomeListings = async () => {
+      setHomeListingsLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.set("limit", "8");
+        if (location?.city) params.set("city", location.city);
+        if (location?.region) params.set("state", location.region);
+        if (location?.lat != null) params.set("lat", String(location.lat));
+        if (location?.lng != null) params.set("lng", String(location.lng));
+
+        const response = await fetch(`/api/home-listings?${params.toString()}`, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => ({}));
+
+        if (!isActive || requestId !== homeListingsRequestIdRef.current) return;
+        if (!response.ok) {
+          setHomeListings([]);
+          return;
+        }
+
+        setHomeListings(Array.isArray(payload?.listings) ? payload.listings : []);
+      } catch (error) {
+        if (!isActive || requestId !== homeListingsRequestIdRef.current) return;
+        if (error?.name === "AbortError") return;
+        setHomeListings([]);
+      } finally {
+        if (isActive && requestId === homeListingsRequestIdRef.current) {
+          setHomeListingsLoading(false);
+        }
+      }
+    };
+
+    void loadHomeListings();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [
+    hasLocation,
+    homeListings.length,
+    initialCity,
+    location,
+    locationHydrated,
+  ]);
 
   const sortedHybridItems = useMemo(
     () => sortListingsByAvailability(hybridItems),
@@ -688,7 +760,7 @@ function CustomerHomePageInner({
         <>
           <TrendingListingsSection
             mode={mode}
-            listings={initialListings}
+            listings={homeListings}
             city={activeCity || null}
             limit={8}
           />
