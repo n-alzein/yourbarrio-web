@@ -88,15 +88,17 @@ export default function AppShell({ children, initialLocation = null }) {
                     >
                       {children}
                     </main>
-                    <Footer
-                      className={
-                        flushFooterOnHome
-                          ? "mt-0 border-t-0"
-                          : flushFooterOnBusiness
-                            ? "mt-0"
-                            : undefined
-                      }
-                    />
+                    {!isAdminRoute ? (
+                      <Footer
+                        className={
+                          flushFooterOnHome
+                            ? "mt-0 border-t-0"
+                            : flushFooterOnBusiness
+                              ? "mt-0"
+                              : undefined
+                        }
+                      />
+                    ) : null}
                   </ModalMount>
                 </CartProvider>
               </RealtimeProvider>

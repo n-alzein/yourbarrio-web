@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
@@ -49,6 +49,7 @@ export default function GlobalHeader({
   showSearch = true,
   forcedAuth = null,
 }) {
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { theme, hydrated } = useTheme();
@@ -100,6 +101,16 @@ export default function GlobalHeader({
   const baseSearchPath = surface === "customer" ? "/customer/home" : "/listings";
   const listingPath = surface === "customer" ? "/customer/listings" : "/listings";
   const logoHref = surface === "customer" ? "/customer/home" : "/";
+  const isStickyRoute =
+    pathname === "/" ||
+    pathname === "/listings" ||
+    pathname.startsWith("/listings/") ||
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
+    pathname === "/customer" ||
+    pathname.startsWith("/customer/") ||
+    pathname === "/account" ||
+    pathname.startsWith("/account/");
 
   const hasHybridResults =
     (searchResults.items?.length || 0) +
@@ -465,6 +476,7 @@ export default function GlobalHeader({
     <nav
       className="fixed top-0 left-0 right-0 w-full z-50 theme-lock pointer-events-auto yb-navbar yb-navbar-bordered"
       data-nav-surface={surface}
+      data-nav-sticky={isStickyRoute ? "1" : undefined}
       data-nav-guard="1"
       data-testid={surface === "customer" ? "customer-navbar" : "global-navbar"}
     >

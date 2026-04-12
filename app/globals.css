@@ -533,6 +533,15 @@ button {
   border-bottom: 1px solid var(--yb-navbar-border);
 }
 
+.yb-navbar.yb-navbar-bordered[data-nav-sticky="1"] {
+  position: sticky;
+}
+
+body:has(nav[data-nav-sticky="1"]),
+body:has(nav[data-nav-sticky="1"]) .app-shell-root {
+  overflow-x: visible !important;
+}
+
 .yb-navbar.yb-navbar-bordered::after,
 .yb-navbar-accent-line::after {
   content: "";
