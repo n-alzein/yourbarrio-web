@@ -40,6 +40,7 @@
   ],
   "exclude": [
     "node_modules",
-    "yourbarrio-cms/**"
+    "yourbarrio-cms/**",
+    "supabase/functions/**"
   ]
 }
