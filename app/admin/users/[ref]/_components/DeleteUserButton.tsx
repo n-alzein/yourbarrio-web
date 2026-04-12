@@ -44,7 +44,7 @@ export default function DeleteUserButton({
         throw new Error(String(payload?.error || "Failed to delete user"));
       }
 
-      setToast({ type: "success", message: "User deleted permanently." });
+      setToast({ type: "success", message: "User scheduled for deletion." });
       setIsModalOpen(false);
       router.push("/admin/accounts");
       router.refresh();
@@ -64,7 +64,7 @@ export default function DeleteUserButton({
         disabled={isPending}
         className="rounded border border-rose-700/70 bg-rose-950/60 px-3 py-2 text-sm font-medium text-rose-200 hover:border-rose-500 disabled:opacity-60"
       >
-        Delete User
+        Schedule Deletion
       </button>
 
       {isModalOpen ? (
@@ -79,10 +79,10 @@ export default function DeleteUserButton({
               id={`delete-user-title-${targetUserId}`}
               className="text-base font-semibold text-neutral-100"
             >
-              Delete this user permanently?
+              Schedule this user for deletion?
             </h3>
             <p className="mt-2 text-sm text-neutral-300">
-              This cannot be undone.
+              This starts the 30-day pending deletion window. Finalization happens later.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -99,7 +99,7 @@ export default function DeleteUserButton({
                 disabled={isPending}
                 className="rounded border border-rose-700 bg-rose-900 px-3 py-1.5 text-sm font-medium text-rose-100 hover:border-rose-500 disabled:opacity-60"
               >
-                {isPending ? "Deleting..." : "Yes, delete"}
+                {isPending ? "Scheduling..." : "Schedule deletion"}
               </button>
             </div>
           </div>

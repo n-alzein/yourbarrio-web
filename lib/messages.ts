@@ -1,3 +1,4 @@
+import { normalizeAccountStatus } from "@/lib/accountDeletion/status";
 import { resolveImageSrc } from "@/lib/safeImage";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { logMutation, requireSession } from "@/lib/auth/requireSession";
@@ -8,13 +9,21 @@ export const CONVERSATION_PAGE_SIZE = 40;
 export function getDisplayName(profile: {
   business_name?: string | null;
   full_name?: string | null;
+  account_status?: string | null;
 } | null) {
+  if (normalizeAccountStatus(profile?.account_status) === "deleted") {
+    return "Deleted user";
+  }
   return profile?.business_name || profile?.full_name || "Unknown";
 }
 
 export function getAvatarUrl(profile: {
   profile_photo_url?: string | null;
+  account_status?: string | null;
 } | null) {
+  if (normalizeAccountStatus(profile?.account_status) === "deleted") {
+    return resolveImageSrc(null, "/business-placeholder.png");
+  }
   return resolveImageSrc(
     profile?.profile_photo_url,
     "/business-placeholder.png"
@@ -556,7 +565,7 @@ async function fetchProfilesByIds({
 
   const { data, error } = await client
     .from("users")
-    .select("id, full_name, business_name, profile_photo_url")
+    .select("id, full_name, business_name, profile_photo_url, account_status")
     .in("id", uniqueIds);
 
   if (error) throw error;

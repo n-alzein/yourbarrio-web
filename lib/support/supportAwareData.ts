@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isBlockedAccountStatus, normalizeAccountStatus } from "@/lib/accountDeletion/status";
 import { getSupportModeEffectiveUser } from "@/lib/admin/supportModeEffectiveUser";
 import { getSupabaseServerAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerAuthedClient, getUserCached } from "@/lib/supabaseServer";
@@ -61,6 +62,21 @@ export async function getSupportAwareClient(
   }
 
   const support = await getSupportModeEffectiveUser(user.id);
+  const effectiveUserId = support.isSupportMode ? support.targetUserId : user.id;
+  const lifecycleReader = support.isSupportMode
+    ? getSupabaseServerAdminClient()
+    : authedClient;
+  const { data: profile } = await lifecycleReader
+    .from("users")
+    .select("account_status")
+    .eq("id", effectiveUserId)
+    .maybeSingle();
+  const accountStatus = normalizeAccountStatus(profile?.account_status);
+
+  if (isBlockedAccountStatus(accountStatus)) {
+    throw new Error("Account unavailable");
+  }
+
   if (support.isSupportMode) {
     if (expectedRole && support.targetRole !== expectedRole) {
       throw new Error("Wrong surface");
@@ -69,13 +85,13 @@ export async function getSupportAwareClient(
     if (diagEnabled) {
       console.warn("[support-data] support read", {
         feature,
-        effectiveUserId: support.targetUserId,
+        effectiveUserId,
         actorUserId: support.actorUserId,
       });
     }
     return {
       client: getSupabaseServerAdminClient(),
-      effectiveUserId: support.targetUserId,
+      effectiveUserId,
       actorUserId: support.actorUserId,
       targetRole: support.targetRole,
       supportModeActive: true,
@@ -85,7 +101,7 @@ export async function getSupportAwareClient(
 
   return {
     client: authedClient,
-    effectiveUserId: user.id,
+    effectiveUserId,
     actorUserId: user.id,
     targetRole: null,
     supportModeActive: false,

@@ -4,6 +4,7 @@ import { requireAdminApiRole } from "@/lib/admin/requireAdminApiRole";
 import type { AdminApiAuthFailure } from "@/lib/admin/requireAdminApiRole";
 import { getAdminServiceRoleClient } from "@/lib/supabase/admin";
 import { ACCOUNT_STATUS, normalizeAccountStatus } from "@/lib/accountDeletion/status";
+import { restoreAuthAccessForUser } from "@/lib/accountDeletion/authAccess";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -55,6 +56,7 @@ export async function POST(
       deletion_requested_at: null,
       scheduled_purge_at: null,
       deleted_at: null,
+      anonymized_at: null,
       restored_at: nowIso,
       restored_by_admin_user_id: auth.actorUser.id,
       deleted_by_admin_user_id: null,
@@ -65,7 +67,7 @@ export async function POST(
 
   if (restoreError) {
     return NextResponse.json(
-      { error: restoreError.message || "Failed to restore user." },
+      { error: restoreError.message || "Failed to restore user.", step: "restore_user" },
       { status: 500 }
     );
   }
@@ -82,6 +84,17 @@ export async function POST(
         restored_at: nowIso,
       })
       .eq("owner_user_id", targetUserId);
+  }
+
+  const authRestoreResult = await restoreAuthAccessForUser({
+    adminClient,
+    userId: targetUserId,
+  });
+  if (!authRestoreResult.ok) {
+    return NextResponse.json(
+      { error: authRestoreResult.error, step: "restore_auth" },
+      { status: 500 }
+    );
   }
 
   await adminClient.rpc("log_admin_action", {

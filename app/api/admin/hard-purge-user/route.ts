@@ -3,13 +3,10 @@ import { z } from "zod";
 import { audit } from "@/lib/admin/audit";
 import { getSupabaseServerAuthedClient } from "@/lib/supabaseServer";
 import { getAdminServiceRoleClient } from "@/lib/supabase/admin";
-import {
-  isMarkPendingDeletionFailure,
-  markUserPendingDeletion,
-} from "@/lib/accountDeletion/markPendingDeletion";
 
-const deleteUserSchema = z.object({
+const hardPurgeSchema = z.object({
   userId: z.string().uuid(),
+  confirmHardPurge: z.literal(true),
 });
 
 const REQUIRED_DELETE_ROLE = "admin_super";
@@ -30,19 +27,17 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const parsed = deleteUserSchema.safeParse(body);
+  const parsed = hardPurgeSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
   const { userId } = parsed.data;
   if (userId === actorUser.id) {
-    return NextResponse.json({ error: "You cannot delete your own account" }, { status: 400 });
+    return NextResponse.json({ error: "You cannot purge your own account" }, { status: 400 });
   }
 
-  // Use service role for trusted role checks and admin deletion API access.
   const adminClient = getAdminServiceRoleClient();
-
   const { data: actorRoles, error: actorRolesError } = await adminClient
     .from("admin_role_members")
     .select("role_key")
@@ -60,40 +55,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const markResult = await markUserPendingDeletion({
-    client: adminClient,
-    userId,
-    deletedByAdminUserId: actorUser.id,
-    reason: "admin_initiated",
-  });
-
-  if (isMarkPendingDeletionFailure(markResult)) {
+  const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId, false);
+  if (deleteError) {
     return NextResponse.json(
-      { error: markResult.error, step: markResult.step },
-      { status: markResult.status }
+      { error: deleteError.message || "Hard purge failed", step: "delete_auth_user" },
+      { status: 500 }
     );
   }
 
-  // Non-blocking audit record. Deletion success must not depend on audit availability.
   try {
     await audit({
-      action: "user_delete_requested",
+      action: "user_hard_purge",
       targetType: "user",
       targetId: userId,
       actorUserId: actorUser.id,
-      meta: {
-        permanent: false,
-        account_status: markResult.accountStatus,
-        scheduled_purge_at: markResult.scheduledPurgeAt,
-        result: markResult.result,
-      },
+      meta: { permanent: true, intended_for: "fake_spam_test_accounts_only" },
     });
   } catch {}
 
-  return NextResponse.json({
-    success: true,
-    accountStatus: markResult.accountStatus,
-    scheduledPurgeAt: markResult.scheduledPurgeAt,
-    result: markResult.result,
-  });
+  return NextResponse.json({ success: true });
 }

@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
 import { ACCOUNT_STATUS, normalizeAccountStatus } from "@/lib/accountDeletion/status";
+import {
+  isMarkPendingDeletionFailure,
+  markUserPendingDeletion,
+} from "@/lib/accountDeletion/markPendingDeletion";
 
 const requestAccountDeletionSchema = z.object({
   confirmationText: z.string().trim().min(1),
@@ -10,12 +14,6 @@ const requestAccountDeletionSchema = z.object({
 });
 
 const DELETE_CONFIRMATION_TEXT = "DELETE";
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-
-function buildPurgeAtIso(nowMs: number) {
-  return new Date(nowMs + THIRTY_DAYS_MS).toISOString();
-}
-
 export async function handleRequestAccountDeletion(request: Request) {
   const response = NextResponse.next();
   const supabase = createSupabaseRouteHandlerClient(request, response);
@@ -62,7 +60,7 @@ export async function handleRequestAccountDeletion(request: Request) {
     return NextResponse.json(
       {
         success: true,
-        message: "Your account has been deleted.",
+        message: "Your account is scheduled for deletion.",
       },
       { status: 200 }
     );
@@ -72,43 +70,21 @@ export async function handleRequestAccountDeletion(request: Request) {
     return NextResponse.json({ error: "This account is no longer available." }, { status: 409 });
   }
 
-  const nowMs = Date.now();
-  const nowIso = new Date(nowMs).toISOString();
-  const scheduledPurgeAt = buildPurgeAtIso(nowMs);
+  const markResult = await markUserPendingDeletion({
+    client: supabase,
+    userId: user.id,
+    deletedByAdminUserId: null,
+    reason: reason || "user_initiated",
+  });
 
-  const { error: markError } = await supabase
-    .from("users")
-    .update({
-      account_status: ACCOUNT_STATUS.PENDING_DELETION,
-      deletion_requested_at: nowIso,
-      scheduled_purge_at: scheduledPurgeAt,
-      deleted_at: null,
-      restored_at: null,
-      restored_by_admin_user_id: null,
-      deleted_by_admin_user_id: null,
-      deletion_reason: reason || "user_initiated",
-    })
-    .eq("id", user.id);
-
-  if (markError) {
-    return NextResponse.json({ error: markError.message || "Failed to delete account." }, { status: 500 });
+  if (isMarkPendingDeletionFailure(markResult)) {
+    return NextResponse.json(
+      { error: markResult.error, step: markResult.step },
+      { status: markResult.status }
+    );
   }
 
   const role = String(profileRow.role || "").trim().toLowerCase();
-  if (role === "business") {
-    await supabase
-      .from("businesses")
-      .update({
-        account_status: ACCOUNT_STATUS.PENDING_DELETION,
-        deletion_requested_at: nowIso,
-        scheduled_purge_at: scheduledPurgeAt,
-        deleted_at: null,
-        restored_at: null,
-        verification_status: "suspended",
-      })
-      .eq("owner_user_id", user.id);
-  }
-
   await supabase.rpc("log_admin_action", {
     p_action: "account_deletion_requested",
     p_actor_user_id: user.id,
@@ -119,7 +95,7 @@ export async function handleRequestAccountDeletion(request: Request) {
       target_user_id: user.id,
       role,
       reason: reason || "user_initiated",
-      scheduled_purge_at: scheduledPurgeAt,
+      scheduled_purge_at: markResult.scheduledPurgeAt,
       result: "success",
     },
   });
@@ -127,7 +103,7 @@ export async function handleRequestAccountDeletion(request: Request) {
   return NextResponse.json(
     {
       success: true,
-      message: "Your account has been deleted.",
+      message: "Your account is scheduled for deletion.",
     },
     { status: 200 }
   );

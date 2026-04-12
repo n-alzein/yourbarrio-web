@@ -7,6 +7,7 @@ const UUID_ANY_RE =
 const PUBLIC_BUSINESS_SELECT = [
   "id",
   "owner_user_id",
+  "account_status",
   "public_id",
   "business_name",
   "business_type",
@@ -32,6 +33,7 @@ export type PublicBusiness = {
   id: string;
   owner_user_id: string;
   business_row_id: string;
+  account_status?: string | null;
   public_id: string | null;
   business_name: string | null;
   business_type: string | null;
@@ -57,6 +59,7 @@ export type PublicBusiness = {
 type PublicBusinessRow = {
   id: string;
   owner_user_id: string;
+  account_status?: string | null;
   public_id: string | null;
   business_name: string | null;
   business_type: string | null;
@@ -95,6 +98,7 @@ export async function getPublicBusinessByOwnerId(
     .from("businesses")
     .select(PUBLIC_BUSINESS_SELECT)
     .eq("owner_user_id", trimmedOwnerUserId)
+    .eq("account_status", "active")
     .maybeSingle<PublicBusinessRow>();
 
   if (error) {

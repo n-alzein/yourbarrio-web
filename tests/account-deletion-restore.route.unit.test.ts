@@ -29,6 +29,11 @@ function createAdminClientMock() {
   const usersUpdateEq1 = vi.fn(() => ({ eq: usersUpdateEq2 }));
 
   return {
+    auth: {
+      admin: {
+        updateUserById: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+      },
+    },
     from: vi.fn((table: string) => {
       if (table === "users") {
         return {

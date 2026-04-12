@@ -2,18 +2,20 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ACCOUNT_STATUS, normalizeAccountStatus } from "@/lib/accountDeletion/status";
+import { disableAuthAccessForDeletedUser } from "@/lib/accountDeletion/authAccess";
 
 export type PurgeOutcome = {
   ok: boolean;
   targetUserId: string;
   result: "purged" | "already_purged" | "not_pending";
   cleanupSummary: Record<string, number>;
+  step?:
+    | "load_user"
+    | "cleanup_ephemeral_data"
+    | "anonymize_business"
+    | "anonymize_user"
+    | "disable_auth";
   error?: string;
-};
-
-const notFoundAuthError = (error: any) => {
-  const message = String(error?.message || "").toLowerCase();
-  return message.includes("not found") || message.includes("user not found");
 };
 
 async function deleteWithCount(
@@ -38,6 +40,7 @@ export async function purgeUserAccount({
   userId: string;
 }): Promise<PurgeOutcome> {
   const cleanupSummary: Record<string, number> = {};
+  const nowIso = new Date().toISOString();
 
   const { data: userRow, error: userError } = await adminClient
     .from("users")
@@ -51,6 +54,7 @@ export async function purgeUserAccount({
       targetUserId: userId,
       result: "not_pending",
       cleanupSummary,
+      step: "load_user",
       error: userError.message || "Failed to load user row",
     };
   }
@@ -101,34 +105,93 @@ export async function purgeUserAccount({
       })
       .eq("user_id", userId);
 
-    await adminClient
+    const { error: businessUpdateError } = await adminClient
       .from("businesses")
       .update({
         account_status: ACCOUNT_STATUS.DELETED,
-        deleted_at: new Date().toISOString(),
+        deleted_at: nowIso,
         restored_at: null,
-        deletion_requested_at: null,
+        deletion_requested_at: nowIso,
         scheduled_purge_at: null,
         verification_status: "suspended",
+        business_name: "Deleted user",
+        description: null,
+        website: null,
+        phone: null,
+        profile_photo_url: null,
+        cover_photo_url: null,
+        address: null,
+        address_2: null,
+        city: null,
+        state: null,
+        postal_code: null,
+        latitude: null,
+        longitude: null,
+        hours_json: null,
+        social_links_json: null,
       })
       .eq("owner_user_id", userId);
 
-    await adminClient
-      .from("users")
-      .update({
-        account_status: ACCOUNT_STATUS.DELETED,
-        deleted_at: new Date().toISOString(),
-      })
-      .eq("id", userId);
-
-    const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(userId, false);
-    if (authDeleteError && !notFoundAuthError(authDeleteError)) {
+    if (businessUpdateError) {
       return {
         ok: false,
         targetUserId: userId,
         result: "not_pending",
         cleanupSummary,
-        error: authDeleteError.message || "Supabase Auth delete failed",
+        step: "anonymize_business",
+        error: businessUpdateError.message || "Failed to anonymize business row",
+      };
+    }
+
+    const { error: userUpdateError } = await adminClient
+      .from("users")
+      .update({
+        account_status: ACCOUNT_STATUS.DELETED,
+        deletion_requested_at: nowIso,
+        scheduled_purge_at: null,
+        deleted_at: nowIso,
+        anonymized_at: nowIso,
+        restored_at: null,
+        full_name: "Deleted user",
+        business_name: "Deleted user",
+        email: `deleted+${userId}@yourbarrio.invalid`,
+        profile_photo_url: null,
+        phone: null,
+        category: null,
+        business_type: null,
+        description: null,
+        website: null,
+        address: null,
+        address_2: null,
+        city: null,
+        state: null,
+        postal_code: null,
+      })
+      .eq("id", userId);
+
+    if (userUpdateError) {
+      return {
+        ok: false,
+        targetUserId: userId,
+        result: "not_pending",
+        cleanupSummary,
+        step: "anonymize_user",
+        error: userUpdateError.message || "Failed to anonymize user row",
+      };
+    }
+
+    const disableAuthResult = await disableAuthAccessForDeletedUser({
+      adminClient,
+      userId,
+    });
+    if (!disableAuthResult.ok) {
+      return {
+        ok: false,
+        targetUserId: userId,
+        result: "not_pending",
+        cleanupSummary,
+        step: "disable_auth",
+        error: disableAuthResult.error,
       };
     }
 
@@ -144,6 +207,7 @@ export async function purgeUserAccount({
       targetUserId: userId,
       result: "not_pending",
       cleanupSummary,
+      step: "cleanup_ephemeral_data",
       error: error?.message || "Unexpected purge error",
     };
   }

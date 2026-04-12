@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     purged: 0,
     skipped: 0,
     failed: 0,
-    failures: [] as Array<{ userId: string; error: string }>,
+    failures: [] as Array<{ userId: string; error: string; step?: string }>,
   };
 
   for (const row of rows) {
@@ -86,6 +86,7 @@ export async function POST(request: Request) {
     summary.failures.push({
       userId: targetUserId,
       error: outcome.error || "Unknown purge failure",
+      step: outcome.step,
     });
 
     await adminClient.rpc("log_admin_action", {
@@ -99,6 +100,7 @@ export async function POST(request: Request) {
         role: row?.role || null,
         scheduled_purge_at: row?.scheduled_purge_at || null,
         result: "failed",
+        step: outcome.step || null,
         error: outcome.error || "Unknown purge failure",
       },
     });

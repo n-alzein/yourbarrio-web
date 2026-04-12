@@ -85,7 +85,7 @@ describe("POST /api/settings/request-account-deletion", () => {
     vi.clearAllMocks();
   });
 
-  it("marks authenticated users as deleted from UX perspective", async () => {
+  it("marks authenticated users as pending deletion", async () => {
     const supabase = createSupabaseMock();
     createSupabaseRouteHandlerClientMock.mockReturnValue(supabase);
 
@@ -96,7 +96,7 @@ describe("POST /api/settings/request-account-deletion", () => {
     expect(response.status).toBe(200);
     const payload = await response.json();
     expect(payload.success).toBe(true);
-    expect(payload.message).toBe("Your account has been deleted.");
+    expect(payload.message).toBe("Your account is scheduled for deletion.");
     expect(supabase.__mocks.usersUpdate).toHaveBeenCalledTimes(1);
     expect(supabase.rpc).toHaveBeenCalledWith(
       "log_admin_action",
@@ -116,7 +116,7 @@ describe("POST /api/settings/request-account-deletion", () => {
 
     expect(response.status).toBe(200);
     const payload = await response.json();
-    expect(payload.message).toBe("Your account has been deleted.");
+    expect(payload.message).toBe("Your account is scheduled for deletion.");
     expect(supabase.__mocks.usersUpdate).not.toHaveBeenCalled();
   });
 });
