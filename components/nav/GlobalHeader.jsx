@@ -103,6 +103,8 @@ export default function GlobalHeader({
   const logoHref = surface === "customer" ? "/customer/home" : "/";
   const isStickyRoute =
     pathname === "/" ||
+    pathname === "/b" ||
+    pathname.startsWith("/b/") ||
     pathname === "/listings" ||
     pathname.startsWith("/listings/") ||
     pathname === "/privacy" ||
