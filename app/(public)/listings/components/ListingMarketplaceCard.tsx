@@ -53,10 +53,10 @@ export default function ListingMarketplaceCard({
   return (
     <Link
       href={getListingUrl(listing)}
-      className="group flex h-full min-h-0 flex-col overflow-hidden rounded-[20px] border border-black/5 bg-white/95 shadow-[0_10px_28px_-28px_rgba(15,23,42,0.24)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_16px_34px_-26px_rgba(76,29,149,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cff]/30 focus-visible:ring-offset-2"
+      className="group flex h-full min-h-0 flex-col overflow-hidden rounded-[20px] border border-black/6 bg-white shadow-[0_12px_34px_-30px_rgba(15,23,42,0.22)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_18px_38px_-28px_rgba(15,23,42,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cff]/30 focus-visible:ring-offset-2"
       prefetch={false}
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.9),rgba(248,248,246,0.96)_58%,rgba(244,244,242,0.98)_100%)]">
+      <div className="relative aspect-[4/3] overflow-hidden bg-white">
         <div className="absolute inset-x-0 top-0 h-16 bg-[linear-gradient(180deg,rgba(255,255,255,0.42),rgba(255,255,255,0))]" />
         <SafeImage
           src={primaryPhotoUrl(listing.photo_url)}
@@ -73,11 +73,11 @@ export default function ListingMarketplaceCard({
         ) : null}
       </div>
 
-      <div className="grid min-h-[96px] flex-1 grid-rows-[auto_minmax(2.3rem,2.3rem)_auto] gap-1 px-3 pb-3 pt-2.5">
+      <div className="grid min-h-[114px] flex-1 grid-rows-[auto_minmax(3.15rem,3.15rem)_auto] gap-1 px-3 pb-3 pt-2.5">
         <p className="text-[0.94rem] font-semibold tracking-[-0.03em] text-slate-950">
           {formatPrice(listing.price)}
         </p>
-        <h3 className="line-clamp-2 text-[0.86rem] font-semibold leading-[1.2] tracking-[-0.022em] text-slate-900">
+        <h3 className="line-clamp-3 max-h-[3.15rem] text-[0.86rem] font-semibold leading-[1.22] tracking-[-0.022em] text-slate-900">
           {listing.title || "Untitled listing"}
         </h3>
         <p className="line-clamp-1 self-end text-[0.72rem] text-slate-500/90">

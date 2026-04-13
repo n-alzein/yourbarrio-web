@@ -66,9 +66,9 @@ function LoadingGridSkeleton() {
       {Array.from({ length: 18 }).map((_, index) => (
         <div
           key={index}
-          className="overflow-hidden rounded-[20px] border border-black/5 bg-white/80 shadow-[0_12px_32px_-30px_rgba(15,23,42,0.22)]"
+          className="overflow-hidden rounded-[20px] border border-black/5 bg-white shadow-[0_12px_32px_-30px_rgba(15,23,42,0.22)]"
         >
-          <div className="aspect-[4/3] animate-pulse bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.9),rgba(248,248,246,0.96)_58%,rgba(244,244,242,0.98)_100%)]" />
+          <div className="aspect-[4/3] animate-pulse bg-white" />
           <div className="grid min-h-[96px] grid-rows-[auto_minmax(2.3rem,2.3rem)_auto] gap-1 px-3 pb-3 pt-2.5">
             <div className="h-4 w-20 rounded-full bg-slate-200/70" />
             <div className="space-y-1">
@@ -348,9 +348,20 @@ export default function ListingsClient() {
     if (!rawCategory) return;
     if (!normalizedCategory.isValid) return;
     if (normalizedCategory.isAlias) {
-      updateQueryParam("category", normalizedCategory.canonical);
+      const next = new URLSearchParams(searchParams.toString());
+      next.set("category", normalizedCategory.canonical);
+      const query = next.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     }
-  }, [normalizedCategory.canonical, normalizedCategory.isAlias, normalizedCategory.isValid, rawCategory]);
+  }, [
+    normalizedCategory.canonical,
+    normalizedCategory.isAlias,
+    normalizedCategory.isValid,
+    pathname,
+    rawCategory,
+    router,
+    searchParams,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -367,7 +378,7 @@ export default function ListingsClient() {
     } catch {
       // ignore cache errors
     }
-  }, [cacheKey, hasLocation]);
+  }, [cacheKey, hasLocation, invalidCategory]);
 
   useEffect(() => {
     if (!loading) return;
@@ -490,89 +501,91 @@ export default function ListingsClient() {
 
   return (
     <>
-      <div className="mx-auto w-full max-w-7xl px-5 pb-8 pt-3 sm:px-6 lg:px-8">
-        {(searchTerm || category !== "all") && (
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="inline-flex items-center text-sm text-slate-500 transition hover:text-slate-900"
-          >
-            ← Go back
-          </button>
-        )}
-
-        <section className="pb-3 pt-4">
-          <h1 className="text-[2rem] font-semibold tracking-[-0.055em] text-slate-950 sm:text-[2.35rem]">
-            {`Explore listings in ${marketCity}`}
-          </h1>
-
-          <div className="mt-3">
-            <ListingsToolbar
-              category={category}
-              onCategoryChange={(value) => updateQueryParam("category", value)}
-              sortBy={sortBy}
-              onSortChange={setSortBy}
-              onOpenFilters={() => setFiltersOpen(true)}
-              categoryOptions={CATEGORY_OPTIONS}
-              sortOptions={SORT_OPTIONS}
-              activeFilterCount={activeFilterCount}
-            />
-          </div>
-        </section>
-
-        {showLocationEmpty ? (
-          <div className="rounded-[24px] border border-dashed border-slate-200 bg-[#fbfbfd] p-6 text-slate-600">
-            Select a location to see listings near you.
-          </div>
-        ) : loadError ? (
-          <div className="rounded-[24px] border border-red-200 bg-red-50 p-5 text-red-700">
-            <div className="font-semibold">Unable to load listings</div>
-            <p className="mt-1 text-sm">{loadError.message}</p>
+      <div>
+        <div className="mx-auto w-full max-w-7xl px-5 pb-8 pt-3 sm:px-6 lg:px-8">
+          {(searchTerm || category !== "all") && (
             <button
               type="button"
-              onClick={() => setRetryKey((prev) => prev + 1)}
-              className="mt-3 inline-flex items-center rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+              onClick={() => router.back()}
+              className="inline-flex items-center text-sm text-slate-500 transition hover:text-slate-900"
             >
-              Try again
+              ← Go back
             </button>
-          </div>
-        ) : null}
+          )}
 
-        {!showLocationEmpty && !loadError ? (
-          <>
-            <div className="mt-3 border-t border-black/6" />
-            <div className="pb-2 pt-3">
-              {!loading ? (
-                <p className="text-sm text-slate-400">
-                  {filteredListings.length} {filteredListings.length === 1 ? "listing" : "listings"}
-                </p>
-              ) : null}
+          <section className="pb-3 pt-4">
+            <h1 className="text-[2rem] font-semibold tracking-[-0.055em] text-slate-950 sm:text-[2.35rem]">
+              {`Explore listings in ${marketCity}`}
+            </h1>
+
+            <div className="mt-3">
+              <ListingsToolbar
+                category={category}
+                onCategoryChange={(value) => updateQueryParam("category", value)}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+                onOpenFilters={() => setFiltersOpen(true)}
+                categoryOptions={CATEGORY_OPTIONS}
+                sortOptions={SORT_OPTIONS}
+                activeFilterCount={activeFilterCount}
+              />
             </div>
-          </>
-        ) : null}
+          </section>
 
-        {!loading && !loadError && !showLocationEmpty && filteredListings.length === 0 ? (
-          <div className="rounded-[24px] border border-dashed border-slate-200 bg-[#fbfbfd] p-6 text-slate-600">
-            {invalidCategory
-              ? "That category filter is invalid."
-              : "No listings match the current filters."}
-          </div>
-        ) : null}
-
-        <div className="pt-1">
-          {loading && !showLocationEmpty && !loadError ? <LoadingGridSkeleton /> : null}
-
-          {!loading && !loadError && !showLocationEmpty ? (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5">
-              {filteredListings.map((listing, index) => (
-                <ListingMarketplaceCard
-                  key={listing.public_id || listing.id || `${listing.title}-${index}`}
-                  listing={listing}
-                  fallbackLocationLabel={marketCity}
-                />
-              ))}
+          {showLocationEmpty ? (
+            <div className="rounded-[24px] border border-dashed border-slate-200 bg-[#fbfbfd] p-6 text-slate-600">
+              Select a location to see listings near you.
+            </div>
+          ) : loadError ? (
+            <div className="rounded-[24px] border border-red-200 bg-red-50 p-5 text-red-700">
+              <div className="font-semibold">Unable to load listings</div>
+              <p className="mt-1 text-sm">{loadError.message}</p>
+              <button
+                type="button"
+                onClick={() => setRetryKey((prev) => prev + 1)}
+                className="mt-3 inline-flex items-center rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+              >
+                Try again
+              </button>
             </div>
           ) : null}
+
+          {!showLocationEmpty && !loadError ? (
+            <>
+              <div className="mt-3 border-t border-black/6" />
+              <div className="pb-2 pt-3">
+                {!loading ? (
+                  <p className="text-sm text-slate-400">
+                    {filteredListings.length} {filteredListings.length === 1 ? "listing" : "listings"}
+                  </p>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+
+          {!loading && !loadError && !showLocationEmpty && filteredListings.length === 0 ? (
+            <div className="rounded-[24px] border border-dashed border-slate-200 bg-[#fbfbfd] p-6 text-slate-600">
+              {invalidCategory
+                ? "That category filter is invalid."
+                : "No listings match the current filters."}
+            </div>
+          ) : null}
+
+          <div className="pt-1">
+            {loading && !showLocationEmpty && !loadError ? <LoadingGridSkeleton /> : null}
+
+            {!loading && !loadError && !showLocationEmpty ? (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5">
+                {filteredListings.map((listing, index) => (
+                  <ListingMarketplaceCard
+                    key={listing.public_id || listing.id || `${listing.title}-${index}`}
+                    listing={listing}
+                    fallbackLocationLabel={marketCity}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 

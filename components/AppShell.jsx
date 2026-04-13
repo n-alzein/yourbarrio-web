@@ -27,6 +27,7 @@ import AutoRefreshGuardBanner from "@/components/auth/AutoRefreshGuardBanner";
 export default function AppShell({ children, initialLocation = null }) {
   const pathname = usePathname();
   const flushFooterOnHome = pathname === "/" || pathname === "/customer/home";
+  const flushFooterOnPublicListings = pathname === "/listings";
   const isOnboardingRoute = pathname === "/onboarding";
   const flushFooterOnBusiness =
     pathname === "/onboarding" || pathname === "/business" || pathname?.startsWith("/business/");
@@ -93,6 +94,8 @@ export default function AppShell({ children, initialLocation = null }) {
                         className={
                           flushFooterOnHome
                             ? "mt-0 border-t-0"
+                            : flushFooterOnPublicListings
+                              ? "mt-0"
                             : flushFooterOnBusiness
                               ? "mt-0"
                               : undefined
