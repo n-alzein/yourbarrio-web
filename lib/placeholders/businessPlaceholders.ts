@@ -79,7 +79,6 @@ export function getBusinessTypePlaceholder(businessType?: string | null): string
 
 export type ResolveBusinessImageInput = {
   imageUrl?: string | null;
-  strapiImageUrl?: string | null;
   businessType?: string | null;
   legacyCategory?: string | null;
 };
@@ -91,11 +90,6 @@ export function resolveBusinessImageSrc(input: ResolveBusinessImageInput = {}): 
   const primary = toTrimmedString(input.imageUrl);
   if (primary) {
     return resolveImageSrc(primary, placeholder);
-  }
-
-  const secondary = toTrimmedString(input.strapiImageUrl);
-  if (secondary) {
-    return resolveImageSrc(secondary, placeholder);
   }
 
   return placeholder || GENERIC_BUSINESS_PLACEHOLDER;

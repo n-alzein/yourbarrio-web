@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchCategoryBySlug } from "@/lib/strapi";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
 import { getCustomerListingUrl } from "@/lib/ids/publicRefs";
 import {
+  getListingCategory,
   getListingCategoryDbNames,
   getListingCategoryDbSlugs,
   normalizeListingCategory,
@@ -22,14 +22,9 @@ export default async function CategoryListingsPage({ params }) {
   if (!slug) notFound();
   const location = await getLocationFromCookies();
   const homeHref = "/customer/home";
+  const categoryDescription = "All listings in this category";
 
-  let category = null;
-  try {
-    category = await fetchCategoryBySlug(slug);
-  } catch (error) {
-    console.error("Failed to load category", { slug, error });
-  }
-
+  const category = getListingCategory(slug);
   if (!category) notFound();
 
   const supabase = getSupabaseServerClient();
@@ -94,9 +89,7 @@ export default async function CategoryListingsPage({ params }) {
           <h1 className="mt-3 text-2xl font-semibold text-slate-900">
             {category.name}
           </h1>
-          {category.tileSubtitle ? (
-            <p className="mt-2 text-sm text-slate-600">{category.tileSubtitle}</p>
-          ) : null}
+          <p className="mt-2 text-sm text-slate-600">{categoryDescription}</p>
         </div>
 
         {!hasUsableLocationFilter(location) ? (

@@ -25,7 +25,6 @@ const eslintConfig = defineConfig([
     "**/out/**",
     "**/coverage/**",
     "**/node_modules/**",
-    "yourbarrio-cms/dist/**",
   ]),
 ]);
 

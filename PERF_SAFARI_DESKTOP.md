@@ -66,7 +66,7 @@ Enable with `?perf=1` or `NEXT_PUBLIC_PERF_DEBUG=1` and run in prod mode:
 1) `npm run build && npm run start`
 2) Safari → Network → select the slow document request (e.g. `/categories/...`).
 3) Inspect `Server-Timing` response header for `mw_*` durations.
-4) Check Console for `[SSR_TIMING]` entries (auth/supabase/strapi).
+4) Check Console for `[SSR_TIMING]` entries (auth/supabase).
 
 ---
 
