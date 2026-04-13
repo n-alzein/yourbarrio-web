@@ -7,6 +7,12 @@ export default function PublicBusinessHero({
   ratingSummary,
   publicPath,
   shell = "public",
+  mode = "public",
+  ownerPrimaryAction,
+  onAvatarUpload,
+  onCoverUpload,
+  uploading,
+  editMode = false,
 }) {
   const backHref = shell === "public" ? "/business/profile" : null;
 
@@ -17,6 +23,12 @@ export default function PublicBusinessHero({
       publicPath={publicPath}
       backHref={backHref}
       mode="preview"
+      viewerMode={mode}
+      ownerPrimaryAction={ownerPrimaryAction}
+      onAvatarUpload={onAvatarUpload}
+      onCoverUpload={onCoverUpload}
+      uploading={uploading}
+      editMode={editMode}
     />
   );
 }

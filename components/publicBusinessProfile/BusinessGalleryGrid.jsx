@@ -12,6 +12,7 @@ export default function BusinessGalleryGrid({
   photos,
   className = "",
   headerAction = null,
+  renderTileActions = null,
 }) {
   const [activeIndex, setActiveIndex] = useState(null);
 
@@ -53,12 +54,16 @@ export default function BusinessGalleryGrid({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {photos.map((photo, index) => (
-            <button
+            <div
               key={photo.id || index}
-              type="button"
-              onClick={() => setActiveIndex(index)}
               className="group relative aspect-[4/3] overflow-hidden rounded-[16px] border border-slate-100 bg-slate-100 shadow-sm"
             >
+              <button
+                type="button"
+                onClick={() => setActiveIndex(index)}
+                className="absolute inset-0 z-10"
+                aria-label={photo.caption || "Open gallery photo"}
+              />
               <FastImage
                 src={photo.photo_url || "/business-placeholder.png"}
                 alt={photo.caption || "Gallery photo"}
@@ -68,7 +73,15 @@ export default function BusinessGalleryGrid({
                 decoding="async"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 transition group-hover:opacity-100" />
-            </button>
+              {renderTileActions ? (
+                <div
+                  className="absolute inset-x-0 top-0 flex justify-end p-3"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {renderTileActions(photo)}
+                </div>
+              ) : null}
+            </div>
           ))}
         </div>
       )}

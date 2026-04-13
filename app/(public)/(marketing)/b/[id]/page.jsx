@@ -2,16 +2,9 @@ import { unstable_cache } from "next/cache";
 import { notFound, permanentRedirect } from "next/navigation";
 import { getPublicBusinessByOwnerId } from "@/lib/business/getPublicBusinessByOwnerId";
 import { getPublicSupabaseServerClient } from "@/lib/supabasePublicServer";
-import PublicBusinessHero from "@/components/publicBusinessProfile/PublicBusinessHero";
-import BusinessAbout from "@/components/publicBusinessProfile/BusinessAbout";
-import BusinessAnnouncementsPreview from "@/components/publicBusinessProfile/BusinessAnnouncementsPreview";
-import BusinessGalleryGrid from "@/components/publicBusinessProfile/BusinessGalleryGrid";
-import BusinessListingsGrid from "@/components/publicBusinessProfile/BusinessListingsGrid";
-import BusinessReviewsPanel from "@/components/publicBusinessProfile/BusinessReviewsPanel";
+import BusinessProfileView from "@/components/publicBusinessProfile/BusinessProfileView";
 import PublicBusinessPreviewClient from "@/components/publicBusinessProfile/PublicBusinessPreviewClient";
 import ProfileViewTracker from "@/components/publicBusinessProfile/ProfileViewTracker";
-import ViewerContextEnhancer from "@/components/public/ViewerContextEnhancer";
-import { ProfileSectionNav } from "@/components/business/profile-system/ProfileSystem";
 import {
   sanitizeAnnouncements,
   sanitizeGalleryPhotos,
@@ -445,42 +438,21 @@ export default async function PublicBusinessProfilePage({
   return (
     <div className={wrapperClassName}>
       <ProfileViewTracker businessId={businessId} />
-      <PublicBusinessHero
-        profile={profile}
-        ratingSummary={ratingSummary}
-        publicPath={publicPath}
-        shell={shell}
-      />
-
       <div className={contentShellPadding}>
-        <ProfileSectionNav
-          items={[
-            { id: "about", label: "About" },
-            { id: "listings", label: "Listings" },
-            { id: "reviews", label: "Reviews" },
-            { id: "updates", label: "Updates" },
-            { id: "gallery", label: "Gallery" },
-          ]}
+        <BusinessProfileView
+          mode="public"
+          profile={profile}
+          businessId={businessId}
+          publicPath={publicPath}
+          shell={shell}
+          ratingSummary={ratingSummary}
+          listings={listings}
+          reviews={reviews}
+          announcements={announcements}
+          gallery={gallery}
+          sectionClassName={sectionShellClassName}
+          reviewsClassName={reviewsShellClassName}
         />
-
-        <div className="space-y-8">
-          <BusinessAbout profile={profile} className={sectionShellClassName} />
-          <BusinessListingsGrid listings={listings} className={sectionShellClassName} />
-          <ViewerContextEnhancer>
-            <BusinessReviewsPanel
-              businessId={businessId}
-              initialReviews={reviews}
-              ratingSummary={ratingSummary}
-              reviewCount={ratingSummary?.count || reviews?.length || 0}
-              className={reviewsShellClassName}
-            />
-          </ViewerContextEnhancer>
-          <BusinessAnnouncementsPreview
-            announcements={announcements}
-            className={sectionShellClassName}
-          />
-          <BusinessGalleryGrid photos={gallery} className={sectionShellClassName} />
-        </div>
       </div>
     </div>
   );

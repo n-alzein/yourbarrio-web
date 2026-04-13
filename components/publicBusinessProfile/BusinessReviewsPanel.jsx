@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MessageSquareQuote, Star } from "lucide-react";
+import { MessageSquareQuote, MessageSquareText, Star } from "lucide-react";
 import { logMutation } from "@/lib/auth/requireSession";
 import { getAuthedContext } from "@/lib/auth/getAuthedContext";
 import { useAuth } from "@/components/AuthProvider";
@@ -14,6 +14,7 @@ import {
   mergePublicBusinessReview,
   REVIEW_SELECT_BASE,
   REVIEW_SELECT_WITH_UPDATED,
+  isMissingColumnError,
 } from "@/lib/publicBusinessProfile/reviews";
 
 const REVIEW_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
@@ -118,11 +119,13 @@ function isSameReviewList(prev = [], next = []) {
 
 export default function BusinessReviewsPanel({
   businessId,
+  businessName = "business",
   initialReviews,
   ratingSummary,
   reviewCount,
   loading = false,
   className = "",
+  mode = "public",
 }) {
   const { supabase } = useAuth();
   const { openModal } = useModal();
@@ -146,6 +149,12 @@ export default function BusinessReviewsPanel({
   const [editLoading, setEditLoading] = useState(false);
   const [reportToast, setReportToast] = useState(null);
   const [reportTarget, setReportTarget] = useState(null);
+  const [ownerDeleteLoadingId, setOwnerDeleteLoadingId] = useState(null);
+  const [ownerDeleteError, setOwnerDeleteError] = useState("");
+  const [replyReviewId, setReplyReviewId] = useState(null);
+  const [replyBody, setReplyBody] = useState("");
+  const [replyError, setReplyError] = useState("");
+  const [replyLoading, setReplyLoading] = useState(false);
 
   const customerId = viewer.user?.id || null;
 
@@ -154,11 +163,10 @@ export default function BusinessReviewsPanel({
       reviews.length
     : 0;
   const averageRating = summary?.count ? summary.average : reviewAverage;
-  const totalReviews = Math.max(
-    summary?.count ?? 0,
-    reviewCount ?? 0,
-    reviews.length
-  );
+  const totalReviews =
+    typeof summary?.count === "number"
+      ? summary.count
+      : Math.max(reviewCount ?? 0, reviews.length);
   const shouldShowDistribution = totalReviews > 2;
   const pageSize = 6;
 
@@ -172,6 +180,7 @@ export default function BusinessReviewsPanel({
   }, [summary, totalReviews]);
 
   const canLoadMore = reviews.length < totalReviews;
+  const isOwnerMode = mode === "owner";
 
   const handleLoadMore = async () => {
     if (!businessId || loadingMore) return;
@@ -190,6 +199,99 @@ export default function BusinessReviewsPanel({
     }
 
     setLoadingMore(false);
+  };
+
+  const refreshVisibleReviews = async (nextSummary = null) => {
+    const refreshed = await fetchPublicReviewFeed({
+      businessId,
+      limit: Math.max(reviews.length, pageSize),
+    });
+    const nextReviews = Array.isArray(refreshed) ? refreshed : [];
+    setReviews(nextReviews);
+    setSummary(normalizeSummary(nextSummary, nextReviews));
+  };
+
+  const startReply = (review) => {
+    setReplyReviewId(review.id);
+    setReplyBody(review.business_reply || "");
+    setReplyError("");
+    setOwnerDeleteError("");
+  };
+
+  const cancelReply = () => {
+    setReplyReviewId(null);
+    setReplyBody("");
+    setReplyError("");
+  };
+
+  const handleSaveBusinessReply = async (review) => {
+    if (!businessId || replyLoading) return;
+    if (!replyBody.trim()) {
+      setReplyError("Reply cannot be empty.");
+      return;
+    }
+
+    setReplyLoading(true);
+    setReplyError("");
+    setOwnerDeleteError("");
+
+    try {
+      const response = await fetch(`/api/business/reviews/${review.id}`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessReply: replyBody.trim() }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || "Could not save reply.");
+      }
+
+      const merged = mergePublicBusinessReview(review, payload?.review);
+      setReviews((prev) =>
+        prev.map((item) => (item.id === review.id ? merged : item))
+      );
+      cancelReply();
+    } catch (err) {
+      console.error("Failed to save business reply", err);
+      setReplyError(err?.message || "Could not save reply.");
+    } finally {
+      setReplyLoading(false);
+    }
+  };
+
+  const handleDeleteBusinessReply = async (review) => {
+    if (!businessId || replyLoading) return;
+
+    setReplyLoading(true);
+    setReplyError("");
+    setOwnerDeleteError("");
+
+    try {
+      const response = await fetch(`/api/business/reviews/${review.id}`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clearReply: true }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || "Could not delete reply.");
+      }
+
+      const merged = mergePublicBusinessReview(review, payload?.review);
+      setReviews((prev) =>
+        prev.map((item) => (item.id === review.id ? merged : item))
+      );
+      if (replyReviewId === review.id) {
+        cancelReply();
+      }
+    } catch (err) {
+      console.error("Failed to delete business reply", err);
+      setReplyError(err?.message || "Could not delete reply.");
+    } finally {
+      setReplyLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -215,7 +317,7 @@ export default function BusinessReviewsPanel({
 
   useEffect(() => {
     setSummary((prev) => normalizeSummary(ratingSummary, reviews) || prev);
-  }, [ratingSummary, reviews]);
+  }, [ratingSummary]);
 
   useEffect(() => {
     let active = true;
@@ -589,6 +691,35 @@ export default function BusinessReviewsPanel({
     }
   };
 
+  const handleOwnerDeleteReview = async (reviewId) => {
+    if (!businessId || ownerDeleteLoadingId) return;
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm("Delete this review from your business profile?");
+      if (!confirmed) return;
+    }
+
+    setOwnerDeleteLoadingId(reviewId);
+    setOwnerDeleteError("");
+
+    try {
+      const response = await fetch(`/api/business/reviews/${reviewId}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || "Could not delete review yet.");
+      }
+
+      await refreshVisibleReviews(payload?.ratingSummary);
+    } catch (err) {
+      console.error("Failed to delete business review", err);
+      setOwnerDeleteError(err?.message || "Could not delete review yet.");
+    } finally {
+      setOwnerDeleteLoadingId(null);
+    }
+  };
+
   const isBusinessViewer = viewer.isBusiness;
   const isOwnBusiness = Boolean(
     isBusinessViewer && viewer.user?.id && businessId && viewer.user.id === businessId
@@ -758,11 +889,17 @@ export default function BusinessReviewsPanel({
         </div>
       ) : null}
 
-      {!showReviewForm && showBusinessNote ? (
+      {!showReviewForm && showBusinessNote && !isOwnerMode ? (
         <div className="mt-4 rounded-[16px] border border-slate-100 bg-white p-3.5 text-xs text-slate-500 shadow-sm">
           {isOwnBusiness
             ? "Business owners can’t review their own business."
             : "Business accounts can’t leave reviews."}
+        </div>
+      ) : null}
+
+      {ownerDeleteError ? (
+        <div className="mt-4 rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {ownerDeleteError}
         </div>
       ) : null}
 
@@ -903,7 +1040,7 @@ export default function BusinessReviewsPanel({
                   {review.business_reply ? (
                     <div className="mt-3 rounded-[14px] border border-slate-100 bg-slate-50/80 p-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                        Reply from business
+                        {`Reply from ${businessName}`}
                       </p>
                       {review.business_reply_at ? (
                         <p className="mt-1 text-[11px] text-slate-400">
@@ -915,7 +1052,75 @@ export default function BusinessReviewsPanel({
                       </p>
                     </div>
                   ) : null}
-                  {customerId && review.customer_id === customerId ? (
+                  {isOwnerMode ? (
+                    <>
+                      {replyReviewId === review.id ? (
+                        <div className="mt-4 space-y-3 rounded-[14px] border border-slate-100 bg-slate-50/80 p-3">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                              Reply as business
+                            </p>
+                          </div>
+                          <textarea
+                            value={replyBody}
+                            onChange={(event) => setReplyBody(event.target.value)}
+                            placeholder="Write a reply"
+                            className="w-full min-h-[96px] rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 md:text-sm"
+                            maxLength={800}
+                          />
+                          {replyError ? (
+                            <p className="text-xs text-rose-600">{replyError}</p>
+                          ) : null}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSaveBusinessReply(review)}
+                              disabled={replyLoading}
+                              className="dashboard-primary-action inline-flex items-center justify-center rounded-full bg-[#6E34FF] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5E2DE0] disabled:opacity-60"
+                            >
+                              {replyLoading ? "Saving..." : review.business_reply ? "Save reply" : "Post reply"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelReply}
+                              className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                            >
+                              Cancel
+                            </button>
+                            {review.business_reply ? (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteBusinessReply(review)}
+                                disabled={replyLoading}
+                                className="inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-60"
+                              >
+                                Remove reply
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startReply(review)}
+                          disabled={replyLoading && replyReviewId === review.id}
+                          className="inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-60"
+                        >
+                          <MessageSquareText className="mr-1.5 h-3.5 w-3.5" />
+                          {review.business_reply ? "Edit reply" : "Reply"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOwnerDeleteReview(review.id)}
+                          disabled={ownerDeleteLoadingId === review.id}
+                          className="inline-flex items-center justify-center rounded-full border border-rose-200 bg-white px-4 py-2 text-xs font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-50 disabled:opacity-60"
+                        >
+                          {ownerDeleteLoadingId === review.id ? "Deleting..." : "Delete review"}
+                        </button>
+                      </div>
+                    </>
+                  ) : customerId && review.customer_id === customerId ? (
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       <button
                       type="button"

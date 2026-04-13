@@ -2,16 +2,9 @@
 
 import { useEffect, useReducer, useRef } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-import PublicBusinessHero from "@/components/publicBusinessProfile/PublicBusinessHero";
-import BusinessAbout from "@/components/publicBusinessProfile/BusinessAbout";
-import BusinessAnnouncementsPreview from "@/components/publicBusinessProfile/BusinessAnnouncementsPreview";
-import BusinessGalleryGrid from "@/components/publicBusinessProfile/BusinessGalleryGrid";
-import BusinessListingsGrid from "@/components/publicBusinessProfile/BusinessListingsGrid";
-import BusinessReviewsPanel from "@/components/publicBusinessProfile/BusinessReviewsPanel";
-import ViewerContextEnhancer from "@/components/public/ViewerContextEnhancer";
+import BusinessProfileView from "@/components/publicBusinessProfile/BusinessProfileView";
 import {
   ProfilePageShell,
-  ProfileSectionNav,
 } from "@/components/business/profile-system/ProfileSystem";
 import { getBusinessPublicUrl } from "@/lib/ids/publicRefs";
 import {
@@ -358,47 +351,24 @@ export default function PublicBusinessPreviewClient({
 
   return (
     <ProfilePageShell>
-      <PublicBusinessHero
-        profile={profile}
-        ratingSummary={ratingSummary}
-        publicPath={getBusinessPublicUrl(profile || { id: businessId })}
-      />
-      <ProfileSectionNav
-        items={[
-          { id: "about", label: "About" },
-          { id: "listings", label: "Listings" },
-          { id: "reviews", label: "Reviews" },
-          { id: "updates", label: "Updates" },
-          { id: "gallery", label: "Gallery" },
-        ]}
-      />
-
-      <div className="space-y-8">
-        <BusinessAbout profile={profile} className="rounded-none" />
-
-        {loading ? (
-          <PreviewSkeleton withContainer={false} />
-        ) : (
-          <>
-            <BusinessListingsGrid listings={listings} className="rounded-none" />
-            <ViewerContextEnhancer>
-              <BusinessReviewsPanel
-                businessId={businessId}
-                initialReviews={reviews}
-                ratingSummary={ratingSummary}
-                reviewCount={ratingSummary?.count || reviews?.length || 0}
-                loading={loading}
-                className="rounded-none"
-              />
-            </ViewerContextEnhancer>
-            <BusinessAnnouncementsPreview
-              announcements={announcements}
-              className="rounded-none"
-            />
-            <BusinessGalleryGrid photos={gallery} className="rounded-none" />
-          </>
-        )}
-      </div>
+      {loading ? (
+        <PreviewSkeleton />
+      ) : (
+        <BusinessProfileView
+          mode="public"
+          profile={profile}
+          businessId={businessId}
+          publicPath={getBusinessPublicUrl(profile || { id: businessId })}
+          ratingSummary={ratingSummary}
+          listings={listings}
+          reviews={reviews}
+          announcements={announcements}
+          gallery={gallery}
+          loading={loading}
+          sectionClassName="rounded-none"
+          reviewsClassName="rounded-none"
+        />
+      )}
     </ProfilePageShell>
   );
 }

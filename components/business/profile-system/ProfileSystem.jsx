@@ -388,7 +388,12 @@ function HeroActionButton({ href, icon: Icon, label, tone = "outline", onClick }
   );
 }
 
-function HeroPreviewActions({ profile, publicPath }) {
+function HeroPreviewActions({
+  profile,
+  publicPath,
+  viewerMode = "public",
+  ownerPrimaryAction = null,
+}) {
   const [copied, setCopied] = useState(false);
   const [messageLoading, setMessageLoading] = useState(false);
   const { user, role, supabase } = useAuth();
@@ -404,7 +409,11 @@ function HeroPreviewActions({ profile, publicPath }) {
     currentQuery
   );
   const loginHref = buildLoginHrefForReturnPath(loginTarget);
-  const canMessageDirectly = Boolean(user?.id) && role !== "business" && user?.id !== businessId;
+  const canMessageDirectly =
+    viewerMode !== "owner" &&
+    Boolean(user?.id) &&
+    role !== "business" &&
+    user?.id !== businessId;
 
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
@@ -474,7 +483,15 @@ function HeroPreviewActions({ profile, publicPath }) {
       </div>
 
       <div className="flex w-full items-center gap-3 sm:justify-end">
-        {canMessageDirectly ? (
+        {viewerMode === "owner" && ownerPrimaryAction ? (
+          <button
+            type="button"
+            onClick={ownerPrimaryAction.onClick}
+            className="inline-flex min-h-9 items-center justify-center rounded-full px-1 text-sm font-medium text-slate-600 transition hover:text-[#5b37d6]"
+          >
+            {ownerPrimaryAction.label}
+          </button>
+        ) : canMessageDirectly ? (
           <button
             type="button"
             onClick={handleMessage}
@@ -513,6 +530,11 @@ function PreviewHeroCard({
   location,
   placeholderSrc,
   avatarSrc,
+  viewerMode = "public",
+  ownerPrimaryAction = null,
+  editMode = false,
+  onAvatarUpload,
+  uploading,
 }) {
   return (
     <div className="relative z-10 -mt-10 px-4 sm:-mt-14 sm:px-6 lg:px-8">
@@ -530,6 +552,26 @@ function PreviewHeroCard({
                 priority
                 decoding="async"
               />
+              {viewerMode === "owner" && editMode && onAvatarUpload ? (
+                <label className="absolute bottom-2 right-2 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-white bg-white text-slate-700 shadow">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      onAvatarUpload(file);
+                    }}
+                    disabled={uploading?.avatar}
+                  />
+                  {uploading?.avatar ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Pencil className="h-4 w-4" />
+                  )}
+                </label>
+              ) : null}
             </div>
             <div className="min-w-0">
               <h1 className="text-[1.9rem] font-semibold tracking-[-0.05em] text-slate-950 sm:text-[2.35rem]">
@@ -545,7 +587,12 @@ function PreviewHeroCard({
           </div>
 
           <div className="w-full lg:w-auto lg:max-w-[420px]">
-            <HeroPreviewActions profile={profile} publicPath={publicPath} />
+            <HeroPreviewActions
+              profile={profile}
+              publicPath={publicPath}
+              viewerMode={viewerMode}
+              ownerPrimaryAction={ownerPrimaryAction}
+            />
           </div>
         </div>
       </div>
@@ -557,9 +604,11 @@ export function ProfileHero({
   profile,
   ratingSummary,
   mode = "preview",
+  viewerMode = "public",
   publicPath,
   backHref,
   primaryAction,
+  ownerPrimaryAction,
   onAvatarUpload,
   onCoverUpload,
   uploading,
@@ -646,6 +695,11 @@ export function ProfileHero({
             location={location}
             placeholderSrc={placeholderSrc}
             avatarSrc={avatarSrc}
+            viewerMode={viewerMode}
+            ownerPrimaryAction={ownerPrimaryAction}
+            editMode={editMode}
+            onAvatarUpload={onAvatarUpload}
+            uploading={uploading}
           />
         ) : (
           <div className="relative bg-white px-5 pb-5 pt-0 sm:px-6 lg:px-8">

@@ -56,7 +56,12 @@ function EssentialsItem({ icon: Icon, label, value, href }) {
   );
 }
 
-export default function BusinessAbout({ profile, className = "" }) {
+export default function BusinessAbout({
+  profile,
+  className = "",
+  headerAction = null,
+  supplement = null,
+}) {
   const address = [profile?.address, profile?.address_2, profile?.city, profile?.state]
     .filter(Boolean)
     .join(", ");
@@ -72,6 +77,7 @@ export default function BusinessAbout({ profile, className = "" }) {
       id="about"
       title="About"
       description="A quick overview, contact details, and practical information."
+      action={headerAction}
       className={className}
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
@@ -145,6 +151,7 @@ export default function BusinessAbout({ profile, className = "" }) {
           )}
         </div>
       </div>
+      {supplement ? <div className="mt-4">{supplement}</div> : null}
     </ProfileSection>
   );
 }

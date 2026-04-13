@@ -17,6 +17,7 @@ import {
 import ManagePasswordDialog from "@/components/settings/ManagePasswordDialog";
 import { US_STATES } from "@/lib/constants/usStates";
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
+import { formatUSPhone } from "@/lib/utils/formatUSPhone";
 
 export default function SettingsPage() {
   const { user, profile, supabase, loadingUser, logout, refreshProfile } =
@@ -58,7 +59,7 @@ export default function SettingsPage() {
 
   const buildInitialForm = (userValue) => ({
     full_name: userValue?.full_name || "",
-    phone: userValue?.phone || "",
+    phone: formatUSPhone(userValue?.phone || ""),
     city: userValue?.city || "",
     address: userValue?.address || "",
     address_2: userValue?.address_2 || "",
@@ -81,7 +82,10 @@ export default function SettingsPage() {
   };
 
   const handleFieldChange = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => ({
+      ...prev,
+      [key]: key === "phone" ? formatUSPhone(value) : value,
+    }));
     setFieldErrors((prev) => {
       if (!prev[key]) return prev;
       const next = { ...prev };
