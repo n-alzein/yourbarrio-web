@@ -22,6 +22,19 @@ import { getListingCategoryOptions } from "@/lib/taxonomy/listingCategories";
 
 const CATEGORY_OPTIONS = getListingCategoryOptions();
 
+function logListingPhotoDebug(event, details) {
+  if (process.env.NODE_ENV === "production") return;
+  console.info(`[listing.photo.${event}]`, details);
+}
+
+function inferListingPhotoSource({ captureAttributePresent }) {
+  if (captureAttributePresent) return "mobile_camera";
+  if (typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent || "")) {
+    return "mobile_library";
+  }
+  return "desktop_upload";
+}
+
 export default function NewListingPage() {
   const { supabase, user, profile, loadingUser } = useAuth();
   const router = useRouter();
@@ -100,15 +113,20 @@ export default function NewListingPage() {
     };
   }, [accountId, supabase]);
 
-  const handleAddPhotos = async (files) => {
+  const handleAddPhotos = async (files, inputMeta = {}) => {
     const incoming = Array.from(files || []);
     if (!incoming.length) return;
 
     const accepted = [];
     for (const file of incoming) {
+      const source = inferListingPhotoSource(inputMeta);
       let normalizedFile;
       try {
-        normalizedFile = await normalizeImageUpload(file);
+        normalizedFile = await normalizeImageUpload(file, {
+          source,
+          inputControl: inputMeta?.inputControl || "listing-photo-primary",
+          captureAttributePresent: inputMeta?.captureAttributePresent,
+        });
       } catch (error) {
         setPhotoError(
           error?.message || "We couldn't process this image. Please try a different file."
@@ -116,12 +134,24 @@ export default function NewListingPage() {
         continue;
       }
 
+      logListingPhotoDebug("selected", {
+        source,
+        rawFileName: file.name || null,
+        rawFileType: file.type || null,
+        rawFileSize: typeof file.size === "number" ? file.size : null,
+        normalizedFileName: normalizedFile.name || null,
+        normalizedFileType: normalizedFile.type || null,
+        normalizedFileSize: typeof normalizedFile.size === "number" ? normalizedFile.size : null,
+        captureAttributePresent: Boolean(inputMeta?.captureAttributePresent),
+        inputControl: inputMeta?.inputControl || "listing-photo-primary",
+      });
+
       const validation = validateImageFile(normalizedFile, { maxSizeMB: 8 });
       if (!validation.ok) {
         setPhotoError(validation.error);
         continue;
       }
-      accepted.push(createLocalPhotoDraft(normalizedFile));
+      accepted.push(createLocalPhotoDraft(normalizedFile, { source }));
     }
 
     if (!accepted.length) return;
@@ -160,7 +190,15 @@ export default function NewListingPage() {
   const handleChooseVariant = (photoId, selectedVariant) => {
     setPhotos((prev) =>
       prev.map((photo) =>
-        photo.id === photoId ? { ...photo, selectedVariant } : photo
+        photo.id === photoId
+          ? {
+              ...photo,
+              selectedVariant:
+                selectedVariant === "enhanced" && !photo.enhanced?.publicUrl
+                  ? "original"
+                  : selectedVariant,
+            }
+          : photo
       )
     );
   };
@@ -256,6 +294,15 @@ export default function NewListingPage() {
       const formData = new FormData();
       formData.append("image", target.original.file, target.original.name || "listing-photo.jpg");
       formData.append("background", target.enhancement.background);
+      formData.append("imageSource", target.source || "unknown");
+
+      logListingPhotoDebug("enhance.request", {
+        source: target.source || "unknown",
+        rawFileName: target.original.file.name || null,
+        rawFileType: target.original.file.type || null,
+        rawFileSize: typeof target.original.file.size === "number" ? target.original.file.size : null,
+        previewSource: target.original.previewUrl ? "object-url" : "none",
+      });
 
       const response = await fetch("/api/images/enhance", {
         method: "POST",
@@ -263,16 +310,24 @@ export default function NewListingPage() {
       });
       const payload = await response.json();
 
-      if (!response.ok || !payload?.ok || !payload?.image?.publicUrl) {
+      if (!response.ok || !payload?.ok || !payload?.image?.publicUrl || payload?.image?.isFallbackOriginal) {
         throw new Error(
           payload?.error?.message ||
             "We couldn't enhance this photo right now. You can keep the original and continue."
         );
       }
 
+      logListingPhotoDebug("enhance.response", {
+        source: target.source || "unknown",
+        enhancedUrl: payload.image.publicUrl,
+        enhancedPath: payload.image.path || null,
+        enhancedContentType: payload.image.contentType || null,
+        finalSelectedVariant: "enhanced",
+      });
+
       setPhotos((prev) =>
         prev.map((photo) =>
-          photo.id === photoId
+          photo.id === photoId && payload?.image?.publicUrl
             ? {
                 ...photo,
                 enhanced: {
@@ -283,6 +338,16 @@ export default function NewListingPage() {
                   shadow: payload.enhancement?.shadow || "subtle",
                 },
                 selectedVariant: "enhanced",
+                enhancement: {
+                  ...photo.enhancement,
+                  isProcessing: false,
+                  error: "",
+                },
+              }
+            : photo.id === photoId
+            ? {
+                ...photo,
+                selectedVariant: "original",
                 enhancement: {
                   ...photo.enhancement,
                   isProcessing: false,

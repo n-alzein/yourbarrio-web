@@ -90,6 +90,8 @@ export default function ListingPhotoManager({
   helperText,
   canAddMore = true,
 }) {
+  const primaryInputId = "listing-photo-input";
+
   return (
     <section className="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-8 shadow-lg backdrop-blur-xl">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
@@ -253,19 +255,25 @@ export default function ListingPhotoManager({
         })}
 
         {canAddMore ? (
-          <label className="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-white/20 bg-white/[0.04] text-gray-200 transition hover:bg-white/10">
+          <label
+            htmlFor={primaryInputId}
+            className="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-white/20 bg-white/[0.04] text-gray-200 transition hover:bg-white/10"
+          >
             <span className="text-sm font-semibold">Add photo</span>
             <span className="mt-1 text-xs text-white/70">
               PNG, JPG, WEBP, or GIF. Take a photo or upload one.
             </span>
             <input
+              id={primaryInputId}
               type="file"
               accept="image/*"
-              capture="environment"
               multiple
               className="hidden"
               onChange={(event) => {
-                onAddFiles(event.target.files);
+                onAddFiles(event.target.files, {
+                  inputControl: "listing-photo-primary",
+                  captureAttributePresent: event.target.hasAttribute("capture"),
+                });
                 event.target.value = "";
               }}
             />

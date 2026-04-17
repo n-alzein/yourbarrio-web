@@ -55,6 +55,7 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const image = formData.get("image");
+    const imageSource = String(formData.get("imageSource") || "unknown").trim() || "unknown";
     const requestedBackground = String(formData.get("background") || "white").trim() as PhotoroomBackgroundMode;
     const background = ALLOWED_BACKGROUNDS.has(requestedBackground)
       ? requestedBackground
@@ -87,10 +88,49 @@ export async function POST(request: Request) {
       timeoutMs: 20_000,
     });
 
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[images.enhance] request_metadata", {
+        userId: access.effectiveUserId,
+        source: imageSource,
+        rawFileName: image.name || null,
+        rawFileType: image.type || null,
+        rawFileSize: typeof image.size === "number" ? image.size : null,
+      });
+    }
+
+    if (!enhanced.transformed) {
+      console.warn("[images.enhance] transformed_output_missing", {
+        userId: access.effectiveUserId,
+        source: imageSource,
+        rawFileName: image.name || null,
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "ENHANCEMENT_UNUSABLE",
+            message: "We couldn't enhance this photo right now. You can keep the original and continue.",
+          },
+        },
+        { status: 422 }
+      );
+    }
+
     const path = buildAssetPath({
       userId: access.effectiveUserId,
       extension: enhanced.extension,
     });
+
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[images.enhance] upload_metadata", {
+        userId: access.effectiveUserId,
+        source: imageSource,
+        enhancedBytesLength: enhanced.buffer.byteLength,
+        enhancedContentType: enhanced.contentType,
+        targetEnhancedPath: path,
+        uploadSource: "transformed_buffer",
+      });
+    }
 
     const { error: uploadError } = await access.client.storage
       .from("listing-photos")
@@ -118,6 +158,7 @@ export async function POST(request: Request) {
           publicUrl: data?.publicUrl || null,
           path,
           contentType: enhanced.contentType,
+          isFallbackOriginal: false,
         },
         enhancement: {
           background,

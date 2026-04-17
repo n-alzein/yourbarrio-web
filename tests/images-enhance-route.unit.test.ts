@@ -52,6 +52,7 @@ describe("POST /api/images/enhance", () => {
       background: "white",
       lighting: "auto",
       shadow: "subtle",
+      transformed: true,
     });
 
     const { POST } = await import("@/app/api/images/enhance/route");
@@ -78,6 +79,45 @@ describe("POST /api/images/enhance", () => {
       },
     });
     expect(uploadMock).toHaveBeenCalledTimes(1);
+    expect(uploadMock).toHaveBeenCalledWith(
+      expect.stringMatching(/^enhanced\/user-1\//),
+      expect.any(Uint8Array),
+      expect.objectContaining({ contentType: "image/png" })
+    );
+  });
+
+  it("does not upload or label fallback original output as enhanced", async () => {
+    enhancePhotoWithPhotoroomMock.mockResolvedValue({
+      buffer: new TextEncoder().encode("original").buffer,
+      contentType: "image/jpeg",
+      extension: "jpg",
+      background: "white",
+      lighting: "auto",
+      shadow: "subtle",
+      transformed: false,
+    });
+
+    const { POST } = await import("@/app/api/images/enhance/route");
+    const formData = new FormData();
+    formData.append("image", new File(["photo"], "listing.jpg", { type: "image/jpeg" }));
+    formData.append("background", "white");
+    formData.append("imageSource", "mobile_camera");
+
+    const response = await POST({
+      formData: async () => formData,
+      headers: new Headers({ "x-forwarded-for": "127.0.0.1" }),
+    } as unknown as Request);
+    const payload = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(payload).toEqual({
+      ok: false,
+      error: {
+        code: "ENHANCEMENT_UNUSABLE",
+        message: "We couldn't enhance this photo right now. You can keep the original and continue.",
+      },
+    });
+    expect(uploadMock).not.toHaveBeenCalled();
   });
 
   it("normalizes upstream failures without leaking raw details", async () => {

@@ -15,6 +15,7 @@ export type EnhancePhotoResult = {
   background: PhotoroomBackgroundMode;
   lighting: "auto";
   shadow: "subtle";
+  transformed: boolean;
 };
 
 type PhotoroomRequestError = Error & {
@@ -179,6 +180,7 @@ export async function enhancePhotoWithPhotoroom({
           background,
           lighting: "auto",
           shadow: "subtle",
+          transformed: false,
         };
       }
     } catch (metadataError) {
@@ -194,6 +196,7 @@ export async function enhancePhotoWithPhotoroom({
       background,
       lighting: "auto",
       shadow: "subtle",
+      transformed: true,
     };
   } catch (error) {
     if ((error as Error)?.name === "AbortError") {

@@ -1,14 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const heicToMock = vi.fn();
+const isHeicMock = vi.fn();
 
 vi.mock("heic-to", () => ({
   heicTo: (...args: unknown[]) => heicToMock(...args),
+  isHeic: (...args: unknown[]) => isHeicMock(...args),
 }));
 
 describe("normalizeImageUpload", () => {
   beforeEach(() => {
     heicToMock.mockReset();
+    isHeicMock.mockReset();
   });
 
   it("detects HEIC/HEIF files by mime type and extension", async () => {
@@ -27,6 +30,19 @@ describe("normalizeImageUpload", () => {
 
     expect(result).toBe(file);
     expect(heicToMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to signature detection when metadata is sparse", async () => {
+    const { normalizeImageUpload } = await import("@/lib/normalizeImageUpload");
+    isHeicMock.mockResolvedValue(true);
+    heicToMock.mockResolvedValue(new Blob(["converted"], { type: "image/jpeg" }));
+
+    const file = new File(["heic"], "", { type: "" });
+    const result = await normalizeImageUpload(file, { source: "mobile_camera" });
+
+    expect(isHeicMock).toHaveBeenCalledWith(file);
+    expect(result.name).toBe("photo.jpg");
+    expect(result.type).toBe("image/jpeg");
   });
 
   it("converts HEIC files to jpeg", async () => {

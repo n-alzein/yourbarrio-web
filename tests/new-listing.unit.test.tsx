@@ -184,6 +184,7 @@ describe("NewListingPage", () => {
     };
 
     const { container } = render(<NewListingPage />);
+    expect(container.querySelector('input[type="file"]')).not.toHaveAttribute("capture");
     await addPhoto(container);
 
     expect(await screen.findByRole("button", { name: "Enhance photo" })).toBeInTheDocument();
@@ -208,7 +209,14 @@ describe("NewListingPage", () => {
     fireEvent.change(fileInput, { target: { files: [heicFile] } });
 
     expect(await screen.findByRole("button", { name: "Enhance photo" })).toBeInTheDocument();
-    expect(normalizeImageUploadMock).toHaveBeenCalledWith(heicFile);
+    expect(normalizeImageUploadMock).toHaveBeenCalledWith(
+      heicFile,
+      expect.objectContaining({
+        source: "desktop_upload",
+        inputControl: "listing-photo-primary",
+        captureAttributePresent: false,
+      })
+    );
 
     await fillRequiredFields();
     fireEvent.click(screen.getByRole("button", { name: "Publish listing" }));
@@ -301,6 +309,46 @@ describe("NewListingPage", () => {
     expect(firstPayload.photo_variants[0].enhanced.url).toBe(
       "https://example.com/enhanced-photo.png"
     );
+  });
+
+  it("does not select enhanced when the enhancement response is unusable", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: async () => ({
+        ok: false,
+        error: {
+          message: "We couldn't enhance this photo right now. You can keep the original and continue.",
+        },
+      }),
+    });
+    mockSupabase = makeSupabaseMock();
+    mockAuth = {
+      supabase: mockSupabase,
+      user: { id: "user-1" },
+      profile: null,
+      loadingUser: false,
+    };
+
+    const { container } = render(<NewListingPage />);
+    await addPhoto(container);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Enhance photo" }));
+
+    expect(
+      await screen.findByText("We couldn't enhance this photo right now. You can keep the original and continue.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use enhanced photo" })).not.toBeInTheDocument();
+
+    await fillRequiredFields();
+    fireEvent.click(screen.getByRole("button", { name: "Publish listing" }));
+
+    await waitFor(() => {
+      expect(insertMock).toHaveBeenCalled();
+    });
+
+    const payload = insertMock.mock.calls[0][0];
+    expect(payload.photo_variants[0].selectedVariant).toBe("original");
   });
 
   it("uses the enhanced photo when the business applies it", async () => {
