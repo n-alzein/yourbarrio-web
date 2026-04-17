@@ -1,22 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const heic2anyMock = vi.fn();
+const heicToMock = vi.fn();
 
-vi.mock("heic2any", () => ({
-  default: (...args: unknown[]) => heic2anyMock(...args),
+vi.mock("heic-to", () => ({
+  heicTo: (...args: unknown[]) => heicToMock(...args),
 }));
 
 describe("normalizeImageUpload", () => {
   beforeEach(() => {
-    heic2anyMock.mockReset();
+    heicToMock.mockReset();
   });
 
   it("detects HEIC/HEIF files by mime type and extension", async () => {
-    const { isHeicLikeFile } = await import("@/lib/normalizeImageUpload");
+    const { isHeicLike } = await import("@/lib/normalizeImageUpload");
 
-    expect(isHeicLikeFile(new File(["x"], "photo.heic", { type: "image/heic" }))).toBe(true);
-    expect(isHeicLikeFile(new File(["x"], "photo.HEIF", { type: "" }))).toBe(true);
-    expect(isHeicLikeFile(new File(["x"], "photo.jpg", { type: "image/jpeg" }))).toBe(false);
+    expect(isHeicLike(new File(["x"], "photo.heic", { type: "image/heic" }))).toBe(true);
+    expect(isHeicLike(new File(["x"], "photo.HEIF", { type: "" }))).toBe(true);
+    expect(isHeicLike(new File(["x"], "photo.jpg", { type: "image/jpeg" }))).toBe(false);
   });
 
   it("returns non-HEIC files unchanged", async () => {
@@ -26,19 +26,19 @@ describe("normalizeImageUpload", () => {
     const result = await normalizeImageUpload(file);
 
     expect(result).toBe(file);
-    expect(heic2anyMock).not.toHaveBeenCalled();
+    expect(heicToMock).not.toHaveBeenCalled();
   });
 
   it("converts HEIC files to jpeg", async () => {
     const { normalizeImageUpload } = await import("@/lib/normalizeImageUpload");
-    heic2anyMock.mockResolvedValue(new Blob(["converted"], { type: "image/jpeg" }));
+    heicToMock.mockResolvedValue(new Blob(["converted"], { type: "image/jpeg" }));
 
     const file = new File(["heic"], "IMG_0001.HEIC", { type: "image/heic" });
     const result = await normalizeImageUpload(file);
 
-    expect(heic2anyMock).toHaveBeenCalledWith({
+    expect(heicToMock).toHaveBeenCalledWith({
       blob: file,
-      toType: "image/jpeg",
+      type: "image/jpeg",
       quality: 0.92,
     });
     expect(result).toBeInstanceOf(File);
@@ -48,10 +48,12 @@ describe("normalizeImageUpload", () => {
 
   it("throws a user-friendly error when HEIC conversion fails", async () => {
     const { normalizeImageUpload } = await import("@/lib/normalizeImageUpload");
-    heic2anyMock.mockRejectedValue(new Error("decode failed"));
+    heicToMock.mockRejectedValue(new Error("decode failed"));
 
     await expect(
       normalizeImageUpload(new File(["heic"], "IMG_0001.heic", { type: "image/heic" }))
-    ).rejects.toThrow("We couldn't process this iPhone photo. Please try a different image.");
+    ).rejects.toThrow(
+      "We couldn’t process this iPhone photo automatically. Please try another photo, or set your iPhone camera format to Most Compatible."
+    );
   });
 });

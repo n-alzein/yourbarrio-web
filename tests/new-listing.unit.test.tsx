@@ -228,7 +228,9 @@ describe("NewListingPage", () => {
 
   it("shows a friendly error when HEIC normalization fails", async () => {
     normalizeImageUploadMock.mockRejectedValue(
-      new Error("We couldn't process this iPhone photo. Please try a different image.")
+      new Error(
+        "We couldn’t process this iPhone photo automatically. Please try another photo, or set your iPhone camera format to Most Compatible."
+      )
     );
     mockSupabase = makeSupabaseMock();
     mockAuth = {
@@ -247,7 +249,9 @@ describe("NewListingPage", () => {
     });
 
     expect(
-      await screen.findByText("We couldn't process this iPhone photo. Please try a different image.")
+      await screen.findByText(
+        "We couldn’t process this iPhone photo automatically. Please try another photo, or set your iPhone camera format to Most Compatible."
+      )
     ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
