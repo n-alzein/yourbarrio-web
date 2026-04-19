@@ -25,9 +25,11 @@ import { useTheme } from "@/components/ThemeProvider";
 import { getAvailabilityBadgeStyle, normalizeInventory } from "@/lib/inventory";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { useCart } from "@/components/cart/CartProvider";
+import { useModal } from "@/components/modals/ModalProvider";
 import ReportModal from "@/components/moderation/ReportModal";
 import ListingDescription from "@/components/listings/ListingDescription";
 import { isUuid } from "@/lib/ids/isUuid";
+import { setAuthIntent } from "@/lib/auth/authIntent";
 import {
   getPurchaseRestrictionHelpText,
   getPurchaseRestrictionMessage,
@@ -49,6 +51,15 @@ import {
   getListingCategoryPlaceholder,
 } from "@/lib/taxonomy/placeholders";
 
+const PENDING_AUTH_ACTION_STORAGE_KEY = "yb:pendingAuthAction";
+
+function writePendingAuthAction(intent) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(PENDING_AUTH_ACTION_STORAGE_KEY, JSON.stringify(intent));
+  } catch {}
+}
+
 export default function ListingDetails({ params }) {
   const { supabase, user } = useAuth();
   const accountContext = useCurrentAccountContext();
@@ -57,6 +68,7 @@ export default function ListingDetails({ params }) {
   const { theme, hydrated } = useTheme();
   const isLight = hydrated ? theme === "light" : true;
   const { addItem, setFulfillmentType: updateCartFulfillmentType } = useCart();
+  const { openModal } = useModal();
   const routeParams = useParams();
   const pathname = usePathname();
   const [resolvedParams, setResolvedParams] = useState(params);
@@ -95,16 +107,14 @@ export default function ListingDetails({ params }) {
   const [listingMenuOpen, setListingMenuOpen] = useState(false);
   const toastTimerRef = useRef(null);
   const listingMenuRef = useRef(null);
-  const loginHref = useMemo(() => {
-    const currentPath =
-      typeof window !== "undefined"
-        ? `${window.location.pathname}${window.location.search}`
-        : pathname || "/";
-    return `/?modal=customer-login&next=${encodeURIComponent(currentPath || "/")}`;
+  const getCurrentPath = useCallback(() => {
+    if (typeof window !== "undefined") {
+      return `${window.location.pathname}${window.location.search}`;
+    }
+    return pathname || "/";
   }, [pathname]);
-
   const requireAuth = useCallback(
-    (actionName, setMessage) => {
+    (actionName, setMessage, intent = null) => {
       if (user?.id) return true;
       const message = actionName
         ? `Log in to ${actionName}.`
@@ -112,10 +122,18 @@ export default function ListingDetails({ params }) {
       if (typeof setMessage === "function") {
         setMessage(message);
       }
-      router.push(loginHref);
+      const currentPath = getCurrentPath();
+      setAuthIntent({ redirectTo: currentPath, role: "customer" });
+      if (intent) {
+        writePendingAuthAction({
+          ...intent,
+          pathname: currentPath,
+        });
+      }
+      openModal("customer-login", { next: currentPath });
       return false;
     },
-    [user?.id, router, loginHref]
+    [getCurrentPath, openModal, user?.id]
   );
 
   useEffect(() => {
@@ -234,7 +252,15 @@ export default function ListingDetails({ params }) {
 
   const handleToggleSave = async () => {
     if (!listing?.id) return;
-    if (!requireAuth("save listings", setStatusMessage)) return;
+    if (
+      !requireAuth("save listings", setStatusMessage, {
+        type: "save_item",
+        listingId: listing.id,
+        businessId: listing.business_id || null,
+      })
+    ) {
+      return;
+    }
     setSaveLoading(true);
     setStatusMessage("");
     try {
@@ -269,7 +295,15 @@ export default function ListingDetails({ params }) {
       setMessageStatus("Business info unavailable.");
       return;
     }
-    if (!requireAuth("message businesses", setMessageStatus)) return;
+    if (
+      !requireAuth("message businesses", setMessageStatus, {
+        type: "message_business",
+        listingId: listing?.id || null,
+        businessId,
+      })
+    ) {
+      return;
+    }
 
     setMessageLoading(true);
     setMessageStatus("");
@@ -369,6 +403,65 @@ export default function ListingDetails({ params }) {
     };
   }, [listingMenuOpen]);
 
+  const executeAddToCart = useCallback(
+    async ({ listingId, selectedQuantity, selectedFulfillmentType, businessId }) => {
+      if (!listingId) return;
+      setCartActionLoading(true);
+      setStatusMessage("");
+      try {
+        const result = await addItem({
+          listingId,
+          quantity: selectedQuantity,
+          fulfillmentType: selectedFulfillmentType,
+          listing: listing
+            ? {
+                ...listing,
+                available_fulfillment_methods: fulfillmentSummary.availableMethods,
+              }
+            : null,
+          business,
+        });
+
+        if (result?.error) {
+          setStatusMessage(result.error);
+          return;
+        }
+
+        const fulfillmentResult = await updateCartFulfillmentType(selectedFulfillmentType, {
+          cartId: result?.cart?.id || null,
+          businessId: businessId || null,
+        });
+
+        if (fulfillmentResult?.error) {
+          setStatusMessage(fulfillmentResult.error);
+          return;
+        }
+
+        setStatusMessage("Added to cart.");
+        setCartToast({
+          message: "Added to cart",
+          actions: [
+            { label: "View cart", onClick: () => router.push("/cart") },
+            {
+              label: "Checkout",
+              onClick: () =>
+                router.push(
+                  businessId
+                    ? `/checkout?business_id=${encodeURIComponent(businessId)}`
+                    : "/checkout"
+                ),
+            },
+          ],
+        });
+      } catch (err) {
+        setStatusMessage(err?.message || "Failed to add this item to your cart.");
+      } finally {
+        setCartActionLoading(false);
+      }
+    },
+    [addItem, business, fulfillmentSummary.availableMethods, listing, router, updateCartFulfillmentType]
+  );
+
   const handleAddToCart = async () => {
     if (!listing?.id) return;
     if (
@@ -381,7 +474,6 @@ export default function ListingDetails({ params }) {
       setStatusMessage("We’re still confirming your account. Try again.");
       return;
     }
-    if (!requireAuth("place orders", setStatusMessage)) return;
     if (!fulfillmentSummary.availableMethods.includes(fulfillmentType)) {
       setStatusMessage(
         fulfillmentSummary.deliveryUnavailableReason ||
@@ -389,50 +481,12 @@ export default function ListingDetails({ params }) {
       );
       return;
     }
-    setCartActionLoading(true);
-    setStatusMessage("");
-    try {
-      const result = await addItem({
-        listingId: listing.id,
-        quantity,
-      });
-
-      if (result?.error) {
-        setStatusMessage(result.error);
-        return;
-      }
-
-      const fulfillmentResult = await updateCartFulfillmentType(fulfillmentType, {
-        cartId: result?.cart?.id || null,
-        businessId: listing.business_id || null,
-      });
-
-      if (fulfillmentResult?.error) {
-        setStatusMessage(fulfillmentResult.error);
-        return;
-      }
-
-      setStatusMessage("Added to cart.");
-      setCartToast({
-        message: "Added to cart",
-        actions: [
-          { label: "View cart", onClick: () => router.push("/cart") },
-          {
-            label: "Checkout",
-            onClick: () =>
-              router.push(
-                listing.business_id
-                  ? `/checkout?business_id=${encodeURIComponent(listing.business_id)}`
-                  : "/checkout"
-              ),
-          },
-        ],
-      });
-    } catch (err) {
-      setStatusMessage(err?.message || "Failed to add this item to your cart.");
-    } finally {
-      setCartActionLoading(false);
-    }
+    await executeAddToCart({
+      listingId: listing.id,
+      selectedQuantity: quantity,
+      selectedFulfillmentType: fulfillmentType,
+      businessId: listing.business_id || null,
+    });
   };
 
   const handleShareListing = async () => {
@@ -1005,12 +1059,6 @@ export default function ListingDetails({ params }) {
                       >
                         {cartActionLoading ? "Adding..." : "Add to cart"}
                       </button>
-                      <Link
-                        href="/cart"
-                        className="inline-flex items-center text-sm font-medium opacity-75 transition hover:opacity-100"
-                      >
-                        Go to cart →
-                      </Link>
                     </div>
                   )}
 

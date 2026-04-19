@@ -315,7 +315,7 @@ export async function POST(request: Request) {
     if (listingIds.length > 0) {
       const { data: listingRows, error: listingRowsError } = await serviceClient
         .from("listings")
-        .select(`id,business_id,${LISTING_FULFILLMENT_SELECT}`)
+        .select(`id,business_id,title,price,inventory_status,inventory_quantity,${LISTING_FULFILLMENT_SELECT}`)
         .in("id", listingIds);
 
       if (listingRowsError) {
@@ -323,6 +323,65 @@ export async function POST(request: Request) {
       }
 
       fulfillmentListings = Array.isArray(listingRows) ? listingRows : [];
+      const listingById = new Map(fulfillmentListings.map((listing: any) => [listing.id, listing]));
+      const removedItems: any[] = [];
+      const adjustedItems: any[] = [];
+      const repricedItems: any[] = [];
+
+      for (const item of orderItems) {
+        const currentListing: any = listingById.get(item.listing_id);
+        if (!currentListing) {
+          removedItems.push({
+            listing_id: item.listing_id,
+            title: item.title,
+            reason: "Listing is no longer available.",
+          });
+          continue;
+        }
+
+        const inventoryStatus = String(currentListing.inventory_status || "in_stock");
+        const inventoryQuantity = Number(currentListing.inventory_quantity);
+        const tracksQuantity =
+          inventoryStatus !== "always_available" &&
+          inventoryStatus !== "seasonal" &&
+          Number.isFinite(inventoryQuantity);
+
+        if (inventoryStatus === "out_of_stock" || (tracksQuantity && inventoryQuantity <= 0)) {
+          removedItems.push({
+            listing_id: item.listing_id,
+            title: item.title,
+            reason: "Item is sold out.",
+          });
+        } else if (tracksQuantity && item.quantity > inventoryQuantity) {
+          adjustedItems.push({
+            listing_id: item.listing_id,
+            title: item.title,
+            requestedQuantity: item.quantity,
+            availableQuantity: Math.max(0, inventoryQuantity),
+          });
+        }
+
+        const currentUnitCents = dollarsToCents(Number(currentListing.price || 0));
+        const cartUnitCents = dollarsToCents(item.unit_price);
+        if (currentUnitCents !== cartUnitCents) {
+          repricedItems.push({
+            listing_id: item.listing_id,
+            title: item.title,
+            cartUnitPrice: item.unit_price,
+            currentUnitPrice: Number(currentListing.price || 0),
+          });
+        }
+      }
+
+      if (removedItems.length || adjustedItems.length || repricedItems.length) {
+        return jsonError("Some cart items changed before checkout.", 409, {
+          code: "CART_REVALIDATION_REQUIRED",
+          removedItems,
+          adjustedItems,
+          repricedItems,
+          cleanCart: false,
+        });
+      }
     }
 
     cancelPath = businessData.owner_user_id

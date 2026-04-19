@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import FastImage from "@/components/FastImage";
 import { useAuth } from "@/components/AuthProvider";
+import { useModal } from "@/components/modals/ModalProvider";
+import { setAuthIntent } from "@/lib/auth/authIntent";
 import { cx } from "@/lib/utils/cx";
 import { getOrCreateConversation } from "@/lib/messages";
 import {
@@ -31,6 +33,7 @@ import {
 } from "@/lib/business/profileUtils";
 
 const NAV_OFFSET = 152;
+const PENDING_AUTH_ACTION_STORAGE_KEY = "yb:pendingAuthAction";
 
 export { normalizeUrl, formatTime, formatHoursValue, parseHours, toObject };
 
@@ -46,6 +49,13 @@ export function buildLoginHrefForReturnPath(returnPath) {
       ? returnPath
       : "/";
   return `/login?next=${encodeURIComponent(safeReturnPath)}`;
+}
+
+function writePendingAuthAction(intent) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(PENDING_AUTH_ACTION_STORAGE_KEY, JSON.stringify(intent));
+  } catch {}
 }
 
 export function getProfileIdentity(profile) {
@@ -397,6 +407,7 @@ function HeroPreviewActions({
   const [copied, setCopied] = useState(false);
   const [messageLoading, setMessageLoading] = useState(false);
   const { user, role, supabase } = useAuth();
+  const { openModal } = useModal();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -453,6 +464,17 @@ function HeroPreviewActions({
     }
   };
 
+  const handleGuestMessageIntent = () => {
+    setAuthIntent({ redirectTo: loginTarget, role: "customer" });
+    writePendingAuthAction({
+      type: "message_business",
+      pathname: loginTarget,
+      businessId,
+      businessSlug: profile?.public_id || null,
+    });
+    openModal("customer-login", { next: loginTarget });
+  };
+
   return (
     <div className="flex w-full flex-col gap-3 sm:w-auto">
       <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
@@ -501,12 +523,13 @@ function HeroPreviewActions({
             {messageLoading ? "Opening..." : "Message"}
           </button>
         ) : (
-          <Link
-            href={loginHref}
+          <button
+            type="button"
+            onClick={handleGuestMessageIntent}
             className="inline-flex min-h-9 items-center justify-center rounded-full px-1 text-sm font-medium text-slate-600 transition hover:text-[#5b37d6]"
           >
             Sign in to message
-          </Link>
+          </button>
         )}
 
         <div className="ml-auto sm:ml-0">

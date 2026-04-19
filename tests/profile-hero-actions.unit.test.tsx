@@ -14,6 +14,8 @@ let mockAuth = {
 
 const pushMock = vi.fn();
 const getOrCreateConversationMock = vi.fn();
+const openModalMock = vi.fn();
+const setAuthIntentMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -34,6 +36,14 @@ vi.mock("next/link", () => ({
 
 vi.mock("@/components/AuthProvider", () => ({
   useAuth: () => mockAuth,
+}));
+
+vi.mock("@/components/modals/ModalProvider", () => ({
+  useModal: () => ({ openModal: openModalMock }),
+}));
+
+vi.mock("@/lib/auth/authIntent", () => ({
+  setAuthIntent: (...args) => setAuthIntentMock(...args),
 }));
 
 vi.mock("@/lib/messages", () => ({
@@ -70,6 +80,9 @@ describe("ProfileHero preview actions", () => {
   beforeEach(() => {
     pushMock.mockReset();
     getOrCreateConversationMock.mockReset();
+    openModalMock.mockReset();
+    setAuthIntentMock.mockReset();
+    window.sessionStorage.clear();
     mockAuth = {
       user: null,
       role: null,
@@ -107,10 +120,13 @@ describe("ProfileHero preview actions", () => {
     expect(screen.getByRole("link", { name: "Directions" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Website" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Call" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Sign in to message" })).toHaveAttribute(
-      "href",
-      "/login?next=%2Fb%2Fshop-111"
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Sign in to message" }));
+    expect(setAuthIntentMock).toHaveBeenCalledWith({
+      redirectTo: "/b/shop-111",
+      role: "customer",
+    });
+    expect(openModalMock).toHaveBeenCalledWith("customer-login", { next: "/b/shop-111" });
+    expect(pushMock).not.toHaveBeenCalled();
     expect(screen.queryByText("Local business")).not.toBeInTheDocument();
     expect(screen.getAllByText("Los Angeles, CA")).toHaveLength(1);
     expect(screen.getByLabelText("Share")).toBeInTheDocument();

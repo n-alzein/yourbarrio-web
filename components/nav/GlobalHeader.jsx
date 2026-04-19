@@ -13,6 +13,7 @@ import {
   Store,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
+import { useAuth } from "@/components/AuthProvider";
 import CartNavActionClient from "@/components/nav/CartNavActionClient";
 import HeaderAccountWidget from "@/components/nav/HeaderAccountWidget";
 import { BUSINESS_CATEGORIES, normalizeCategoryName } from "@/lib/businessCategories";
@@ -52,6 +53,7 @@ export default function GlobalHeader({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user } = useAuth();
   const { theme, hydrated } = useTheme();
   const isLight = hydrated ? theme === "light" : true;
   const { location, hasLocation, setLocation } = useLocation();
@@ -100,7 +102,7 @@ export default function GlobalHeader({
 
   const baseSearchPath = surface === "customer" ? "/customer/home" : "/listings";
   const listingPath = surface === "customer" ? "/customer/listings" : "/listings";
-  const logoHref = surface === "customer" ? "/customer/home" : "/";
+  const logoHref = surface === "customer" && user?.id ? "/customer/home" : "/";
   const isStickyRoute =
     pathname === "/" ||
     pathname === "/b" ||

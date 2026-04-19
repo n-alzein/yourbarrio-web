@@ -682,6 +682,7 @@ function CustomerNavbarInner({ pathname, searchParams }) {
   --------------------------------------------------- */
   const googleAvatar = user?.user_metadata?.avatar_url || null;
   const hasAuth = Boolean(user);
+  const logoHref = hasAuth ? "/customer/home" : "/";
   const disableReasons = useMemo(() => {
     const reasons = [];
     if (authBusy && lastAuthEvent !== "SIGNED_OUT") {
@@ -1015,7 +1016,7 @@ function CustomerNavbarInner({ pathname, searchParams }) {
           </svg>
         </button>
         <Link
-          href="/customer/home"
+          href={logoHref}
           onClick={closeMenus}
           aria-label="Go to home"
           className="touch-manipulation"

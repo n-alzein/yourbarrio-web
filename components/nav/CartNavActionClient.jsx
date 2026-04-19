@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { ShoppingCart } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useCart } from "@/components/cart/CartProvider";
@@ -10,9 +11,16 @@ const HIDDEN_ROLES = new Set(["business", "admin", "internal"]);
 export default function CartNavActionClient({ variant = "desktop", onNavigate }) {
   const { user, role, authStatus } = useAuth();
   const { itemCount } = useCart();
+  const [mounted, setMounted] = useState(false);
 
-  if (authStatus === "loading") return null;
-  if (!user) return null;
+  useEffect(() => {
+    const id = window.setTimeout(() => setMounted(true), 0);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  if (!mounted) return null;
+  if (authStatus === "loading" && itemCount <= 0) return null;
+  if (!user && itemCount <= 0) return null;
   if (HIDDEN_ROLES.has(role || "")) return null;
 
   if (variant === "mobile") {

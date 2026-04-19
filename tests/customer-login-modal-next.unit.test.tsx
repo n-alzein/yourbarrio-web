@@ -37,4 +37,26 @@ describe("CustomerLoginModal next forwarding", () => {
       })
     );
   });
+
+  it("runs success callbacks without treating the modal close as a cancellation", () => {
+    const onClose = vi.fn();
+    const onCancel = vi.fn();
+    const onSuccess = vi.fn();
+
+    render(
+      <CustomerLoginModal
+        next="/listings/test-listing"
+        onClose={onClose}
+        onCancel={onCancel}
+        onSuccess={onSuccess}
+      />
+    );
+
+    const formProps = customerLoginFormMock.mock.calls.at(-1)?.[0];
+    formProps.onSuccess("/listings/test-listing", { isAdmin: false });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledWith("/listings/test-listing", { isAdmin: false });
+  });
 });

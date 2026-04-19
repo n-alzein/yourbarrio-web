@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ShoppingBag, Trash2, Truck, Minus, Plus } from "lucide-react";
 import SafeImage from "@/components/SafeImage";
+import { useAuth } from "@/components/AuthProvider";
 import { useCart } from "@/components/cart/CartProvider";
+import { useModal } from "@/components/modals/ModalProvider";
 import { useCurrentAccountContext } from "@/lib/auth/useCurrentAccountContext";
+import { setAuthIntent } from "@/lib/auth/authIntent";
 import { DELIVERY_FULFILLMENT_TYPE, PICKUP_FULFILLMENT_TYPE } from "@/lib/fulfillment";
 import {
   getPurchaseRestrictionHelpText,
@@ -22,6 +25,8 @@ const formatMoney = (value) => {
 };
 
 export default function CartPage() {
+  const { user } = useAuth();
+  const { openModal } = useModal();
   const accountContext = useCurrentAccountContext();
   const { items, vendorGroups, loading, error, updateItem, removeItem, setFulfillmentType } = useCart();
   const [updatingItem, setUpdatingItem] = useState(null);
@@ -68,6 +73,12 @@ export default function CartPage() {
     if (result?.error) {
       setFulfillmentErrors((prev) => ({ ...prev, [groupKey]: result.error }));
     }
+  };
+
+  const handleGuestCheckout = (checkoutHref) => {
+    const next = checkoutHref || "/cart";
+    setAuthIntent({ redirectTo: next, role: "customer" });
+    openModal("customer-login", { next });
   };
 
   if (loading) {
@@ -161,13 +172,24 @@ export default function CartPage() {
                         {group.item_count} {group.item_count === 1 ? "item" : "items"}
                       </p>
                     </div>
-                    <Link
-                      href={checkoutHref}
-                      className="inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold"
-                      style={{ background: "var(--text)", color: "var(--background)" }}
-                    >
-                      Checkout with {businessName}
-                    </Link>
+                    {user?.id ? (
+                      <Link
+                        href={checkoutHref}
+                        className="inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold"
+                        style={{ background: "var(--text)", color: "var(--background)" }}
+                      >
+                        Checkout with {businessName}
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleGuestCheckout(checkoutHref)}
+                        className="inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold"
+                        style={{ background: "var(--text)", color: "var(--background)" }}
+                      >
+                        Sign in to checkout
+                      </button>
+                    )}
                   </div>
 
                   <div>

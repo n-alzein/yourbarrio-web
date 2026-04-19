@@ -5,6 +5,17 @@ import { useAuth } from "@/components/AuthProvider";
 import { useCurrentAccountContext } from "@/lib/auth/useCurrentAccountContext";
 import { getPurchaseRestrictionMessage } from "@/lib/auth/purchaseAccess";
 import { groupCartItemsByBusiness } from "@/lib/cart/groupCartItemsByBusiness";
+import {
+  addToGuestCart,
+  clearGuestCart,
+  getGuestCart,
+  getGuestCartCount,
+  GUEST_CART_STORAGE_KEY,
+  GUEST_CART_UPDATED_EVENT,
+  removeFromGuestCart,
+  setGuestCartFulfillment,
+  updateGuestCartItem,
+} from "@/lib/cart/guestCart";
 
 /** @typedef {import("@/lib/types/cart").CartResponse} CartResponse */
 
@@ -18,11 +29,11 @@ const CartContext = createContext({
   itemCount: 0,
   loading: false,
   error: null,
-  refreshCart: async () => {},
-  addItem: async () => ({}),
-  updateItem: async () => ({}),
-  removeItem: async () => ({}),
-  setFulfillmentType: async () => ({}),
+  refreshCart: async (_options = {}) => {},
+  addItem: async (_input = {}) => ({}),
+  updateItem: async (_input = {}) => ({}),
+  removeItem: async (_itemId = null) => ({}),
+  setFulfillmentType: async (_fulfillmentType = null, _options = {}) => ({}),
   clearCart: async () => ({}),
 });
 
@@ -90,6 +101,12 @@ export function CartProvider({ children }) {
   const mountStartedAtRef = useRef(0);
   const purchaseRestricted = accountContext.purchaseRestricted;
   const purchaseEligibilityPending = accountContext.rolePending;
+  const mergeInFlightRef = useRef(false);
+  const mergeStateRef = useRef({
+    purchaseEligibilityPending: false,
+    purchaseRestricted: false,
+    userId: null,
+  });
 
   const syncCart = useCallback((payload) => {
     const nextCarts = Array.isArray(payload?.carts)
@@ -110,6 +127,22 @@ export function CartProvider({ children }) {
     setItems(nextCarts.flatMap((cartRow) => cartRow?.cart_items || []));
   }, []);
 
+  const syncGuestCart = useCallback((guestCart = getGuestCart()) => {
+    const nextCarts = Array.isArray(guestCart?.carts) ? guestCart.carts : [];
+    const nextVendors = guestCart?.vendors || {};
+    const nextPrimaryCart = nextCarts[0] || null;
+    const nextPrimaryVendor =
+      nextPrimaryCart?.vendor_id ? nextVendors[nextPrimaryCart.vendor_id] || null : null;
+
+    setCarts(nextCarts);
+    setVendors(nextVendors);
+    setCart(nextPrimaryCart);
+    setVendor(nextPrimaryVendor);
+    setItems(nextCarts.flatMap((cartRow) => cartRow?.cart_items || []));
+    setLoading(false);
+    setError(null);
+  }, []);
+
   const refreshCart = useCallback(
     async ({ reason } = {}) => {
       if (
@@ -118,11 +151,15 @@ export function CartProvider({ children }) {
         purchaseRestricted ||
         purchaseEligibilityPending
       ) {
-        setCart(null);
-        setVendor(null);
-        setCarts([]);
-        setVendors({});
-        setItems([]);
+        if (!user?.id && !purchaseRestricted && !purchaseEligibilityPending) {
+          syncGuestCart();
+        } else {
+          setCart(null);
+          setVendor(null);
+          setCarts([]);
+          setVendors({});
+          setItems([]);
+        }
         setLoading(false);
         setError(purchaseRestricted ? getPurchaseRestrictionMessage() : null);
         return { cart: null };
@@ -281,8 +318,33 @@ export function CartProvider({ children }) {
 
       return globalRefreshInFlight;
     },
-    [authStatus, perfDebug, purchaseEligibilityPending, purchaseRestricted, syncCart, user?.id]
+    [
+      authStatus,
+      perfDebug,
+      purchaseEligibilityPending,
+      purchaseRestricted,
+      syncCart,
+      syncGuestCart,
+      user?.id,
+    ]
   );
+
+  useEffect(() => {
+    if (user?.id || authStatus === "authenticated") return undefined;
+    syncGuestCart();
+    const handleGuestCartUpdated = (event) => {
+      syncGuestCart(event?.detail || getGuestCart());
+    };
+    const handleStorage = (event) => {
+      if (event.key === GUEST_CART_STORAGE_KEY) syncGuestCart();
+    };
+    window.addEventListener(GUEST_CART_UPDATED_EVENT, handleGuestCartUpdated);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener(GUEST_CART_UPDATED_EVENT, handleGuestCartUpdated);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [authStatus, syncGuestCart, user?.id]);
 
   useEffect(() => {
     if (
@@ -342,6 +404,69 @@ export function CartProvider({ children }) {
     lastRefreshKeyRef.current = null;
   }, [user?.id, authStatus]);
 
+  mergeStateRef.current = {
+    purchaseEligibilityPending,
+    purchaseRestricted,
+    userId: user?.id || null,
+  };
+
+  useEffect(() => {
+    const mergeState = mergeStateRef.current;
+    if (!mergeState.userId || authStatus !== "authenticated" || mergeInFlightRef.current) return;
+    if (mergeState.purchaseEligibilityPending || mergeState.purchaseRestricted) return;
+    const guestCart = getGuestCart();
+    if (getGuestCartCount(guestCart) <= 0) return;
+    const mergeId = `${mergeState.userId}:${guestCart.updatedAt || Date.now()}`;
+    let storage = null;
+    try {
+      storage = window.sessionStorage;
+      if (storage.getItem("yb:guestCartMergeId") === mergeId) return;
+    } catch {}
+
+    mergeInFlightRef.current = true;
+    setLoading(true);
+    (async () => {
+      try {
+        for (const cartRow of guestCart.carts || []) {
+          for (const item of cartRow.cart_items || []) {
+            const response = await fetch("/api/cart", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                listing_id: item.listing_id,
+                quantity: item.quantity,
+              }),
+            });
+            if (!response.ok) {
+              const payload = await parseResponse(response);
+              throw new Error(payload?.error || "Failed to merge guest cart");
+            }
+          }
+          if (cartRow.fulfillment_type) {
+            await fetch("/api/cart", {
+              method: "PATCH",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                business_id: cartRow.vendor_id,
+                fulfillment_type: cartRow.fulfillment_type,
+              }),
+            });
+          }
+        }
+        clearGuestCart();
+        storage?.setItem("yb:guestCartMergeId", mergeId);
+        await refreshCart({ reason: "guest-merge" });
+      } catch (err) {
+        setError(err?.message || "Failed to merge guest cart");
+      } finally {
+        mergeInFlightRef.current = false;
+        setLoading(false);
+      }
+    })();
+  }, [authStatus, refreshCart]);
+
   useEffect(() => {
     if (!purchaseRestricted) return;
     setCart(null);
@@ -352,9 +477,18 @@ export function CartProvider({ children }) {
   }, [purchaseRestricted]);
 
   const addItem = useCallback(
-    async ({ listingId, quantity = 1, clearExisting }) => {
+    async ({ listingId, quantity = 1, clearExisting, listing = null, business = null, fulfillmentType = null }) => {
       if (!user?.id) {
-        return { error: "Please log in to add items." };
+        const result = addToGuestCart({
+          listingId,
+          quantity,
+          listing,
+          business,
+          fulfillmentType,
+        });
+        if (result?.error) return result;
+        syncGuestCart(result.cart);
+        return { cart: result.cart?.carts?.[0] || null, guest: true };
       }
       if (purchaseEligibilityPending) {
         return { error: "We’re still confirming your account. Try again." };
@@ -383,13 +517,15 @@ export function CartProvider({ children }) {
       syncCart(payload);
       return { cart: payload?.cart || null, vendor: payload?.vendor || null };
     },
-    [purchaseEligibilityPending, purchaseRestricted, syncCart, user?.id]
+    [purchaseEligibilityPending, purchaseRestricted, syncCart, syncGuestCart, user?.id]
   );
 
   const updateItem = useCallback(
     async ({ itemId, quantity }) => {
       if (!user?.id) {
-        return { error: "Please log in." };
+        const guestCart = updateGuestCartItem(itemId, quantity);
+        syncGuestCart(guestCart);
+        return { cart: guestCart?.carts?.[0] || null, guest: true };
       }
       if (purchaseEligibilityPending) {
         return { error: "We’re still confirming your account. Try again." };
@@ -413,18 +549,32 @@ export function CartProvider({ children }) {
       syncCart(payload);
       return payload;
     },
-    [purchaseEligibilityPending, purchaseRestricted, syncCart, user?.id]
+    [purchaseEligibilityPending, purchaseRestricted, syncCart, syncGuestCart, user?.id]
   );
 
   const removeItem = useCallback(
-    async (itemId) => updateItem({ itemId, quantity: 0 }),
-    [updateItem]
+    async (itemId) => {
+      if (!user?.id) {
+        const guestCart = removeFromGuestCart(itemId);
+        syncGuestCart(guestCart);
+        return { cart: guestCart?.carts?.[0] || null, guest: true };
+      }
+      return updateItem({ itemId, quantity: 0 });
+    },
+    [syncGuestCart, updateItem, user?.id]
   );
 
   const setFulfillmentType = useCallback(
     async (fulfillmentType, { cartId = null, businessId = null } = {}) => {
       if (!user?.id) {
-        return { error: "Please log in." };
+        const guestBusinessId =
+          businessId || (typeof cartId === "string" ? cartId.replace(/^guest:/, "") : null);
+        const guestCart = setGuestCartFulfillment(guestBusinessId, fulfillmentType);
+        syncGuestCart(guestCart);
+        return {
+          cart: guestCart?.carts?.find((cartRow) => cartRow.vendor_id === guestBusinessId) || null,
+          guest: true,
+        };
       }
       if (purchaseEligibilityPending) {
         return { error: "We’re still confirming your account. Try again." };
@@ -452,12 +602,14 @@ export function CartProvider({ children }) {
       syncCart(payload);
       return payload;
     },
-    [purchaseEligibilityPending, purchaseRestricted, syncCart, user?.id]
+    [purchaseEligibilityPending, purchaseRestricted, syncCart, syncGuestCart, user?.id]
   );
 
   const clearCart = useCallback(async () => {
     if (!user?.id) {
-      return { error: "Please log in." };
+      clearGuestCart();
+      syncGuestCart();
+      return { cart: null, guest: true };
     }
     if (purchaseEligibilityPending) {
       return { error: "We’re still confirming your account. Try again." };
@@ -478,7 +630,7 @@ export function CartProvider({ children }) {
 
     syncCart(payload);
     return payload;
-  }, [purchaseEligibilityPending, purchaseRestricted, syncCart, user?.id]);
+  }, [purchaseEligibilityPending, purchaseRestricted, syncCart, syncGuestCart, user?.id]);
 
   const itemCount = useMemo(
     () => items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),

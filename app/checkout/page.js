@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useCart } from "@/components/cart/CartProvider";
 import { useAuth } from "@/components/AuthProvider";
+import { useModal } from "@/components/modals/ModalProvider";
 import { useCurrentAccountContext } from "@/lib/auth/useCurrentAccountContext";
+import { setAuthIntent } from "@/lib/auth/authIntent";
 import {
   getPurchaseRestrictionHelpText,
   getPurchaseRestrictionMessage,
@@ -36,11 +38,13 @@ const TIME_OPTIONS = [
 export default function CheckoutPage() {
   const searchParams = useSearchParams();
   const { user, profile } = useAuth();
+  const { openModal } = useModal();
   const accountContext = useCurrentAccountContext();
   const { loading, setFulfillmentType, vendorGroups } = useCart();
   const businessIdParam = (searchParams.get("business_id") || "").trim();
   const purchaseRestricted = accountContext.purchaseRestricted;
   const purchaseEligibilityPending = accountContext.rolePending;
+  const promptedLoginRef = useRef(false);
 
   const selectedGroup = useMemo(() => {
     if (businessIdParam) {
@@ -93,6 +97,17 @@ export default function CheckoutPage() {
     }
     setFulfillmentTypeState("");
   }, [selectedGroup?.fulfillment_type, selectedGroup?.cart_id]);
+
+  useEffect(() => {
+    if (user?.id || loading || promptedLoginRef.current) return;
+    promptedLoginRef.current = true;
+    const next =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : "/checkout";
+    setAuthIntent({ redirectTo: next, role: "customer" });
+    openModal("customer-login", { next });
+  }, [loading, openModal, user?.id]);
 
   const handleFulfillmentSelect = async (nextType) => {
     if (!selectedGroup) return;
@@ -207,6 +222,32 @@ export default function CheckoutPage() {
           >
             Browse listings
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user?.id) {
+    return (
+      <div className="min-h-screen px-4 md:px-8 lg:px-12 py-12" style={{ background: "var(--background)", color: "var(--text)" }}>
+        <div className="max-w-4xl mx-auto rounded-3xl p-8 text-center" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+          <h1 className="text-2xl font-semibold">Sign in to continue to checkout</h1>
+          <p className="mt-3 text-sm opacity-80">Your cart is saved on this device. Sign in to submit your order request.</p>
+          <button
+            type="button"
+            onClick={() => {
+              const next =
+                typeof window !== "undefined"
+                  ? `${window.location.pathname}${window.location.search}`
+                  : "/checkout";
+              setAuthIntent({ redirectTo: next, role: "customer" });
+              openModal("customer-login", { next });
+            }}
+            className="mt-6 inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold"
+            style={{ background: "var(--text)", color: "var(--background)" }}
+          >
+            Sign in
+          </button>
         </div>
       </div>
     );
