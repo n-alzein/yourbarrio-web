@@ -11,6 +11,7 @@ import {
   getAvailabilityBadgeStyle,
   normalizeInventory,
 } from "@/lib/inventory";
+import { calculateListingPricing } from "@/lib/pricing";
 import type { ListingItem } from "../types";
 
 type ListingMediaMode = "product" | "lifestyle";
@@ -20,6 +21,17 @@ function formatPrice(value: ListingItem["price"]) {
   const number = Number(value);
   if (Number.isNaN(number)) return String(value);
   return `$${number.toFixed(2)}`;
+}
+
+function getDisplayPriceCents(listing: ListingItem) {
+  const finalPriceCents = Number(listing?.finalPriceCents);
+  if (Number.isFinite(finalPriceCents) && finalPriceCents > 0) return finalPriceCents;
+  return calculateListingPricing(listing?.price).finalPriceCents;
+}
+
+function formatPriceCents(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "Price TBD";
+  return `$${(value / 100).toFixed(2)}`;
 }
 
 function formatDistance(value?: number | null) {
@@ -57,6 +69,7 @@ export default function ListingMarketplaceCard({
     fallbackLocationLabel;
   const mediaMode: ListingMediaMode = "product";
   const listingHref = getListingUrl(listing);
+  const displayPriceCents = getDisplayPriceCents(listing);
 
   const handleAddToCart = async () => {
     if (!listing?.id || isOutOfStock || adding) return;
@@ -102,7 +115,7 @@ export default function ListingMarketplaceCard({
 
         <div className="grid min-h-[114px] flex-1 grid-rows-[auto_minmax(3.15rem,3.15rem)_auto] gap-1 px-3 pb-2.5 pt-2.5">
           <p className="text-[0.94rem] font-semibold tracking-[-0.03em] text-slate-950">
-            {formatPrice(listing.price)}
+            {displayPriceCents > 0 ? formatPriceCents(displayPriceCents) : formatPrice(listing.price)}
           </p>
           <h3 className="line-clamp-3 max-h-[3.15rem] text-[0.86rem] font-semibold leading-[1.22] tracking-[-0.022em] text-slate-900">
             {listing.title || "Untitled listing"}

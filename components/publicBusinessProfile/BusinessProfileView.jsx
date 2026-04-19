@@ -36,6 +36,7 @@ export default function BusinessProfileView({
   aboutSupplement = null,
   listingsHeaderAction = null,
   listingsItemHrefResolver,
+  listingsPriceMode = "allIn",
   reviewsProps = {},
   updatesHeaderAction = null,
   updatesRenderItemActions = null,
@@ -69,6 +70,7 @@ export default function BusinessProfileView({
           className={sectionClassName}
           headerAction={listingsHeaderAction}
           itemHrefResolver={listingsItemHrefResolver}
+          priceMode={listingsPriceMode}
         />
 
         <ViewerContextEnhancer>

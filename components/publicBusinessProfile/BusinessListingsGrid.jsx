@@ -7,6 +7,7 @@ import { primaryPhotoUrl } from "@/lib/listingPhotos";
 import { getListingUrl } from "@/lib/ids/publicRefs";
 import { getListingCategoryLabel } from "@/lib/taxonomy/compat";
 import { getListingCategoryPlaceholder } from "@/lib/taxonomy/placeholders";
+import { calculateListingPricing } from "@/lib/pricing";
 import {
   ProfileEmptyState,
   ProfileSection,
@@ -19,6 +20,17 @@ function formatPrice(value) {
   return `$${number.toFixed(2).replace(/\\.00$/, "")}`;
 }
 
+function getDisplayPriceCents(item) {
+  const finalPriceCents = Number(item?.finalPriceCents);
+  if (Number.isFinite(finalPriceCents) && finalPriceCents > 0) return finalPriceCents;
+  return calculateListingPricing(item?.price).finalPriceCents;
+}
+
+function formatPriceCents(value) {
+  if (!Number.isFinite(value) || value <= 0) return "Price TBD";
+  return `$${(value / 100).toFixed(2)}`;
+}
+
 export default function BusinessListingsGrid({
   listings,
   className = "",
@@ -26,6 +38,7 @@ export default function BusinessListingsGrid({
   description = "Available offers from this business.",
   headerAction = null,
   itemHrefResolver = getListingUrl,
+  priceMode = "allIn",
 }) {
   return (
     <ProfileSection
@@ -47,6 +60,11 @@ export default function BusinessListingsGrid({
             {listings.map((item) => {
               const cover = primaryPhotoUrl(item.photo_url);
               const categoryLabel = getListingCategoryLabel(item, "Listing");
+              const displayPriceCents = getDisplayPriceCents(item);
+              const priceLabel =
+                priceMode === "base" || displayPriceCents <= 0
+                  ? formatPrice(item.price)
+                  : formatPriceCents(displayPriceCents);
               return (
                 <Link
                   key={item.id}
@@ -69,7 +87,7 @@ export default function BusinessListingsGrid({
                         {categoryLabel}
                       </span>
                       <span className="text-sm font-semibold text-slate-900">
-                        {formatPrice(item.price)}
+                        {priceLabel}
                       </span>
                     </div>
 

@@ -4,6 +4,7 @@ import { getPublicSupabaseServerClient } from "@/lib/supabasePublicServer";
 import { findBusinessOwnerIdsForLocation } from "@/lib/location/businessLocationSearch";
 import { getNormalizedLocation } from "@/lib/location/filter";
 import { getHomepageCategories, type HomepageCategory } from "@/lib/homepage/categories";
+import { withListingPricing } from "@/lib/pricing";
 
 export type BrowseMode = "public" | "customer";
 
@@ -13,6 +14,9 @@ export type ListingSummary = {
   title: string | null;
   description: string | null;
   price: number | string | null;
+  priceCents?: number;
+  platformFeeCents?: number;
+  finalPriceCents?: number;
   listing_category?: string | null;
   category: string | null;
   category_id: string | number | null;
@@ -80,7 +84,7 @@ async function attachBusinessNames(listings: ListingSummary[]) {
     )
   );
 
-  if (businessIds.length === 0) return listings;
+  if (businessIds.length === 0) return listings.map((listing) => withListingPricing(listing));
 
   const supabase = getPublicSupabaseServerClient();
   const { data, error } = await supabase
@@ -89,7 +93,7 @@ async function attachBusinessNames(listings: ListingSummary[]) {
     .in("id", businessIds);
 
   if (error || !Array.isArray(data)) {
-    return listings;
+    return listings.map((listing) => withListingPricing(listing));
   }
 
   const businessNameById = new Map(
@@ -100,7 +104,7 @@ async function attachBusinessNames(listings: ListingSummary[]) {
   );
 
   return listings.map((listing) => ({
-    ...listing,
+    ...withListingPricing(listing),
     business_name: businessNameById.get(String(listing?.business_id || "").trim()) || null,
   }));
 }

@@ -23,7 +23,7 @@ import { getBusinessStripeStatus } from "@/lib/stripe/status";
 import { getSupabaseServerClient as getServiceClient } from "@/lib/supabase/server";
 import { getSupabaseServerClient, getUserCached } from "@/lib/supabaseServer";
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
-import { calculatePlatformFeeAmount } from "@/lib/stripe/fees";
+import { calculateCheckoutPricing } from "@/lib/pricing";
 
 function jsonError(message: string, status = 400, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ error: message, ...extra }, { status });
@@ -460,8 +460,13 @@ export async function POST(request: Request) {
   if (!stripeStatus.canAcceptPayments) {
     return jsonError("This business is not ready to accept payments yet", 400);
   }
-  const platformFeeAmount = calculatePlatformFeeAmount(subtotalCents);
-  const totalCents = subtotalCents + deliveryFeeCents + platformFeeAmount;
+  const pricing = calculateCheckoutPricing({
+    subtotalCents,
+    deliveryFeeCents,
+    taxCents: 0,
+  });
+  const platformFeeAmount = pricing.platformFeeCents;
+  const totalCents = pricing.totalCents;
   const subtotal = subtotalCents / 100;
   const fees = platformFeeAmount / 100;
   const total = totalCents / 100;
@@ -562,16 +567,22 @@ export async function POST(request: Request) {
             ]
           : []
       )
-      .concat({
-        quantity: 1,
-        price_data: {
-          currency: "usd",
-          unit_amount: platformFeeAmount,
-          product_data: {
-            name: "Service fee",
-          },
-        },
-      }),
+      .concat(
+        platformFeeAmount > 0
+          ? [
+              {
+                quantity: 1,
+                price_data: {
+                  currency: "usd",
+                  unit_amount: platformFeeAmount,
+                  product_data: {
+                    name: "Service fee",
+                  },
+                },
+              },
+            ]
+          : []
+      ),
       customer_email: contactEmail || user.email?.trim() || undefined,
       metadata: {
         checkout_flow: checkoutFlow,

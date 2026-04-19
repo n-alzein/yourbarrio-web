@@ -10,6 +10,7 @@ import {
 import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
 import { findBusinessOwnerIdsForLocation } from "@/lib/location/businessLocationSearch";
 import { getNormalizedLocation, hasUsableLocationFilter } from "@/lib/location/filter";
+import { withListingPricing } from "@/lib/pricing";
 
 async function attachBusinessNames(client, listings) {
   if (!client || !Array.isArray(listings) || listings.length === 0) {
@@ -293,6 +294,7 @@ export async function GET(request) {
 
   if (listings.length > 0) {
     listings = await attachBusinessNames(serviceClient || sessionClient, listings);
+    listings = listings.map((listing) => withListingPricing(listing));
   }
 
   if (!listings.length && errors.length) {

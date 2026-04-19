@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerClient, getUserCached } from "@/lib/supabaseServer";
 import { isUuid } from "@/lib/ids/isUuid";
 import { getPublicBusinessByOwnerId } from "@/lib/business/getPublicBusinessByOwnerId";
+import { withListingPricing } from "@/lib/pricing";
 
 export async function GET(request) {
   const supabase = await getSupabaseServerClient();
@@ -60,7 +61,7 @@ export async function GET(request) {
 
   const response = NextResponse.json(
     {
-      listing,
+      listing: withListingPricing(listing),
       business,
       isSaved: Boolean(saved),
     },

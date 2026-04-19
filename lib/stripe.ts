@@ -2,7 +2,6 @@ import "server-only";
 
 import Stripe from "stripe";
 import { getStripeSecretKey } from "@/lib/stripe/env";
-import { calculatePlatformFeeAmount } from "@/lib/stripe/fees";
 
 let stripeClient: Stripe | null = null;
 

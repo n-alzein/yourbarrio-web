@@ -4,6 +4,9 @@ export type ListingItem = {
   title?: string | null;
   description?: string | null;
   price?: number | string | null;
+  priceCents?: number | null;
+  platformFeeCents?: number | null;
+  finalPriceCents?: number | null;
   category?: string | null;
   listing_category?: string | null;
   category_id?: string | number | null;

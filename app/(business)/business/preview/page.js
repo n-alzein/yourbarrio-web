@@ -247,7 +247,7 @@ export default async function BusinessPreviewPage() {
           className="rounded-none"
         />
         <BusinessGalleryGrid photos={gallery} className="rounded-none" />
-        <BusinessListingsGrid listings={listings} className="rounded-none" />
+        <BusinessListingsGrid listings={listings} className="rounded-none" priceMode="base" />
         <ViewerContextEnhancer>
           <BusinessReviewsPanel
             businessId={effectiveUserId}

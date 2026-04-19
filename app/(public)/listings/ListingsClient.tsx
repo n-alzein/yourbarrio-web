@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocation } from "@/components/location/LocationProvider";
 import { sortListingsByAvailability } from "@/lib/inventory";
+import { calculateListingPricing } from "@/lib/pricing";
 import {
   getListingsBrowseCategoryOptions,
   normalizeListingsBrowseCategory,
@@ -44,6 +45,13 @@ function normalizeText(value: unknown) {
 function normalizePrice(value: ListingItem["price"]) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeDisplayPrice(listing: ListingItem) {
+  const finalPriceCents = Number(listing?.finalPriceCents);
+  if (Number.isFinite(finalPriceCents) && finalPriceCents > 0) return finalPriceCents / 100;
+  const computed = calculateListingPricing(listing?.price).finalPriceCents;
+  return computed > 0 ? computed / 100 : normalizePrice(listing?.price);
 }
 
 function getResultErrorMessage(error: unknown) {
@@ -248,7 +256,7 @@ export default function ListingsClient() {
 
   const filteredListings = useMemo(() => {
     const priceFiltered = sortedListings.filter((listing) => {
-      const amount = normalizePrice(listing?.price);
+      const amount = normalizeDisplayPrice(listing);
       if (priceFilter === "under-50") return amount !== null && amount < 50;
       if (priceFilter === "under-100") return amount !== null && amount < 100;
       if (priceFilter === "premium") return amount !== null && amount >= 100;
@@ -286,8 +294,8 @@ export default function ListingsClient() {
 
     if (sortBy === "price-asc") {
       return [...openFiltered].sort((left, right) => {
-        const leftPrice = normalizePrice(left?.price);
-        const rightPrice = normalizePrice(right?.price);
+        const leftPrice = normalizeDisplayPrice(left);
+        const rightPrice = normalizeDisplayPrice(right);
         if (leftPrice === null) return 1;
         if (rightPrice === null) return -1;
         return leftPrice - rightPrice;
@@ -296,8 +304,8 @@ export default function ListingsClient() {
 
     if (sortBy === "price-desc") {
       return [...openFiltered].sort((left, right) => {
-        const leftPrice = normalizePrice(left?.price);
-        const rightPrice = normalizePrice(right?.price);
+        const leftPrice = normalizeDisplayPrice(left);
+        const rightPrice = normalizeDisplayPrice(right);
         if (leftPrice === null) return 1;
         if (rightPrice === null) return -1;
         return rightPrice - leftPrice;

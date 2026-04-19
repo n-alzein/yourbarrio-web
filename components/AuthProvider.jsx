@@ -24,7 +24,7 @@ import {
 import {
   clearVerifiedUserCache,
 } from "@/lib/auth/verifiedUserClient";
-import { PATHS } from "@/lib/auth/paths";
+import { getBusinessSessionExpiredLoginPath, PATHS } from "@/lib/auth/paths";
 import { isCustomerNearbyPublicAllowed } from "@/lib/routes/isCustomerNearbyPublic";
 import AuthStateDebug from "@/components/debug/AuthStateDebug";
 import { stopRealtime } from "@/lib/realtimeManager";
@@ -1383,7 +1383,7 @@ export function AuthProvider({
     if (!isProtectedPath(pathname)) return;
     if (isCustomerNearbyPublicAllowed(pathname, readNearbyPublicCookie())) return;
     const target = pathname.startsWith("/business")
-      ? PATHS.auth.businessLogin
+      ? getBusinessSessionExpiredLoginPath()
       : PATHS.auth.customerLogin;
     if (pathname === target || pathname === `${target}/`) return;
     const normalizedTarget = normalizeNextPath(target) || target;
@@ -1609,7 +1609,7 @@ export function AuthProvider({
 
       const target =
         authStore.state.role === "business"
-          ? PATHS.auth.businessLogin
+          ? getBusinessSessionExpiredLoginPath()
           : PATHS.auth.customerLogin;
       const normalizedTarget = normalizeNextPath(target) || target;
       const currentPath = typeof window !== "undefined" ? window.location.pathname : pathname;
@@ -1960,7 +1960,7 @@ export function AuthProvider({
     if (pathname.startsWith("/business-auth")) return;
 
     const target = pathname.startsWith("/business/")
-      ? PATHS.auth.businessLogin
+      ? getBusinessSessionExpiredLoginPath()
       : pathname.startsWith("/business")
         ? PATHS.public.businessLanding
         : PATHS.auth.customerLogin;

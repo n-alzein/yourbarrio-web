@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
-import { PATHS } from "@/lib/auth/paths";
+import { getBusinessSessionExpiredLoginPath, PATHS } from "@/lib/auth/paths";
 import { isLogoutRedirectInFlight } from "@/lib/auth/logout";
 
 export default function AuthRedirectGuard({ children, redirectTo }) {
@@ -18,7 +18,7 @@ export default function AuthRedirectGuard({ children, redirectTo }) {
     const target =
       redirectTo ||
       (pathname?.startsWith("/business")
-        ? PATHS.auth.businessLogin
+        ? getBusinessSessionExpiredLoginPath()
         : PATHS.auth.customerLogin);
 
     if (!target) return;

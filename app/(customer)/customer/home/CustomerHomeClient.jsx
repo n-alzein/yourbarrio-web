@@ -39,8 +39,18 @@ import {
 import { useLocation } from "@/components/location/LocationProvider";
 import FeedbackSection from "@/components/browse/FeedbackSection";
 import { getListingCategoryLabel } from "@/lib/taxonomy/compat";
+import { calculateListingPricing } from "@/lib/pricing";
 
 const HomeGuard = dynamic(() => import("@/components/debug/HomeGuard"), { ssr: false });
+
+function formatListingDisplayPrice(item) {
+  const finalPriceCents = Number(item?.finalPriceCents);
+  const cents =
+    Number.isFinite(finalPriceCents) && finalPriceCents > 0
+      ? finalPriceCents
+      : calculateListingPricing(item?.price).finalPriceCents;
+  return cents > 0 ? `$${(cents / 100).toFixed(2)}` : null;
+}
 function HomeGuardFallback() {
   const { theme, hydrated } = useTheme();
   const isLight = hydrated ? theme === "light" : true;
@@ -671,6 +681,7 @@ function CustomerHomePageInner({
                         inventory.availability,
                         isLight
                       );
+                      const displayPrice = formatListingDisplayPrice(item);
                       return (
                       <a
                         key={item.id}
@@ -706,9 +717,9 @@ function CustomerHomePageInner({
                             <div className="text-sm font-semibold leading-snug">
                               {item.title}
                             </div>
-                            {item.price ? (
+                            {displayPrice ? (
                               <div className={`text-sm font-semibold ${textTone.strong}`}>
-                                ${item.price}
+                                {displayPrice}
                               </div>
                             ) : null}
                           </div>

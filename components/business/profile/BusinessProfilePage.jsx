@@ -324,6 +324,7 @@ export default function BusinessProfilePage({
         shell="business"
         ratingSummary={ratingSummary}
         listings={listings}
+        listingsPriceMode="base"
         reviews={reviews}
         announcements={announcements}
         gallery={gallery}

@@ -45,6 +45,7 @@ import {
   formatCents,
   PICKUP_FULFILLMENT_TYPE,
 } from "@/lib/fulfillment";
+import { calculateListingPricing } from "@/lib/pricing";
 import { getCustomerBusinessUrl, getListingUrl } from "@/lib/ids/publicRefs";
 import {
   getBusinessTypeLabel,
@@ -340,15 +341,22 @@ export default function ListingDetails({ params }) {
 
   const formattedPrice = useMemo(() => {
     if (!listing?.price) return null;
+    const finalPriceCents = Number(listing?.finalPriceCents);
+    if (Number.isFinite(finalPriceCents) && finalPriceCents > 0) {
+      return (finalPriceCents / 100).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    }
     try {
-      return Number(listing.price).toLocaleString("en-US", {
+      return (calculateListingPricing(listing.price).finalPriceCents / 100).toLocaleString("en-US", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       });
     } catch {
       return listing.price;
     }
-  }, [listing?.price]);
+  }, [listing?.finalPriceCents, listing?.price]);
   const fulfillmentSummary = useMemo(
     () =>
       deriveFulfillmentSummary({
@@ -849,6 +857,9 @@ export default function ListingDetails({ params }) {
                   <div className="mb-3 text-[2rem] font-semibold leading-none tracking-[-0.03em]">
                     {formattedPrice ? `$${formattedPrice}` : "Contact store"}
                   </div>
+                  {formattedPrice ? (
+                    <p className="text-xs opacity-65">All-in price before tax</p>
+                  ) : null}
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     <span
                       className="rounded-full border px-2.5 py-1 text-[11px] font-semibold"

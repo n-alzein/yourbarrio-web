@@ -49,6 +49,7 @@ export default function GlobalHeader({
   surface = "public",
   showSearch = true,
   forcedAuth = null,
+  minimal = false,
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -485,62 +486,79 @@ export default function GlobalHeader({
       data-testid={surface === "customer" ? "customer-navbar" : "global-navbar"}
     >
       <div className="mx-auto flex h-20 w-full max-w-[1380px] items-center justify-between gap-3 px-4 sm:px-6 lg:gap-4 lg:px-7 xl:gap-5 xl:px-8">
-        <button
-          onClick={() => setMobileMenuOpen((open) => !open)}
-          className="text-white mr-0 lg:hidden"
-          aria-label="Open menu"
-          aria-expanded={mobileMenuOpen}
-          aria-controls={mobileDrawerId}
-        >
-          <svg className="h-7 w-7" fill="none" stroke="currentColor">
-            <path strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+        {!minimal ? (
+          <button
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            className="text-white mr-0 lg:hidden"
+            aria-label="Open menu"
+            aria-expanded={mobileMenuOpen}
+            aria-controls={mobileDrawerId}
+          >
+            <svg className="h-7 w-7" fill="none" stroke="currentColor">
+              <path strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        ) : null}
         <Link
           href={logoHref}
           aria-label="Go to home"
           className="touch-manipulation shrink-0"
           onPointerDownCapture={() => markNavInProgress(logoHref)}
         >
-          <span className="relative block h-10 w-10 lg:hidden">
-            <Image
-              src="/business-placeholder2.png"
-              alt="YourBarrio"
-              fill
-              sizes="40px"
-              priority
-              className="object-contain"
-            />
-          </span>
-          <span className="hidden lg:block">
+          {minimal ? (
             <Image
               src="/logo.png"
               alt="YourBarrio"
               width={867}
               height={306}
-              sizes="(min-width: 1280px) 162px, 150px"
+              sizes="(min-width: 1024px) 162px, 150px"
               priority
               className="h-auto w-[150px] object-contain xl:w-[162px]"
             />
-          </span>
+          ) : (
+            <>
+              <span className="relative block h-10 w-10 lg:hidden">
+                <Image
+                  src="/business-placeholder2.png"
+                  alt="YourBarrio"
+                  fill
+                  sizes="40px"
+                  priority
+                  className="object-contain"
+                />
+              </span>
+              <span className="hidden lg:block">
+                <Image
+                  src="/logo.png"
+                  alt="YourBarrio"
+                  width={867}
+                  height={306}
+                  sizes="(min-width: 1280px) 162px, 150px"
+                  priority
+                  className="h-auto w-[150px] object-contain xl:w-[162px]"
+                />
+              </span>
+            </>
+          )}
         </Link>
 
-        <div className="relative hidden lg:flex items-center" ref={locationRef}>
-          <button
-            type="button"
-            onClick={() => setLocationOpen((open) => !open)}
-            className={`flex h-11 max-w-[208px] items-center gap-2.5 rounded-xl border bg-white/7 px-3.5 text-left text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors duration-200 ease-out hover:bg-purple-500/10 ${
-              locationOpen ? "border-purple-400" : "border-white/15"
-            }`}
-            aria-haspopup="dialog"
-            aria-expanded={locationOpen}
-          >
-            <MapPin className="h-4 w-4 shrink-0 text-white/75 transition-colors duration-200 ease-out hover:text-purple-400" />
-            <div className="min-w-0 leading-tight">
-              <div className="truncate text-sm font-semibold">{locationLabel}</div>
-            </div>
-            <ChevronDown className="h-4 w-4 shrink-0 text-white/65 transition-colors duration-200 ease-out hover:text-purple-400" />
-          </button>
+        {!minimal ? (
+          <div className="relative hidden lg:flex items-center" ref={locationRef}>
+            <button
+              type="button"
+              onClick={() => setLocationOpen((open) => !open)}
+              className={`flex h-11 max-w-[208px] items-center gap-2.5 rounded-xl border bg-white/7 px-3.5 text-left text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors duration-200 ease-out hover:bg-purple-500/10 ${
+                locationOpen ? "border-purple-400" : "border-white/15"
+              }`}
+              aria-haspopup="dialog"
+              aria-expanded={locationOpen}
+            >
+              <MapPin className="h-4 w-4 shrink-0 text-white/75 transition-colors duration-200 ease-out hover:text-purple-400" />
+              <div className="min-w-0 leading-tight">
+                <div className="truncate text-sm font-semibold">{locationLabel}</div>
+              </div>
+              <ChevronDown className="h-4 w-4 shrink-0 text-white/65 transition-colors duration-200 ease-out hover:text-purple-400" />
+            </button>
 
           {locationOpen ? (
             <div className="absolute left-0 top-full z-50 mt-3 w-72 rounded-2xl p-4 yb-dropdown-surface">
@@ -620,9 +638,10 @@ export default function GlobalHeader({
               ) : null}
             </div>
           ) : null}
-        </div>
+          </div>
+        ) : null}
 
-        {showSearch ? (
+        {showSearch && !minimal ? (
           <div
             className="flex min-w-0 flex-1 justify-center px-4 sm:px-6 lg:hidden lg:px-0"
             data-nav-guard="1"
@@ -666,7 +685,7 @@ export default function GlobalHeader({
           </div>
         ) : null}
 
-        {showSearch ? (
+        {showSearch && !minimal ? (
           <div className="hidden flex-1 justify-center lg:flex" data-nav-guard="1">
             <div
               ref={searchBoxRef}
@@ -856,21 +875,25 @@ export default function GlobalHeader({
           <div className="hidden lg:flex flex-1" />
         )}
 
-        <div className="hidden items-center gap-4 lg:flex xl:gap-5">
-          <CartNavActionClient />
-          <HeaderAccountWidget surface={surface} variant="desktop" forcedAuth={forcedAuth} />
-        </div>
+        {!minimal ? (
+          <div className="hidden items-center gap-4 lg:flex xl:gap-5">
+            <CartNavActionClient />
+            <HeaderAccountWidget surface={surface} variant="desktop" forcedAuth={forcedAuth} />
+          </div>
+        ) : null}
 
       </div>
 
-      <HeaderAccountWidget
-        surface={surface}
-        variant="mobile"
-        forcedAuth={forcedAuth}
-        mobileMenuOpen={mobileMenuOpen}
-        onCloseMobileMenu={() => setMobileMenuOpen(false)}
-        mobileDrawerId={mobileDrawerId}
-      />
+      {!minimal ? (
+        <HeaderAccountWidget
+          surface={surface}
+          variant="mobile"
+          forcedAuth={forcedAuth}
+          mobileMenuOpen={mobileMenuOpen}
+          onCloseMobileMenu={() => setMobileMenuOpen(false)}
+          mobileDrawerId={mobileDrawerId}
+        />
+      ) : null}
     </nav>
   );
 }

@@ -9,6 +9,7 @@ import { getListingCategoryPlaceholder } from "@/lib/taxonomy/placeholders";
 import { getCustomerListingUrl, getListingUrl } from "@/lib/ids/publicRefs";
 import { sortListingsByAvailability } from "@/lib/inventory";
 import HomeSectionContainer from "@/components/home/HomeSectionContainer";
+import { calculateListingPricing } from "@/lib/pricing";
 
 type TrendingListingsSectionProps = {
   mode?: BrowseMode;
@@ -24,6 +25,17 @@ function formatPrice(value?: number | string | null) {
   const number = Number(value);
   if (Number.isNaN(number)) return String(value);
   return `$${number.toFixed(2)}`;
+}
+
+function getDisplayPriceCents(listing: ListingSummary) {
+  const finalPriceCents = Number(listing?.finalPriceCents);
+  if (Number.isFinite(finalPriceCents) && finalPriceCents > 0) return finalPriceCents;
+  return calculateListingPricing(listing?.price).finalPriceCents;
+}
+
+function formatPriceCents(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "Price TBD";
+  return `$${(value / 100).toFixed(2)}`;
 }
 
 export default function TrendingListingsSection({
@@ -123,6 +135,7 @@ export default function TrendingListingsSection({
                 primaryPhotoUrl(listing.photo_url) || getListingCategoryPlaceholder(listing);
               const businessName =
                 String(listing?.business_name || "").trim() || "Local business";
+              const displayPriceCents = getDisplayPriceCents(listing);
 
               return (
                 <Link
@@ -151,7 +164,7 @@ export default function TrendingListingsSection({
                       </p>
                     </div>
                     <p className="whitespace-nowrap text-sm font-semibold tracking-[-0.03em] text-slate-950 sm:text-[1.04rem]">
-                      {formatPrice(listing.price)}
+                      {displayPriceCents > 0 ? formatPriceCents(displayPriceCents) : formatPrice(listing.price)}
                     </p>
                   </div>
                 </Link>

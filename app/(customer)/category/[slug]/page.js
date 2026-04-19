@@ -13,6 +13,7 @@ import { getListingCategoryLabel } from "@/lib/taxonomy/compat";
 import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
 import { findBusinessOwnerIdsForLocation } from "@/lib/location/businessLocationSearch";
 import { hasUsableLocationFilter } from "@/lib/location/filter";
+import { withListingPricing } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -71,7 +72,7 @@ export default async function CategoryListingsPage({ params }) {
       if (error) {
         listings = [];
       } else {
-        listings = Array.isArray(data) ? data : [];
+        listings = Array.isArray(data) ? data.map((item) => withListingPricing(item)) : [];
       }
     }
   }
@@ -130,7 +131,7 @@ export default async function CategoryListingsPage({ params }) {
                       {item.title}
                     </h3>
                     <div className="text-sm font-semibold text-slate-900">
-                      {item.price ? `$${item.price}` : "Price TBD"}
+                      {item.finalPriceCents ? `$${(item.finalPriceCents / 100).toFixed(2)}` : "Price TBD"}
                     </div>
                   </div>
                 </Link>

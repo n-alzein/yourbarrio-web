@@ -5,7 +5,7 @@ import AuthSeed from "@/components/auth/AuthSeed";
 import AuthRedirectGuard from "@/components/auth/AuthRedirectGuard";
 import ProtectedRouteLoginPrompt from "@/components/auth/ProtectedRouteLoginPrompt";
 import { requireEffectiveRole } from "@/lib/auth/requireEffectiveRole";
-import { PATHS } from "@/lib/auth/paths";
+import { getBusinessSessionExpiredLoginPath } from "@/lib/auth/paths";
 import { isRscPrefetchRequest } from "@/lib/next/isRscPrefetchRequest";
 import { requireBusinessRowOrOnboarding } from "@/lib/business/requireBusinessRow";
 import { getServerAuth } from "@/lib/auth/server";
@@ -109,7 +109,7 @@ export default async function BusinessLayout({ children }) {
         profile={effectiveProfile || profile}
         role={targetRole || effectiveRole || "business"}
       />
-      <AuthRedirectGuard redirectTo={PATHS.auth.businessLogin}>
+      <AuthRedirectGuard redirectTo={getBusinessSessionExpiredLoginPath()}>
         {content}
       </AuthRedirectGuard>
     </>

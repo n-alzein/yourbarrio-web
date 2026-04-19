@@ -18,7 +18,7 @@ import {
   DELIVERY_FULFILLMENT_TYPE,
   PICKUP_FULFILLMENT_TYPE,
 } from "@/lib/fulfillment";
-import { calculatePlatformFeeDollars } from "@/lib/stripe/fees";
+import { calculateCheckoutPricing } from "@/lib/pricing";
 
 const formatMoney = (value) => {
   const amount = Number(value || 0);
@@ -89,7 +89,6 @@ export default function CheckoutPage() {
     () => items.reduce((sum, item) => sum + Number(item.unit_price || 0) * Number(item.quantity || 0), 0),
     [items]
   );
-  const fees = useMemo(() => calculatePlatformFeeDollars(subtotal), [subtotal]);
   const deliveryFee = useMemo(
     () =>
       fulfillmentType === DELIVERY_FULFILLMENT_TYPE
@@ -97,7 +96,19 @@ export default function CheckoutPage() {
         : 0,
     [fulfillmentType, selectedGroup?.delivery_fee_cents]
   );
-  const total = subtotal + deliveryFee + fees;
+  const pricing = useMemo(
+    () =>
+      calculateCheckoutPricing({
+        subtotalCents: Math.round(subtotal * 100),
+        deliveryFeeCents: Math.round(deliveryFee * 100),
+        taxCents: 0,
+      }),
+    [deliveryFee, subtotal]
+  );
+  const fees = pricing.platformFeeCents / 100;
+  const subtotalBeforeTax = pricing.subtotalBeforeTaxCents / 100;
+  const tax = pricing.taxCents / 100;
+  const total = pricing.totalCents / 100;
 
   useEffect(() => {
     if (selectedGroup?.fulfillment_type) {
@@ -571,7 +582,7 @@ export default function CheckoutPage() {
               </div>
               <div className="mt-4 space-y-2 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="opacity-80">Subtotal</span>
+                  <span className="opacity-80">Merchant item subtotal</span>
                   <span>${formatMoney(subtotal)}</span>
                 </div>
                 {deliveryFee > 0 ? (
@@ -583,6 +594,14 @@ export default function CheckoutPage() {
                 <div className="flex items-center justify-between">
                   <span className="opacity-80">Service fee</span>
                   <span>${formatMoney(fees)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="opacity-80">Subtotal before tax</span>
+                  <span>${formatMoney(subtotalBeforeTax)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="opacity-80">Tax</span>
+                  <span>${formatMoney(tax)}</span>
                 </div>
                 <div className="flex items-center justify-between border-t pt-3" style={{ borderColor: "var(--border)" }}>
                   <span className="text-sm font-semibold">Total</span>

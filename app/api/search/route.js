@@ -18,6 +18,7 @@ import {
   getNormalizedLocation,
   hasUsableLocationFilter,
 } from "@/lib/location/filter";
+import { withListingPricing } from "@/lib/pricing";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS =
@@ -126,7 +127,7 @@ async function searchListings(supabase, term, category, { businessIds }) {
 
     return Array.from(deduped.values())
       .slice(0, 8)
-      .map((row) => ({
+      .map((row) => withListingPricing({
         id: row.id,
         public_id: row.public_id || null,
         title: row.title,
@@ -153,7 +154,7 @@ async function searchListings(supabase, term, category, { businessIds }) {
     return [];
   }
 
-  return (data || []).map((row) => ({
+  return (data || []).map((row) => withListingPricing({
     id: row.id,
     public_id: row.public_id || null,
     title: row.title,

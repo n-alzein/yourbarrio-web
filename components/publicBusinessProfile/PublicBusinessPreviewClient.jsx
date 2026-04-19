@@ -15,6 +15,7 @@ import {
   sanitizeReviews,
 } from "@/lib/publicBusinessProfile/normalize";
 import { fetchBusinessReviews } from "@/lib/publicBusinessProfile/reviews";
+import { withListingPricing } from "@/lib/pricing";
 
 const EMPTY_SUMMARY = {
   count: 0,
@@ -314,7 +315,7 @@ export default function PublicBusinessPreviewClient({
           profile: safeProfile,
           announcements: sanitizeAnnouncements(announcementsResult?.data),
           gallery: sanitizeGalleryPhotos(galleryResult?.data),
-          listings: sanitizeListings(listingsResult?.data),
+          listings: sanitizeListings((listingsResult?.data || []).map((listing) => withListingPricing(listing))),
           reviews: sanitizeReviews(reviewsWithAuthors),
           ratingSummary: ratingsResult?.data
             ? buildRatingSummary(ratingsResult.data)

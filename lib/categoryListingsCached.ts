@@ -13,6 +13,7 @@ import {
   getNormalizedLocation,
   hasUsableLocationFilter,
 } from "@/lib/location/filter";
+import { withListingPricing } from "@/lib/pricing";
 
 export type CategoryRow = {
   id?: string | null;
@@ -25,6 +26,9 @@ export type SupabaseListing = {
   public_id?: string | null;
   title?: string | null;
   price?: number | string | null;
+  priceCents?: number;
+  platformFeeCents?: number;
+  finalPriceCents?: number;
   photo_url?: string | null;
   created_at?: string | null;
 };
@@ -138,7 +142,12 @@ export async function getCategoryListingsCached({
       if (error) {
         return { listings: [], error, branch, fallbacks };
       }
-      return { listings: Array.isArray(data) ? data : [], error: null, branch, fallbacks };
+      return {
+        listings: Array.isArray(data) ? data.map((row) => withListingPricing(row)) : [],
+        error: null,
+        branch,
+        fallbacks,
+      };
     },
     [
       "category:listings",

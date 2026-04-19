@@ -14,7 +14,7 @@ import {
   getPurchaseRestrictionHelpText,
   getPurchaseRestrictionMessage,
 } from "@/lib/auth/purchaseAccess";
-import { calculatePlatformFeeDollars } from "@/lib/stripe/fees";
+import { calculateCheckoutPricing } from "@/lib/pricing";
 
 const formatMoney = (value) => {
   const amount = Number(value || 0);
@@ -39,7 +39,16 @@ export default function CartPage() {
     [items]
   );
   const fees = useMemo(
-    () => vendorGroups.reduce((sum, group) => sum + calculatePlatformFeeDollars(group.subtotal), 0),
+    () =>
+      vendorGroups.reduce(
+        (sum, group) =>
+          sum +
+          calculateCheckoutPricing({
+            subtotalCents: Math.round(Number(group.subtotal || 0) * 100),
+          }).platformFeeCents /
+            100,
+        0
+      ),
     [vendorGroups]
   );
   const deliveryFees = useMemo(

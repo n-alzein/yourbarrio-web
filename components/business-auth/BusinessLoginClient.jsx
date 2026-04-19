@@ -20,7 +20,7 @@ import {
   readClientRedirectState,
 } from "@/lib/auth/clientRedirectState";
 
-function BusinessLoginInner({ isPopup, callbackError = "" }) {
+function BusinessLoginInner({ isPopup, callbackError = "", sessionExpired = false }) {
   const authDiagEnabled = process.env.NEXT_PUBLIC_AUTH_DIAG === "1";
   const debugAuth = process.env.NEXT_PUBLIC_DEBUG_AUTH === "1";
   const authTimeoutMs = 30000;
@@ -617,6 +617,11 @@ function BusinessLoginInner({ isPopup, callbackError = "" }) {
               {GENERIC_INVALID_CREDENTIALS_MESSAGE}
             </div>
           ) : null}
+          {sessionExpired ? (
+            <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              Your session expired. Please log in again.
+            </div>
+          ) : null}
 
           <form onSubmit={handleLogin} className="space-y-4">
             {authError ? (
@@ -710,6 +715,16 @@ function BusinessLoginInner({ isPopup, callbackError = "" }) {
   );
 }
 
-export default function BusinessLoginClient({ isPopup = false, callbackError = "" }) {
-  return <BusinessLoginInner isPopup={isPopup} callbackError={callbackError} />;
+export default function BusinessLoginClient({
+  isPopup = false,
+  callbackError = "",
+  sessionExpired = false,
+}) {
+  return (
+    <BusinessLoginInner
+      isPopup={isPopup}
+      callbackError={callbackError}
+      sessionExpired={sessionExpired}
+    />
+  );
 }

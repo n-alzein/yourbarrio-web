@@ -15,6 +15,7 @@ import {
 import { getListingUrl } from "@/lib/ids/publicRefs";
 import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
 import { hasUsableLocationFilter } from "@/lib/location";
+import { calculateListingPricing } from "@/lib/pricing";
 
 export const revalidate = 60;
 
@@ -35,6 +36,17 @@ function splitPriceWithCents(value?: number | string | null) {
   const normalized = formatted.replace("$", "");
   const [dollars, cents = "00"] = normalized.split(".");
   return { formatted, dollars, cents };
+}
+
+function splitListingDisplayPrice(item: SupabaseListing) {
+  const finalPriceCents = Number(item?.finalPriceCents);
+  if (Number.isFinite(finalPriceCents) && finalPriceCents > 0) {
+    return splitPriceWithCents(finalPriceCents / 100);
+  }
+  if (item?.price === null || item?.price === undefined || item?.price === "") {
+    return splitPriceWithCents(item?.price);
+  }
+  return splitPriceWithCents(calculateListingPricing(item.price).finalPriceCents / 100);
 }
 
 function humanizeSlug(slug: string) {
@@ -171,7 +183,7 @@ export default async function CategoryListingsPage({
                   <div className="p-4 space-y-2">
                     <div className="text-slate-900 tabular-nums leading-none">
                       {(() => {
-                        const price = splitPriceWithCents(item.price);
+                        const price = splitListingDisplayPrice(item);
                         if (!price.dollars) {
                           return (
                             <span className="text-2xl font-bold leading-none">

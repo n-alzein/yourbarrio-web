@@ -13,6 +13,7 @@ import {
   sanitizeReviews,
 } from "@/lib/publicBusinessProfile/normalize";
 import { fetchBusinessReviews } from "@/lib/publicBusinessProfile/reviews";
+import { withListingPricing } from "@/lib/pricing";
 
 const PUBLIC_CACHE_SECONDS = 300;
 const PERF_ENV_FLAG = "YB_PROFILE_PERF";
@@ -168,7 +169,7 @@ async function fetchListingsWithFallback(supabase, businessId, limit) {
       "listings"
     );
     if (result.data?.length) {
-      return result.data;
+      return result.data.map((listing) => withListingPricing(listing));
     }
   }
 
