@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import {
   finalizePaidOrderFromCheckoutSession,
   finalizePaidOrderFromPaymentIntent,
+  expireStripeCheckoutSession,
   markStripePaymentFailed,
 } from "@/lib/orders/persistence";
 import { getStripe, getStripeWebhookSecret } from "@/lib/stripe";
@@ -82,6 +83,17 @@ async function handlePaymentIntentFailed(
   });
 }
 
+async function handleCheckoutExpired(
+  client: any,
+  session: Stripe.Checkout.Session
+) {
+  await expireStripeCheckoutSession({
+    client,
+    session,
+    logPrefix: "[ORDER_FINALIZATION_TRACE]",
+  });
+}
+
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
   if (!signature) {
@@ -130,6 +142,12 @@ export async function POST(request: Request) {
           event.data.object as Stripe.Checkout.Session
         );
         }
+        break;
+      case "checkout.session.expired":
+        await handleCheckoutExpired(
+          client,
+          event.data.object as Stripe.Checkout.Session
+        );
         break;
       case "payment_intent.succeeded":
         {

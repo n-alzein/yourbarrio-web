@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient as getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getBusinessDataClientForRequest } from "@/lib/business/getBusinessDataClientForRequest";
-import { getLowStockThreshold } from "@/lib/inventory";
 import {
   markOrderAcknowledged,
   markOrderAcknowledgedForStatusChange,
 } from "@/lib/notifications/orders";
 import { reconcilePendingStripeOrders } from "@/lib/orders/persistence";
+import {
+  reserveInventoryForOrderItems,
+  restoreInventoryReservations,
+  restoreInventoryForOrder,
+} from "@/lib/orders/inventoryReservations";
 import {
   ORDER_STATUSES,
   canTransition,
@@ -34,73 +38,6 @@ const STATUS_LABELS = {
 
 function jsonError(message, status = 400, extra = {}) {
   return NextResponse.json({ error: message, ...extra }, { status });
-}
-
-function aggregateOrderItems(items) {
-  const totals = new Map();
-  if (!Array.isArray(items)) return totals;
-  items.forEach((item) => {
-    if (!item?.listing_id) return;
-    const quantity = Number(item.quantity);
-    if (!Number.isFinite(quantity) || quantity <= 0) return;
-    totals.set(item.listing_id, (totals.get(item.listing_id) || 0) + quantity);
-  });
-  return totals;
-}
-
-function resolveNextInventoryStatus(currentStatus, nextQuantity, thresholdValue) {
-  if (currentStatus === "always_available" || currentStatus === "seasonal") {
-    return currentStatus;
-  }
-  if (nextQuantity <= 0) return "out_of_stock";
-  const threshold = getLowStockThreshold({ low_stock_threshold: thresholdValue });
-  if (nextQuantity <= threshold) return "low_stock";
-  return "in_stock";
-}
-
-async function decrementInventoryForOrder({
-  client,
-  businessId,
-  timestamp,
-  items,
-}) {
-  const totals = aggregateOrderItems(items);
-  if (totals.size === 0) return;
-
-  const listingIds = Array.from(totals.keys());
-  const { data: listings, error } = await client
-    .from("listings")
-    .select("id, inventory_quantity, inventory_status, low_stock_threshold")
-    .in("id", listingIds)
-    .eq("business_id", businessId);
-
-  if (error) throw error;
-
-  for (const listing of listings || []) {
-    const currentQuantity = Number(listing.inventory_quantity);
-    if (!Number.isFinite(currentQuantity)) continue;
-    const orderedQuantity = totals.get(listing.id) || 0;
-    if (orderedQuantity <= 0) continue;
-
-    const nextQuantity = Math.max(0, currentQuantity - orderedQuantity);
-    const nextStatus = resolveNextInventoryStatus(
-      listing.inventory_status,
-      nextQuantity,
-      listing.low_stock_threshold
-    );
-
-    const { error: updateError } = await client
-      .from("listings")
-      .update({
-        inventory_quantity: nextQuantity,
-        inventory_status: nextStatus,
-        inventory_last_updated_at: timestamp,
-      })
-      .eq("id", listing.id)
-      .eq("business_id", businessId);
-
-    if (updateError) throw updateError;
-  }
 }
 
 async function getOrCreateConversationId(client, customerId, businessId) {
@@ -295,7 +232,7 @@ export async function PATCH(request) {
   const { data: existingOrder, error: existingOrderError } = await supabase
     .from("orders")
     .select(
-      "id, status, vendor_id, fulfillment_type, confirmed_at, fulfilled_at, cancelled_at"
+      "id, status, vendor_id, fulfillment_type, confirmed_at, fulfilled_at, cancelled_at, inventory_reserved_at, inventory_restored_at"
     )
     .eq("id", orderId)
     .eq("vendor_id", effectiveUserId)
@@ -336,13 +273,17 @@ export async function PATCH(request) {
   }
 
   const shouldAdjustInventory =
-    currentStatus === "requested" && nextStatus === "confirmed";
+    currentStatus === "requested" && nextStatus === "confirmed" && !existingOrder.inventory_reserved_at;
+  const shouldRestoreInventory =
+    nextStatus === "cancelled" &&
+    existingOrder.inventory_reserved_at &&
+    !existingOrder.inventory_restored_at;
   let orderItems = [];
 
-  if (shouldAdjustInventory) {
+  if (shouldAdjustInventory || shouldRestoreInventory) {
     const { data: items, error: itemsError } = await supabase
       .from("order_items")
-      .select("listing_id, quantity")
+      .select("id, listing_id, quantity")
       .eq("order_id", orderId);
 
     if (itemsError) {
@@ -396,14 +337,58 @@ export async function PATCH(request) {
 
   if (shouldAdjustInventory) {
     const inventoryClient = serviceClient ?? supabase;
+    let reservations = [];
     try {
-      await decrementInventoryForOrder({
+      reservations = await reserveInventoryForOrderItems({
         client: inventoryClient,
-        businessId: effectiveUserId,
-        timestamp,
         items: orderItems,
       });
+      for (const reservation of reservations) {
+        const orderItem = orderItems.find((item) => item.listing_id === reservation.listing_id);
+        if (!orderItem?.id) {
+          throw new Error("Reserved order item could not be linked.");
+        }
+        const { data: attachResult, error: attachError } = await inventoryClient.rpc(
+          "attach_inventory_reservation_to_order_item",
+          {
+            p_reservation_id: reservation.inventory_reservation_id,
+            p_order_id: orderId,
+            p_order_item_id: orderItem.id,
+          }
+        );
+        const normalizedAttach = Array.isArray(attachResult) ? attachResult[0] : attachResult;
+        if (attachError || !normalizedAttach?.success) {
+          throw new Error(
+            attachError?.message ||
+              normalizedAttach?.message ||
+              "Failed to link inventory reservation"
+          );
+        }
+      }
+      await supabase
+        .from("orders")
+        .update({
+          inventory_reserved_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId)
+        .eq("vendor_id", effectiveUserId)
+        .is("inventory_reserved_at", null);
     } catch (inventoryError) {
+      if (reservations.length > 0) {
+        try {
+          await restoreInventoryReservations({
+            client: inventoryClient,
+            reservations,
+            allowUnlinked: true,
+          });
+        } catch (restoreError) {
+          console.error("[BUSINESS_ORDER_TRACE]", "inventory_restore_failed", {
+            orderId,
+            message: restoreError?.message || null,
+          });
+        }
+      }
       await supabase
         .from("orders")
         .update({
@@ -418,6 +403,42 @@ export async function PATCH(request) {
 
       return jsonError(
         inventoryError?.message || "Failed to update inventory",
+        500
+      );
+    }
+  }
+
+  if (shouldRestoreInventory) {
+    const inventoryClient = serviceClient ?? supabase;
+    try {
+      await restoreInventoryForOrder({
+        client: inventoryClient,
+        orderId,
+      });
+      await supabase
+        .from("orders")
+        .update({
+          inventory_restored_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId)
+        .eq("vendor_id", effectiveUserId)
+        .is("inventory_restored_at", null);
+    } catch (inventoryError) {
+      await supabase
+        .from("orders")
+        .update({
+          status: existingOrder.status,
+          confirmed_at: existingOrder.confirmed_at,
+          fulfilled_at: existingOrder.fulfilled_at,
+          cancelled_at: existingOrder.cancelled_at,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId)
+        .eq("vendor_id", effectiveUserId);
+
+      return jsonError(
+        inventoryError?.message || "Failed to restore inventory",
         500
       );
     }

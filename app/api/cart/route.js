@@ -10,6 +10,12 @@ import {
 } from "@/lib/fulfillment";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
 import { getCurrentAccountContext } from "@/lib/auth/getCurrentAccountContext";
+import {
+  clampOrderQuantity,
+  getMaxPurchasableQuantity,
+  MAX_ORDER_QUANTITY,
+  validateOrderQuantity,
+} from "@/lib/inventory";
 
 async function getActiveCarts(supabase, userId) {
   const { data, error } = await supabase
@@ -62,7 +68,9 @@ async function getListingFulfillmentById(supabase, listingIds) {
 
   const { data, error } = await supabase
     .from("listings")
-    .select(`id,business_id,${LISTING_FULFILLMENT_SELECT}`)
+    .select(
+      `id,business_id,inventory_status,inventory_quantity,low_stock_threshold,${LISTING_FULFILLMENT_SELECT}`
+    )
     .in("id", listingIds);
 
   if (error) throw error;
@@ -77,7 +85,24 @@ async function getListingFulfillmentById(supabase, listingIds) {
 
 function enrichCartsWithFulfillment(carts, businessByVendorId, listingById) {
   return carts.map((cart) => {
-    const cartItems = Array.isArray(cart?.cart_items) ? cart.cart_items : [];
+    const cartItems = Array.isArray(cart?.cart_items)
+      ? cart.cart_items.map((item) => {
+          const listing = listingById[item?.listing_id] || null;
+          const maxQuantity = listing ? getMaxPurchasableQuantity(listing) : 0;
+          return {
+            ...item,
+            inventory_status: listing?.inventory_status ?? null,
+            inventory_quantity: listing?.inventory_quantity ?? null,
+            max_order_quantity: maxQuantity,
+            stock_error:
+              maxQuantity <= 0
+                ? "This item is currently out of stock."
+                : Number(item?.quantity || 0) > maxQuantity
+                  ? `Only ${maxQuantity} available right now.`
+                  : null,
+          };
+        })
+      : [];
     const listings = cartItems
       .map((item) => listingById[item?.listing_id] || null)
       .filter(Boolean);
@@ -95,6 +120,7 @@ function enrichCartsWithFulfillment(carts, businessByVendorId, listingById) {
 
     return {
       ...cart,
+      cart_items: cartItems,
       fulfillment_type: summary.selectedFulfillmentType,
       available_fulfillment_methods: summary.availableMethods,
       delivery_fee_cents: summary.deliveryFeeCents,
@@ -197,14 +223,14 @@ export async function POST(request) {
   if (!listingId) {
     return jsonError("Missing listing_id", 400);
   }
-  if (!Number.isFinite(quantity) || quantity < 1) {
-    return jsonError("Quantity must be at least 1", 400);
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_ORDER_QUANTITY) {
+    return jsonError(`Quantity must be between 1 and ${MAX_ORDER_QUANTITY}`, 400);
   }
 
   const { data: listing, error: listingError } = await supabase
     .from("listings")
     .select(
-      `id,business_id,title,price,photo_url,category,listing_category,category_id,${LISTING_FULFILLMENT_SELECT}`
+      `id,business_id,title,price,photo_url,category,listing_category,category_id,inventory_status,inventory_quantity,low_stock_threshold,${LISTING_FULFILLMENT_SELECT}`
     )
     .eq("id", listingId)
     .maybeSingle();
@@ -270,11 +296,20 @@ export async function POST(request) {
     return jsonError(existingError.message || "Failed to check cart", 500);
   }
 
+  const nextQuantity = existingItem ? Number(existingItem.quantity || 0) + quantity : quantity;
+  const quantityValidation = validateOrderQuantity(nextQuantity, listing);
+  if (!quantityValidation.ok) {
+    return jsonError(quantityValidation.message, 409, {
+      code: quantityValidation.code,
+      maxQuantity: quantityValidation.maxQuantity,
+    });
+  }
+
   const itemPayload = {
     cart_id: activeCart.id,
     vendor_id: listing.business_id,
     listing_id: listing.id,
-    quantity: existingItem ? existingItem.quantity + quantity : quantity,
+    quantity: nextQuantity,
     title: listing.title,
     unit_price: listing.price,
     image_url: primaryPhotoUrl(listing.photo_url),
@@ -405,7 +440,7 @@ export async function PATCH(request) {
   }
 
   if (itemId && quantity != null) {
-    if (!Number.isFinite(quantity) || quantity < 0) {
+    if (!Number.isInteger(quantity) || quantity < 0 || quantity > MAX_ORDER_QUANTITY) {
       return jsonError("Invalid quantity", 400);
     }
 
@@ -422,6 +457,32 @@ export async function PATCH(request) {
         return jsonError(deleteError.message || "Failed to remove item", 500);
       }
     } else {
+      const cartItem = activeCarts
+        .flatMap((cartRow) => cartRow?.cart_items || [])
+        .find((item) => item?.id === itemId);
+      if (!cartItem?.listing_id) {
+        return jsonError("Cart item not found", 404);
+      }
+
+      const { data: listing, error: listingError } = await supabase
+        .from("listings")
+        .select("id,inventory_status,inventory_quantity,low_stock_threshold")
+        .eq("id", cartItem.listing_id)
+        .maybeSingle();
+
+      if (listingError) {
+        return jsonError(listingError.message || "Failed to load listing", 500);
+      }
+
+      const quantityValidation = validateOrderQuantity(quantity, listing);
+      if (!quantityValidation.ok) {
+        return jsonError(quantityValidation.message, 409, {
+          code: quantityValidation.code,
+          maxQuantity: quantityValidation.maxQuantity,
+          clampedQuantity: clampOrderQuantity(quantity, listing),
+        });
+      }
+
       const { error: updateItemError } = await supabase
         .from("cart_items")
         .update({ quantity, updated_at: new Date().toISOString() })

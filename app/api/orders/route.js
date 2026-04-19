@@ -10,9 +10,26 @@ import {
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
 import { getCurrentAccountContext } from "@/lib/auth/getCurrentAccountContext";
 import { createOrderWithItems } from "@/lib/orders/persistence";
+import {
+  applyInventoryReservationsToItems,
+  reserveInventoryForOrderItems,
+  restoreInventoryReservations,
+} from "@/lib/orders/inventoryReservations";
+import { getSupabaseServerClient as getSupabaseServiceClient } from "@/lib/supabase/server";
+import { MAX_ORDER_QUANTITY, validateOrderQuantity } from "@/lib/inventory";
 
 function jsonError(message, status = 400, extra = {}) {
   return NextResponse.json({ error: message, ...extra }, { status });
+}
+
+function isStockError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("stock") ||
+    message.includes("available") ||
+    message.includes("order up to") ||
+    message.includes("at least 1")
+  );
 }
 
 async function getActiveCart(supabase, userId, { cartId, businessId } = {}) {
@@ -40,6 +57,7 @@ async function getActiveCart(supabase, userId, { cartId, businessId } = {}) {
 
 export async function POST(request) {
   const supabase = await getSupabaseServerClient();
+  const serviceClient = getSupabaseServiceClient() ?? supabase;
   const { user, error: userError } = await getUserCached(supabase);
   const diagEnabled = process.env.NODE_ENV !== "production";
 
@@ -131,9 +149,9 @@ export async function POST(request) {
   }
 
   const listingIds = items.map((item) => item?.listing_id).filter(Boolean);
-  const { data: listingRows, error: listingRowsError } = await supabase
+  const { data: listingRows, error: listingRowsError } = await serviceClient
     .from("listings")
-    .select(`id,business_id,${LISTING_FULFILLMENT_SELECT}`)
+    .select(`id,business_id,inventory_status,inventory_quantity,low_stock_threshold,${LISTING_FULFILLMENT_SELECT}`)
     .in("id", listingIds);
 
   if (listingRowsError) {
@@ -155,6 +173,29 @@ export async function POST(request) {
     );
   }
 
+  const listingsById = new Map((Array.isArray(listingRows) ? listingRows : []).map((row) => [row.id, row]));
+  let orderItems = items.map((item) => ({
+    listing_id: item.listing_id,
+    title: item.title,
+    unit_price: item.unit_price,
+    image_url: item.image_url,
+    quantity: Number(item.quantity || 0),
+  }));
+
+  for (const item of orderItems) {
+    const listing = listingsById.get(item.listing_id);
+    const validation = validateOrderQuantity(item.quantity, listing);
+    if (!validation.ok) {
+      return jsonError(validation.message, 409, {
+        code: validation.code,
+        maxQuantity: validation.maxQuantity,
+      });
+    }
+    if (item.quantity > MAX_ORDER_QUANTITY) {
+      return jsonError(`You can order up to ${MAX_ORDER_QUANTITY} of each item at a time.`, 409);
+    }
+  }
+
   const fees = 0;
   const deliveryFee = fulfillmentType === DELIVERY_FULFILLMENT_TYPE
     ? fulfillmentSummary.deliveryFeeCents / 100
@@ -162,9 +203,16 @@ export async function POST(request) {
   const total = subtotal + deliveryFee + fees;
 
   let orderRecord = null;
+  let inventoryReserved = false;
+  let inventoryReservations = [];
   try {
+    // This server-side reservation is the stock guarantee for non-Stripe order creation.
+    inventoryReservations = await reserveInventoryForOrderItems({ client: serviceClient, items: orderItems });
+    inventoryReserved = true;
+    orderItems = applyInventoryReservationsToItems(orderItems, inventoryReservations);
+
     orderRecord = await createOrderWithItems({
-      client: supabase,
+      client: serviceClient,
       logPrefix: "[STRIPE_CART_TRACE]",
       order: {
         user_id: user.id,
@@ -194,16 +242,26 @@ export async function POST(request) {
         subtotal,
         fees,
         total,
+        inventory_reserved_at: new Date().toISOString(),
       },
-      items: items.map((item) => ({
-        listing_id: item.listing_id,
-        title: item.title,
-        unit_price: item.unit_price,
-        image_url: item.image_url,
-        quantity: item.quantity,
-      })),
+      items: orderItems,
     });
   } catch (error) {
+    if (inventoryReserved) {
+      try {
+        await restoreInventoryReservations({
+          client: serviceClient,
+          reservations: inventoryReservations,
+          allowUnlinked: true,
+        });
+      } catch (restoreError) {
+        console.error("[STRIPE_CART_TRACE]", "inventory_restore_failed", {
+          userId: user.id,
+          cartId: activeCart?.id || null,
+          message: restoreError?.message || null,
+        });
+      }
+    }
     if (diagEnabled) {
       console.warn("[STRIPE_CART_TRACE]", "create_order_failed", {
         userId: user.id,
@@ -214,7 +272,7 @@ export async function POST(request) {
         message: error?.message || null,
       });
     }
-    return jsonError(error?.message || "Failed to create order", 500);
+    return jsonError(error?.message || "Failed to create order", isStockError(error) ? 409 : 500);
   }
 
   if (diagEnabled) {

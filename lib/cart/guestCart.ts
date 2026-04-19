@@ -1,4 +1,5 @@
 import { DELIVERY_FULFILLMENT_TYPE, PICKUP_FULFILLMENT_TYPE } from "@/lib/fulfillment";
+import { getMaxPurchasableQuantity, MAX_ORDER_QUANTITY } from "@/lib/inventory";
 import { primaryPhotoUrl } from "@/lib/listingPhotos";
 
 export const GUEST_CART_STORAGE_KEY = "yb:guestCart:v1";
@@ -14,6 +15,8 @@ export type GuestCartItem = {
   image_url: string | null;
   business_name?: string | null;
   available_fulfillment_methods?: string[];
+  max_order_quantity?: number;
+  stock_error?: string | null;
 };
 
 export type GuestCartVendor = {
@@ -68,7 +71,7 @@ function emitGuestCartUpdated(cart: GuestCart) {
 function normalizeQuantity(value: unknown) {
   const parsed = Number(value || 1);
   if (!Number.isFinite(parsed)) return 1;
-  return Math.max(1, Math.round(parsed));
+  return Math.max(1, Math.min(MAX_ORDER_QUANTITY, Math.round(parsed)));
 }
 
 function normalizePrice(value: unknown) {
@@ -114,6 +117,11 @@ function normalizeCart(input: unknown): GuestCart {
                     image_url: item?.image_url ? String(item.image_url) : null,
                     business_name: item?.business_name ? String(item.business_name) : null,
                     available_fulfillment_methods: normalizeMethods(item?.available_fulfillment_methods),
+                    max_order_quantity: Math.max(
+                      0,
+                      Math.min(MAX_ORDER_QUANTITY, Number(item?.max_order_quantity || MAX_ORDER_QUANTITY))
+                    ),
+                    stock_error: item?.stock_error ? String(item.stock_error) : null,
                   };
                 })
                 .filter(Boolean)
@@ -195,14 +203,20 @@ export function addToGuestCart({
       cart_items: [],
     };
   const existingItem = existingCart.cart_items.find((item) => item.listing_id === resolvedListingId);
-  const nextQuantity = normalizeQuantity(quantity);
+  const maxQuantity = getMaxPurchasableQuantity(listing);
+  if (maxQuantity <= 0) {
+    return { error: "This item is currently out of stock." };
+  }
+  const nextQuantity = Math.min(normalizeQuantity(quantity), maxQuantity);
   if (existingItem) {
-    existingItem.quantity += nextQuantity;
+    existingItem.quantity = Math.min(existingItem.quantity + nextQuantity, maxQuantity);
     existingItem.title = String(listing?.title || existingItem.title || "Untitled listing");
     existingItem.unit_price = normalizePrice(listing?.price ?? existingItem.unit_price);
     existingItem.image_url = primaryPhotoUrl(listing?.photo_url) || existingItem.image_url || null;
     existingItem.business_name = businessName;
     existingItem.available_fulfillment_methods = methods;
+    existingItem.max_order_quantity = maxQuantity;
+    existingItem.stock_error = existingItem.quantity > maxQuantity ? `Only ${maxQuantity} available right now.` : null;
   } else {
     existingCart.cart_items.push({
       id: resolvedListingId,
@@ -214,6 +228,8 @@ export function addToGuestCart({
       image_url: primaryPhotoUrl(listing?.photo_url) || null,
       business_name: businessName,
       available_fulfillment_methods: methods,
+      max_order_quantity: maxQuantity,
+      stock_error: null,
     });
   }
   existingCart.available_fulfillment_methods = [
@@ -230,7 +246,7 @@ export function addToGuestCart({
 
 export function updateGuestCartItem(itemId: string, quantity: number) {
   const cart = getGuestCart();
-  const nextQuantity = Math.round(Number(quantity || 0));
+  const nextQuantity = Math.max(0, Math.min(MAX_ORDER_QUANTITY, Math.round(Number(quantity || 0))));
   cart.carts = cart.carts
     .map((cartRow) => ({
       ...cartRow,

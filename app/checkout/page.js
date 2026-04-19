@@ -58,6 +58,15 @@ export default function CheckoutPage() {
 
   const vendor = selectedGroup?.vendor || null;
   const items = useMemo(() => selectedGroup?.items || [], [selectedGroup?.items]);
+  const stockIssues = useMemo(
+    () =>
+      items.filter(
+        (item) =>
+          item.stock_error ||
+          Number(item.quantity || 0) > Number(item.max_order_quantity || 0)
+      ),
+    [items]
+  );
 
   const [form, setForm] = useState({
     contact_name: "",
@@ -159,6 +168,10 @@ export default function CheckoutPage() {
     if (!selectedGroup) return;
     if (!fulfillmentType) {
       setError("Select delivery or pickup to continue.");
+      return;
+    }
+    if (stockIssues.length > 0) {
+      setError("Adjust unavailable cart quantities before checkout.");
       return;
     }
 
@@ -532,7 +545,7 @@ export default function CheckoutPage() {
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || stockIssues.length > 0}
               className="w-full rounded-full px-5 py-3 text-sm font-semibold"
               style={{ background: "var(--text)", color: "var(--background)", opacity: submitting ? 0.7 : 1 }}
             >
@@ -545,9 +558,14 @@ export default function CheckoutPage() {
               <p className="text-sm font-semibold">Order summary</p>
               <div className="mt-4 space-y-2 text-sm">
                 {items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between">
-                    <span className="opacity-80">{item.title} x{item.quantity}</span>
-                    <span>${formatMoney(Number(item.unit_price || 0) * Number(item.quantity || 0))}</span>
+                  <div key={item.id}>
+                    <div className="flex items-center justify-between">
+                      <span className="opacity-80">{item.title} x{item.quantity}</span>
+                      <span>${formatMoney(Number(item.unit_price || 0) * Number(item.quantity || 0))}</span>
+                    </div>
+                    {item.stock_error ? (
+                      <p className="mt-1 text-xs text-rose-200">{item.stock_error}</p>
+                    ) : null}
                   </div>
                 ))}
               </div>

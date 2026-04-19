@@ -10,7 +10,13 @@ import {
 import { getListingUrl } from "@/lib/ids/publicRefs";
 import { isUuid } from "@/lib/ids/isUuid";
 import { createOrderWithItems } from "@/lib/orders/persistence";
+import {
+  applyInventoryReservationsToItems,
+  reserveInventoryForOrderItems,
+  restoreInventoryReservations,
+} from "@/lib/orders/inventoryReservations";
 import { STRIPE_PENDING_ORDER_STATUS } from "@/lib/orders/marketplace";
+import { MAX_ORDER_QUANTITY, validateOrderQuantity } from "@/lib/inventory";
 import { getAppUrl, getStripe, dollarsToCents } from "@/lib/stripe";
 import { getStripeModeFromSecretKey, getStripeSecretKey } from "@/lib/stripe/env";
 import { getBusinessStripeStatus } from "@/lib/stripe/status";
@@ -21,6 +27,16 @@ import { calculatePlatformFeeAmount } from "@/lib/stripe/fees";
 
 function jsonError(message: string, status = 400, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ error: message, ...extra }, { status });
+}
+
+function isStockError(error: any) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("stock") ||
+    message.includes("available") ||
+    message.includes("order up to") ||
+    message.includes("at least 1")
+  );
 }
 
 async function resolveListingId(client: any, listingRef: string) {
@@ -105,7 +121,7 @@ export async function POST(request: Request) {
   const listingRef = String(body?.listingId || body?.listing_id || "").trim();
   const cartId = String(body?.cart_id || "").trim() || null;
   const businessId = String(body?.business_id || "").trim() || null;
-  const quantity = Math.max(1, Math.min(25, Number(body?.quantity || 1) || 1));
+  const quantity = Number(body?.quantity || 1);
   const fulfillmentType =
     body?.fulfillmentType === "delivery" || body?.fulfillment_type === "delivery"
       ? "delivery"
@@ -209,6 +225,14 @@ export async function POST(request: Request) {
       return jsonError("This item is currently out of stock", 400);
     }
 
+    const quantityValidation = validateOrderQuantity(quantity, listing);
+    if (!quantityValidation.ok) {
+      return jsonError(quantityValidation.message, 409, {
+        code: quantityValidation.code,
+        maxQuantity: quantityValidation.maxQuantity,
+      });
+    }
+
     const unitAmount = dollarsToCents(Number(listing.price || 0));
     if (unitAmount <= 0) {
       return jsonError("This listing is not available for Stripe checkout yet", 400);
@@ -245,10 +269,10 @@ export async function POST(request: Request) {
         title: listing.title,
         unit_price: Number(listing.price || 0),
         image_url: listing.photo_url || null,
-        quantity,
+        quantity: quantityValidation.quantity,
       },
     ];
-    subtotalCents = unitAmount * quantity;
+    subtotalCents = unitAmount * quantityValidation.quantity;
     fulfillmentListings = [listing];
     cancelPath = getListingUrl(listing);
     orderInput = {
@@ -300,8 +324,17 @@ export async function POST(request: Request) {
       title: String(item?.title || "Marketplace order").trim() || "Marketplace order",
       unit_price: Number(item?.unit_price || 0),
       image_url: item?.image_url || null,
-      quantity: Math.max(1, Number(item?.quantity || 1)),
+      quantity: Number(item?.quantity || 1),
     }));
+
+    for (const item of orderItems) {
+      if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > MAX_ORDER_QUANTITY) {
+        return jsonError(`You can order up to ${MAX_ORDER_QUANTITY} of each item at a time.`, 409, {
+          code: "MAX_QUANTITY_EXCEEDED",
+          listingId: item.listing_id,
+        });
+      }
+    }
     subtotalCents = orderItems.reduce((sum, item) => {
       const unitAmount = dollarsToCents(item.unit_price);
       return sum + unitAmount * item.quantity;
@@ -339,25 +372,20 @@ export async function POST(request: Request) {
           continue;
         }
 
-        const inventoryStatus = String(currentListing.inventory_status || "in_stock");
-        const inventoryQuantity = Number(currentListing.inventory_quantity);
-        const tracksQuantity =
-          inventoryStatus !== "always_available" &&
-          inventoryStatus !== "seasonal" &&
-          Number.isFinite(inventoryQuantity);
+        const quantityValidation = validateOrderQuantity(item.quantity, currentListing);
 
-        if (inventoryStatus === "out_of_stock" || (tracksQuantity && inventoryQuantity <= 0)) {
+        if (quantityValidation.code === "OUT_OF_STOCK") {
           removedItems.push({
             listing_id: item.listing_id,
             title: item.title,
             reason: "Item is sold out.",
           });
-        } else if (tracksQuantity && item.quantity > inventoryQuantity) {
+        } else if (!quantityValidation.ok) {
           adjustedItems.push({
             listing_id: item.listing_id,
             title: item.title,
             requestedQuantity: item.quantity,
-            availableQuantity: Math.max(0, inventoryQuantity),
+            availableQuantity: quantityValidation.maxQuantity,
           });
         }
 
@@ -451,6 +479,8 @@ export async function POST(request: Request) {
   let orderRecord:
     | { id: string; order_number: string; status?: string | null; vendor_id?: string | null; user_id?: string | null }
     | null = null;
+  let inventoryReserved = false;
+  let inventoryReservations: any[] = [];
 
   try {
     if (process.env.NODE_ENV !== "production") {
@@ -468,11 +498,19 @@ export async function POST(request: Request) {
       });
     }
 
+    // Stock is guaranteed here: each RPC performs one conditional
+    // UPDATE listings SET inventory_quantity = inventory_quantity - qty
+    // WHERE id = listing_id AND inventory_quantity >= qty.
+    inventoryReservations = await reserveInventoryForOrderItems({ client: serviceClient, items: orderItems });
+    inventoryReserved = true;
+    orderItems = applyInventoryReservationsToItems(orderItems, inventoryReservations);
+
     orderRecord = await createOrderWithItems({
       client: serviceClient,
       logPrefix: "[STRIPE_BUY_NOW_TRACE]",
       order: {
         ...orderInput,
+        inventory_reserved_at: new Date().toISOString(),
         platform_fee_amount: platformFeeAmount,
       },
       items: orderItems,
@@ -630,6 +668,30 @@ export async function POST(request: Request) {
         })
         .eq("id", orderRecord.id);
     }
+    if (inventoryReserved) {
+      try {
+        await restoreInventoryReservations({
+          client: serviceClient,
+          reservations: inventoryReservations,
+          allowUnlinked: true,
+        });
+        if (orderRecord?.id) {
+          await serviceClient
+            .from("orders")
+            .update({
+              inventory_restored_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", orderRecord.id)
+            .is("inventory_restored_at", null);
+        }
+      } catch (restoreError: any) {
+        console.error("[STRIPE_BUY_NOW_TRACE]", "inventory_restore_failed", {
+          orderId: orderRecord?.id || null,
+          message: restoreError?.message || null,
+        });
+      }
+    }
     if (process.env.NODE_ENV !== "production") {
       console.warn("[STRIPE_BUY_NOW_TRACE]", "create_session_failed", {
         orderId: orderRecord?.id || null,
@@ -646,6 +708,9 @@ export async function POST(request: Request) {
         message: error?.message || null,
       });
     }
-    return jsonError(error?.message || "Failed to create checkout session", 500);
+    return jsonError(
+      error?.message || "Failed to create checkout session",
+      isStockError(error) ? 409 : 500
+    );
   }
 }

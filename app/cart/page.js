@@ -53,7 +53,8 @@ export default function CartPage() {
   const total = allItemsSubtotal + deliveryFees + fees;
 
   const handleQuantityChange = async (item, delta) => {
-    const nextQuantity = Number(item.quantity || 0) + delta;
+    const maxQuantity = Number(item.max_order_quantity || 0);
+    const nextQuantity = Math.min(Number(item.quantity || 0) + delta, maxQuantity || 0);
     setUpdatingItem(item.id);
     if (nextQuantity <= 0) {
       await removeItem(item.id);
@@ -155,6 +156,9 @@ export default function CartPage() {
             {vendorGroups.map((group) => {
               const businessName = group.business_name || "Local vendor";
               const groupKey = group.business_id || "unknown";
+              const hasStockIssues = group.items.some(
+                (item) => item.stock_error || Number(item.quantity || 0) > Number(item.max_order_quantity || 0)
+              );
               const checkoutHref = group.business_id
                 ? `/checkout?business_id=${encodeURIComponent(group.business_id)}`
                 : "/checkout";
@@ -174,7 +178,11 @@ export default function CartPage() {
                     </div>
                     {user?.id ? (
                       <Link
-                        href={checkoutHref}
+                        href={hasStockIssues ? "#" : checkoutHref}
+                        aria-disabled={hasStockIssues}
+                        onClick={(event) => {
+                          if (hasStockIssues) event.preventDefault();
+                        }}
                         className="inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold"
                         style={{ background: "var(--text)", color: "var(--background)" }}
                       >
@@ -254,12 +262,15 @@ export default function CartPage() {
                   </div>
 
                   <div className="space-y-3">
-                    {group.items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-3xl p-4 flex flex-col gap-4 sm:flex-row sm:items-center"
-                        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-                      >
+                    {group.items.map((item) => {
+                      const maxQuantity = Number(item.max_order_quantity || 0);
+                      const isAtMax = Number(item.quantity || 0) >= maxQuantity;
+                      return (
+                        <div
+                          key={item.id}
+                          className="rounded-3xl p-4 flex flex-col gap-4 sm:flex-row sm:items-center"
+                          style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                        >
                         <div className="flex items-center gap-4 flex-1">
                           <SafeImage
                             src={item.image_url || "/business-placeholder.png"}
@@ -272,6 +283,11 @@ export default function CartPage() {
                           <div>
                             <p className="text-sm font-semibold">{item.title}</p>
                             <p className="text-xs opacity-70">${formatMoney(item.unit_price)}</p>
+                            {item.stock_error ? (
+                              <p className="mt-1 text-xs text-rose-200">{item.stock_error}</p>
+                            ) : maxQuantity > 0 && maxQuantity < 5 ? (
+                              <p className="mt-1 text-xs opacity-70">{maxQuantity} available</p>
+                            ) : null}
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -289,7 +305,7 @@ export default function CartPage() {
                             <button
                               type="button"
                               onClick={() => handleQuantityChange(item, 1)}
-                              disabled={updatingItem === item.id}
+                              disabled={updatingItem === item.id || isAtMax || maxQuantity <= 0}
                               className="p-1"
                               aria-label="Increase quantity"
                             >
@@ -306,7 +322,7 @@ export default function CartPage() {
                           </button>
                         </div>
                       </div>
-                    ))}
+                    )})}
                   </div>
 
                   <div className="flex items-center justify-between border-t pt-3 text-sm" style={{ borderColor: "var(--border)" }}>

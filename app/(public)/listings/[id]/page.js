@@ -22,7 +22,11 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import { getOrCreateConversation } from "@/lib/messages";
 import { useTheme } from "@/components/ThemeProvider";
-import { getAvailabilityBadgeStyle, normalizeInventory } from "@/lib/inventory";
+import {
+  getAvailabilityBadgeStyle,
+  getMaxPurchasableQuantity,
+  normalizeInventory,
+} from "@/lib/inventory";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { useCart } from "@/components/cart/CartProvider";
 import { useModal } from "@/components/modals/ModalProvider";
@@ -355,6 +359,19 @@ export default function ListingDetails({ params }) {
       }),
     [business, fulfillmentType, listing, quantity]
   );
+  const maxPurchasableQuantity = useMemo(
+    () => getMaxPurchasableQuantity(listing),
+    [listing]
+  );
+
+  useEffect(() => {
+    if (!listing) return;
+    if (maxPurchasableQuantity <= 0) {
+      setQuantity(1);
+      return;
+    }
+    setQuantity((current) => Math.max(1, Math.min(maxPurchasableQuantity, Number(current || 1))));
+  }, [listing, maxPurchasableQuantity]);
 
   useEffect(() => {
     if (
@@ -481,9 +498,13 @@ export default function ListingDetails({ params }) {
       );
       return;
     }
+    if (maxPurchasableQuantity <= 0) {
+      setStatusMessage("This item is currently out of stock.");
+      return;
+    }
     await executeAddToCart({
       listingId: listing.id,
-      selectedQuantity: quantity,
+      selectedQuantity: Math.min(quantity, maxPurchasableQuantity),
       selectedFulfillmentType: fulfillmentType,
       businessId: listing.business_id || null,
     });
@@ -568,7 +589,7 @@ export default function ListingDetails({ params }) {
   const galleryPhotos = extractPhotoUrls(listing.photo_url);
   const inventory = normalizeInventory(listing);
   const badgeStyle = getAvailabilityBadgeStyle(inventory.availability, isLight);
-  const isOutOfStock = inventory.availability === "out";
+  const isOutOfStock = inventory.availability === "out" || maxPurchasableQuantity <= 0;
   const isCustomerListingRoute = pathname?.startsWith("/customer/listings");
   const businessProfileHref = business?.id ? getCustomerBusinessUrl(business) : null;
   const isBusinessVerified = ["auto_verified", "manually_verified"].includes(
@@ -1006,7 +1027,7 @@ export default function ListingDetails({ params }) {
                         color: "var(--text)",
                       }}
                     >
-                      {Array.from({ length: 5 }).map((_, idx) => (
+                      {Array.from({ length: Math.max(1, maxPurchasableQuantity) }).map((_, idx) => (
                         <option key={idx + 1} value={idx + 1}>
                           {idx + 1}
                         </option>
