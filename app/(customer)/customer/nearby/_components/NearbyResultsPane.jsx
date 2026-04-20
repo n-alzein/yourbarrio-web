@@ -67,7 +67,7 @@ export default function NearbyResultsPane({
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4" data-testid="nearby-results-list">
+    <div className="mx-auto w-full max-w-5xl space-y-5" data-testid="nearby-results-list">
       {businesses.map((business) => (
         <NearbyBusinessCard
           key={business.id || business.name}

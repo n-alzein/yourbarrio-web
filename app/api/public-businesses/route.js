@@ -175,7 +175,7 @@ export async function GET(request) {
 
     if (!hasUsableLocationFilter(location)) {
       return NextResponse.json(
-        { businesses: [], categories, message: "missing_location" },
+        { businesses: [], categories: [], message: "missing_location" },
         { status: 200 }
       );
     }
@@ -256,8 +256,15 @@ export async function GET(request) {
       })
     );
 
+    const usedCategoryIds = new Set(
+      businesses
+        .map((business) => business.business_category_id)
+        .filter(Boolean)
+    );
+    const usedCategories = categories.filter((category) => usedCategoryIds.has(category.id));
+
     const resp = NextResponse.json(
-      { businesses, categories },
+      { businesses, categories: usedCategories },
       {
         headers: {
           "Cache-Control": `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=${CACHE_SECONDS}`,

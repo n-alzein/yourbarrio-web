@@ -74,12 +74,12 @@ export default function NearbyBusinessCard({
       ref={(node) => registerCard(business.id, node)}
       data-business-id={business.id}
       data-selected={selected ? "true" : "false"}
-      className={`group relative w-full overflow-hidden rounded-3xl border transition duration-200 focus-within:ring-2 focus-within:ring-violet-400/70 md:hover:-translate-y-0.5 ${
+      className={`group relative w-full cursor-pointer overflow-hidden rounded-3xl border transition duration-200 focus-within:ring-2 focus-within:ring-slate-300/80 md:hover:-translate-y-0.5 ${
         selected
-          ? "border-violet-300 bg-violet-50 shadow-[0_18px_50px_rgba(124,58,237,0.14)]"
+          ? "border-slate-300 bg-white shadow-[0_18px_46px_rgba(15,23,42,0.10)]"
           : active
-            ? "border-violet-200 bg-white shadow-[0_18px_44px_rgba(15,23,42,0.10)]"
-            : "border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)] hover:border-violet-200 hover:shadow-[0_18px_48px_rgba(15,23,42,0.11)]"
+            ? "border-slate-300 bg-white shadow-[0_18px_44px_rgba(15,23,42,0.10)]"
+            : "border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)] md:hover:border-slate-300 md:hover:shadow-[0_18px_48px_rgba(15,23,42,0.11)]"
       }`}
       onMouseEnter={() => onHover(business.id)}
       onMouseLeave={onLeave}
@@ -94,7 +94,9 @@ export default function NearbyBusinessCard({
           onToggleSave?.(business);
         }}
         disabled={saveLoading}
-        className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-white/90 text-slate-600 shadow-sm backdrop-blur transition hover:border-rose-200 hover:text-rose-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70 disabled:cursor-wait disabled:opacity-70"
+        className={`absolute right-2 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-white/90 text-slate-600 shadow-sm backdrop-blur transition hover:border-rose-200 hover:text-rose-500 hover:opacity-100 focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-violet-400/70 disabled:cursor-wait disabled:opacity-70 ${
+          isSaved ? "opacity-90" : "opacity-75"
+        }`}
         aria-pressed={isSaved}
         aria-label={isSaved ? "Remove saved shop" : "Save shop"}
         title={isSaved ? "Remove saved shop" : "Save shop"}
@@ -109,7 +111,7 @@ export default function NearbyBusinessCard({
       <div className="relative p-3">
         <button
           type="button"
-          className="grid w-full min-w-0 gap-3 text-left sm:grid-cols-[160px_minmax(0,1fr)] sm:items-stretch sm:gap-4"
+          className="grid w-full min-w-0 cursor-pointer gap-3 text-left sm:grid-cols-[160px_minmax(0,1fr)] sm:items-stretch sm:gap-4"
           onClick={() => onClick(business)}
           aria-pressed={selected}
           data-selected={selected ? "true" : "false"}
@@ -141,18 +143,21 @@ export default function NearbyBusinessCard({
                 ) : null}
               </div>
 
-              <p className="mt-2 line-clamp-1 text-sm font-semibold text-violet-700">
+              <p className="mt-2 line-clamp-1 text-sm font-medium text-slate-600">
                 {hookLine}
               </p>
+
+              <span
+                className="mt-2 inline-flex items-center text-sm font-semibold text-violet-700 transition duration-150 md:group-hover:text-violet-800 md:group-hover:underline md:group-hover:underline-offset-4 group-focus-visible:text-violet-800 group-focus-visible:underline group-focus-visible:underline-offset-4"
+              >
+                View shop
+                <span className="ml-1 transition-transform duration-150 md:group-hover:translate-x-0.5">
+                  →
+                </span>
+              </span>
             </div>
 
             <div className="flex items-center gap-3 pt-1">
-              <span
-                className="inline-flex min-h-9 items-center justify-center rounded-full bg-violet-500 px-4 text-sm font-semibold shadow-[0_6px_14px_rgba(124,58,237,0.16)] transition group-hover:bg-violet-600 group-hover:shadow-[0_8px_18px_rgba(124,58,237,0.20)] group-focus-visible:bg-violet-600"
-                style={{ color: "#fff" }}
-              >
-                View shop
-              </span>
               {typeof business.open_now === "boolean" ? (
                 <span className={business.open_now ? "text-xs font-medium text-emerald-700" : "text-xs font-medium text-amber-700"}>
                   {business.open_now ? "Open now" : "Closed"}

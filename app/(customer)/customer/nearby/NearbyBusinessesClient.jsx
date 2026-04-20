@@ -292,6 +292,8 @@ export default function NearbyBusinessesClient() {
     );
     if (matched && categoryFilter !== matched.slug) {
       setCategoryFilter(matched.slug);
+    } else if (!matched) {
+      setCategoryFilter("All");
     }
   }, [businessCategoryOptions, categoryFilter]);
 

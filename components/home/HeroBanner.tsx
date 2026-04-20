@@ -24,6 +24,8 @@ export default function HeroBanner({
   const supportingText = hero.supportingText || "Supporting local shops near you";
   const SupportingIcon = hero.supportingIcon;
   const isExternal = isExternalHref(ctaHref);
+  const ctaClassName =
+    "inline-flex min-h-11 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#a855f7)] px-5 py-2.5 text-sm font-semibold !text-white shadow-[0_8px_22px_rgba(124,58,237,0.22),0_1px_2px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-0.5 hover:!text-white hover:shadow-[0_12px_28px_rgba(124,58,237,0.28),0_2px_6px_rgba(15,23,42,0.1)] focus-visible:!text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/25 active:translate-y-0 active:!text-white sm:text-[0.95rem]";
 
   return (
     <article className="relative isolate overflow-hidden bg-[#05010d]">
@@ -68,7 +70,7 @@ export default function HeroBanner({
                     href={ctaHref}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#a855f7)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(124,58,237,0.22),0_1px_2px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(124,58,237,0.28),0_2px_6px_rgba(15,23,42,0.1)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/25 active:translate-y-0 sm:text-[0.95rem]"
+                    className={ctaClassName}
                   >
                     {ctaText}
                   </a>
@@ -76,7 +78,7 @@ export default function HeroBanner({
                   <Link
                     href={ctaHref}
                     prefetch={false}
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#a855f7)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(124,58,237,0.22),0_1px_2px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(124,58,237,0.28),0_2px_6px_rgba(15,23,42,0.1)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/25 active:translate-y-0 sm:text-[0.95rem]"
+                    className={ctaClassName}
                   >
                     {ctaText}
                   </Link>

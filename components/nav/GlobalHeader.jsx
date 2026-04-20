@@ -51,7 +51,7 @@ export default function GlobalHeader({
   forcedAuth = null,
   minimal = false,
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname() || "";
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
@@ -105,7 +105,10 @@ export default function GlobalHeader({
   const baseSearchPath = surface === "customer" ? "/customer/home" : "/listings";
   const listingPath = surface === "customer" ? "/customer/listings" : "/listings";
   const logoHref = surface === "customer" && user?.id ? "/customer/home" : "/";
+  const isNearbyPage =
+    pathname === "/nearby" || pathname.startsWith("/customer/nearby");
   const isStickyRoute =
+    isNearbyPage ||
     pathname === "/" ||
     pathname === "/b" ||
     pathname.startsWith("/b/") ||

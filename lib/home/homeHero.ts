@@ -16,7 +16,7 @@ export const homeHeroConfig: HomeHeroConfig = {
   headline: "Discover local shops you'll actually love",
   subtitle: null,
   primaryCtaLabel: "Explore local businesses",
-  primaryCtaHref: "/listings",
+  primaryCtaHref: "/nearby",
   supportingText: "Local businesses, curated for you",
   supportingIcon: MapPin,
 };
