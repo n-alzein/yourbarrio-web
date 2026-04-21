@@ -153,6 +153,28 @@ describe("auth state consistency", () => {
     );
   });
 
+  it("uses a resolved anonymous server snapshot to clear stale authenticated header state", () => {
+    pathname = "/";
+    const first = render(
+      <AuthProvider initialUser={googleUser()} initialRole="customer" initialAuthResolved>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    expect(screen.getByTestId("status")).toHaveTextContent("authenticated");
+    first.unmount();
+
+    render(
+      <AuthProvider initialAuthResolved>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated");
+    expect(screen.getByTestId("user-id")).toHaveTextContent("");
+    expect(screen.getByTestId("avatar")).toHaveTextContent("");
+  });
+
   it("normalizes server-seeded top-level Google picture into metadata for first render", () => {
     render(
       <AuthProvider

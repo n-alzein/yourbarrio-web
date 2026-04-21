@@ -28,8 +28,10 @@ describe("OAuth first render auth boundary", () => {
     expect(appShell).toContain("initialUser={initialAuth?.user ?? null}");
     expect(appShell).toContain("initialProfile={initialAuth?.profile ?? null}");
     expect(appShell).toContain("initialRole={initialAuth?.role ?? null}");
+    expect(appShell).toContain("initialAuthResolved");
 
     expect(authProvider).toContain("primeAuthStateForInitialRender");
     expect(authProvider).toContain('authStatus: "authenticated"');
+    expect(authProvider).toContain("initialAuthResolved");
   });
 });

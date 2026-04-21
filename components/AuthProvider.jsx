@@ -750,10 +750,33 @@ function primeAuthStateForInitialRender({
   initialProfile,
   initialBusiness = null,
   initialRole,
+  initialAuthResolved = false,
   supportModeActive = false,
 }) {
   if (supportModeActive) return;
-  if (!initialUser?.id) return;
+  if (!initialUser?.id) {
+    if (!initialAuthResolved) return;
+    if (
+      authStore.state.authStatus !== "unauthenticated" ||
+      authStore.state.user ||
+      authStore.state.profile ||
+      authStore.state.business ||
+      authStore.state.role
+    ) {
+      authStore.state = {
+        ...authStore.state,
+        authStatus: "unauthenticated",
+        authInitialized: true,
+        session: null,
+        user: null,
+        profile: null,
+        business: null,
+        role: null,
+        error: null,
+      };
+    }
+    return;
+  }
   const currentUserId = authStore.state.user?.id || null;
   if (
     currentUserId &&
@@ -1509,6 +1532,7 @@ export function AuthProvider({
   initialUser = null,
   initialProfile = null,
   initialRole = null,
+  initialAuthResolved = false,
   initialSupportModeActive = false,
 }) {
   const parentAuth = useContext(AuthContext);
@@ -1532,6 +1556,7 @@ export function AuthProvider({
     initialUser,
     initialProfile,
     initialRole,
+    initialAuthResolved,
     supportModeActive: Boolean(initialSupportModeActive),
   });
   const supabase = useMemo(

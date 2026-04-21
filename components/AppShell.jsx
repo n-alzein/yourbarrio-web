@@ -96,6 +96,7 @@ export default function AppShell({
               initialUser={initialAuth?.user ?? null}
               initialProfile={initialAuth?.profile ?? null}
               initialRole={initialAuth?.role ?? null}
+              initialAuthResolved
             >
               <AutoRefreshGuardBanner />
               <RealtimeProvider>
