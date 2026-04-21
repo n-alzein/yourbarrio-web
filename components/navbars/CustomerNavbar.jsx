@@ -27,7 +27,7 @@ import MobileSidebarDrawer from "@/components/nav/MobileSidebarDrawer";
 import { useTheme } from "@/components/ThemeProvider";
 import { useModal } from "../modals/ModalProvider";
 import { fetchUnreadTotal } from "@/lib/messages";
-import { resolveImageSrc } from "@/lib/safeImage";
+import { resolveAvatarUrl } from "@/lib/avatarUrl";
 import { BUSINESS_CATEGORIES, normalizeCategoryName } from "@/lib/businessCategories";
 import {
   getAvailabilityBadgeStyle,
@@ -682,7 +682,6 @@ function CustomerNavbarInner({ pathname, searchParams }) {
   /* ---------------------------------------------------
      AVATAR PRIORITY
   --------------------------------------------------- */
-  const googleAvatar = user?.user_metadata?.avatar_url || null;
   const hasAuth = Boolean(user);
   const logoHref = hasAuth ? "/customer/home" : "/";
   const disableReasons = useMemo(() => {
@@ -697,10 +696,7 @@ function CustomerNavbarInner({ pathname, searchParams }) {
   }, [authBusy, lastAuthEvent, loadingUser, user]);
   const disableCtas = disableReasons.length > 0;
 
-  const avatar = resolveImageSrc(
-    profile?.profile_photo_url?.trim() || googleAvatar || "",
-    CUSTOMER_AVATAR_FALLBACK
-  );
+  const avatar = resolveAvatarUrl(profile?.profile_photo_url, user?.user_metadata);
 
   const displayName =
     profile?.full_name ||

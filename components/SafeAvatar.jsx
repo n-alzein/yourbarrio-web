@@ -2,10 +2,18 @@
 
 import { useMemo, useState } from "react";
 import { getAvatarInitials } from "@/lib/avatarInitials";
+import { resolveAvatarUrl } from "@/lib/avatarUrl";
 import { markImageFailed, resolveImageSrc } from "@/lib/safeImage";
+
+const EMPTY_AVATAR_CANDIDATES = [];
 
 export default function SafeAvatar({
   src,
+  avatarUrl = undefined,
+  authAvatarUrl = undefined,
+  authMetadata = undefined,
+  userMetadata = undefined,
+  avatarCandidates = EMPTY_AVATAR_CANDIDATES,
   fullName = "",
   name = "",
   displayName = "",
@@ -26,11 +34,25 @@ export default function SafeAvatar({
     () => fallbackSrc || "/business-placeholder.png",
     [fallbackSrc]
   );
-  const resolvedSrc = useMemo(
-    () => resolveImageSrc(src, resolvedFallback),
-    [resolvedFallback, src]
+  const realAvatarUrl = useMemo(
+    () =>
+      resolveAvatarUrl(
+        avatarUrl,
+        src,
+        authAvatarUrl,
+        userMetadata,
+        authMetadata,
+        avatarCandidates
+      ),
+    [authAvatarUrl, authMetadata, avatarCandidates, avatarUrl, src, userMetadata]
   );
-  const initialFallback = !src || resolvedSrc === resolvedFallback;
+  const [lastValidAvatarUrl, setLastValidAvatarUrl] = useState(() => realAvatarUrl);
+  const stableAvatarUrl = realAvatarUrl || lastValidAvatarUrl;
+  const resolvedSrc = useMemo(
+    () => resolveImageSrc(stableAvatarUrl, resolvedFallback),
+    [stableAvatarUrl, resolvedFallback]
+  );
+  const initialFallback = !stableAvatarUrl || resolvedSrc === resolvedFallback;
   const label = fullName || displayName || name || businessName || email || "";
   const key = `${resolvedSrc}:${label}:${initialFallback ? "fallback" : "image"}`;
 
@@ -50,6 +72,11 @@ export default function SafeAvatar({
       identityType={identityType}
       style={style}
       showFallbackInitially={initialFallback}
+      onResolvedLoad={(loadedSrc) => {
+        if (loadedSrc && loadedSrc !== resolvedFallback) {
+          setLastValidAvatarUrl(loadedSrc);
+        }
+      }}
       imgProps={imgProps}
     />
   );
@@ -69,10 +96,12 @@ function SafeAvatarInner({
   identityType,
   style,
   showFallbackInitially,
+  onResolvedLoad,
   imgProps,
 }) {
   const [currentSrc, setCurrentSrc] = useState(src);
   const [showFallback, setShowFallback] = useState(showFallbackInitially);
+  const [loadedSrc, setLoadedSrc] = useState(null);
   const { onError, onLoad, ...avatarImgProps } = imgProps || {};
 
   const initials = useMemo(
@@ -142,8 +171,17 @@ function SafeAvatarInner({
       alt={label}
       className={className}
       style={avatarStyle}
-      onLoad={onLoad}
+      onLoad={(event) => {
+        setLoadedSrc(currentSrc);
+        onResolvedLoad?.(currentSrc);
+        if (typeof onLoad === "function") {
+          onLoad(event);
+        }
+      }}
       onError={(event) => {
+        if (loadedSrc === currentSrc) {
+          return;
+        }
         markImageFailed(currentSrc);
         if (typeof onError === "function") {
           onError(event);

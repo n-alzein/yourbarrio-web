@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { buildOAuthCallbackUrl } from "@/lib/auth/oauthRedirect";
 
 function getSafeStoredRedirect() {
   try {
@@ -45,7 +46,9 @@ export default function OauthCallbackPage() {
     if (typeof window === "undefined" || redirectingRef.current) return;
 
     const incoming = new URL(window.location.href);
-    const callback = new URL("/api/auth/callback", window.location.origin);
+    const callback = new URL(
+      buildOAuthCallbackUrl({ currentOrigin: window.location.origin })
+    );
     incoming.searchParams.forEach((value, key) => {
       callback.searchParams.set(key, value);
     });

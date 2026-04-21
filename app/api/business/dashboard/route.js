@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBusinessByUserId } from "@/lib/business/getBusinessByUserId";
 import { getBusinessDataClientForRequest } from "@/lib/business/getBusinessDataClientForRequest";
+import { resolveAvatarUrl } from "@/lib/avatarUrl";
 import { reconcilePendingStripeOrders } from "@/lib/orders/persistence";
 import { getSupabaseServerClient as getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getListingCategoryLabel } from "@/lib/taxonomy/compat";
@@ -512,9 +513,11 @@ export async function GET(request) {
         businessProfile?.full_name ||
         "YourBarrio",
       businessAvatarUrl:
-        asTrimmedString(access.effectiveProfile?.profile_photo_url) ||
-        asTrimmedString(businessProfile?.profile_photo_url) ||
-        null,
+        resolveAvatarUrl(
+          asTrimmedString(access.effectiveProfile?.profile_photo_url),
+          asTrimmedString(businessProfile?.profile_photo_url),
+          access.authUserMetadata
+        ),
     },
     { status: 200 }
   );

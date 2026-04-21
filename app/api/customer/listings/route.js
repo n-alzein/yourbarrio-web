@@ -52,12 +52,20 @@ export async function GET(request) {
     return NextResponse.json({ error: "Business not found" }, { status: 404 });
   }
 
-  const { data: saved } = await supabase
-    .from("saved_listings")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("listing_id", resolvedListingId)
+  const { data: profile } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
     .maybeSingle();
+  const isBusiness = String(profile?.role || "").trim().toLowerCase() === "business";
+  const { data: saved } = isBusiness
+    ? { data: null }
+    : await supabase
+        .from("saved_listings")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("listing_id", resolvedListingId)
+        .maybeSingle();
 
   const response = NextResponse.json(
     {

@@ -19,6 +19,48 @@ import {
 
 const AUTH_CALLBACK_HANDLER_MARKER = "app/api/auth/callback/route.js";
 
+function firstHeaderValue(value) {
+  return String(value || "")
+    .split(",")[0]
+    .trim();
+}
+
+function normalizeOrigin(value) {
+  const input = String(value || "").trim();
+  if (!input) return "";
+  try {
+    return new URL(input).origin;
+  } catch {
+    return "";
+  }
+}
+
+function resolveCallbackOrigin(request, requestUrl) {
+  const host =
+    firstHeaderValue(request.headers.get("x-forwarded-host")) ||
+    firstHeaderValue(request.headers.get("host")) ||
+    requestUrl.host;
+  const hostname = host.split(":")[0];
+  const configuredOrigin = normalizeOrigin(
+    process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || ""
+  );
+  if (configuredOrigin && hostname.endsWith("yourbarrio.com")) {
+    return configuredOrigin;
+  }
+  if (hostname === "yourbarrio.com" || hostname.endsWith(".yourbarrio.com")) {
+    return "https://www.yourbarrio.com";
+  }
+  return requestUrl.origin;
+}
+
+function shouldLogAuthCallback() {
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.AUTH_DIAG_SERVER === "1" ||
+    process.env.NEXT_PUBLIC_AUTH_DIAG === "1"
+  );
+}
+
 function classifyAuthCallbackError(err) {
   const msg = String(err?.message || "").toLowerCase();
   const code = String(err?.code || "").toLowerCase();
@@ -115,6 +157,7 @@ async function ensureUserProvisioned({ user, debug }) {
 export async function GET(request) {
   const requestUrl = new URL(request.url);
   const debug = requestUrl.searchParams.get("debug") === "1";
+  const shouldLogCallback = shouldLogAuthCallback() || debug;
   const authDiagServer = process.env.AUTH_DIAG_SERVER === "1";
   const code = requestUrl.searchParams.get("code");
   const tokenHash = requestUrl.searchParams.get("token_hash");
@@ -153,18 +196,31 @@ export async function GET(request) {
     }
   );
   const rawNext = requestUrl.searchParams.get("next");
+  const redirectOrigin = resolveCallbackOrigin(request, requestUrl);
   const nextNormalized = normalizeNextPath(rawNext);
   const nextSafe = Boolean(nextNormalized);
   const nextAllowed =
     nextSafe && isSafeInternalPath(nextNormalized) && isAllowedNextPath(nextNormalized);
   const safeNext = nextAllowed ? nextNormalized : null;
-  if (process.env.NODE_ENV !== "production") {
+  if (shouldLogCallback) {
+    console.info("[AUTH_CALLBACK_TRACE] request", {
+      url: requestUrl.toString(),
+      host: request.headers.get("host") || null,
+      forwardedHost: request.headers.get("x-forwarded-host") || null,
+      redirectOrigin,
+      hasCode: Boolean(code),
+      hasTokenHash: Boolean(tokenHash),
+      hasAccessToken: Boolean(accessToken),
+      hasRefreshToken: Boolean(refreshToken),
+    });
     console.info("[auth-next] callback raw next:", rawNext ?? "/");
     console.info("[auth-next] callback validated next:", safeNext || "/");
   }
   const businessIntent =
     isBusinessIntentPath(safeNext) || isBusinessIntentPath(rawNext || nextNormalized || "");
 
+  // The redirect returned to the browser must carry Supabase auth cookies.
+  // Do not replace this response after exchangeCodeForSession or Set-Cookie is lost.
   const attachSupabaseCookies = (targetResponse) => {
     const sbCookieMap = new Map();
 
@@ -196,19 +252,30 @@ export async function GET(request) {
 
   const buildRedirectResponse = ({ destination, role, reason }) => {
     const chosenDestination = destination || "/onboarding";
-    if (process.env.NODE_ENV !== "production") {
+    if (shouldLogCallback) {
       console.info("[auth-next] callback final redirect:", chosenDestination);
     }
     const { response: redirectResponse, hasSupabaseCookies } = attachSupabaseCookies(
-      NextResponse.redirect(new URL(chosenDestination, request.url), 303)
+      NextResponse.redirect(new URL(chosenDestination, redirectOrigin), 303)
     );
+    if (shouldLogCallback) {
+      console.info("[AUTH_CALLBACK_TRACE] final_response", {
+        destination: chosenDestination,
+        redirectOrigin,
+        hasSupabaseCookies,
+        cookieNames: redirectResponse.cookies
+          .getAll()
+          .filter((cookie) => cookie.name.startsWith("sb-"))
+          .map((cookie) => cookie.name),
+      });
+    }
     redirectResponse.headers.set("x-auth-callback-handler", AUTH_CALLBACK_HANDLER_MARKER);
     redirectResponse.headers.set("x-auth-callback-destination", chosenDestination);
     redirectResponse.headers.set(
       "x-auth-callback-has-cookies",
       hasSupabaseCookies ? "1" : "0"
     );
-    if (debug || process.env.NODE_ENV !== "production") {
+    if (shouldLogCallback) {
       console.warn(
         "[AUTH_CALLBACK_TRACE] destination",
         chosenDestination,
@@ -227,7 +294,7 @@ export async function GET(request) {
   const buildLoginRedirectResponse = ({ reason, authError = "invalid_link" }) => {
     const destination = businessIntent ? "/business/login" : "/login";
     const fallbackNext = safeNext || (businessIntent ? "/go/dashboard" : "/");
-    const redirectUrl = new URL(destination, request.url);
+    const redirectUrl = new URL(destination, redirectOrigin);
     redirectUrl.searchParams.set("next", fallbackNext);
     if (authError) {
       redirectUrl.searchParams.set("auth", authError);
@@ -236,6 +303,17 @@ export async function GET(request) {
     const { response: redirectResponse, hasSupabaseCookies } = attachSupabaseCookies(
       NextResponse.redirect(redirectUrl, 303)
     );
+    if (shouldLogCallback) {
+      console.info("[AUTH_CALLBACK_TRACE] final_response", {
+        destination: `${redirectUrl.pathname}${redirectUrl.search}`,
+        redirectOrigin,
+        hasSupabaseCookies,
+        cookieNames: redirectResponse.cookies
+          .getAll()
+          .filter((cookie) => cookie.name.startsWith("sb-"))
+          .map((cookie) => cookie.name),
+      });
+    }
     redirectResponse.headers.set("x-auth-callback-handler", AUTH_CALLBACK_HANDLER_MARKER);
     redirectResponse.headers.set(
       "x-auth-callback-has-cookies",
@@ -245,7 +323,7 @@ export async function GET(request) {
       "x-auth-callback-destination",
       `${redirectUrl.pathname}${redirectUrl.search}`
     );
-    if (debug || process.env.NODE_ENV !== "production") {
+    if (shouldLogCallback) {
       console.warn("[AUTH_CALLBACK_TRACE] fallback_redirect", {
         reason: reason || null,
         authError,
@@ -260,7 +338,7 @@ export async function GET(request) {
 
   try {
     const hasAuthPayload = Boolean(code || tokenHash || (accessToken && refreshToken));
-    if (process.env.NODE_ENV !== "production") {
+    if (shouldLogCallback) {
       console.info("[AUTH_CALLBACK_TRACE] callback_params", {
         hasCode: Boolean(code),
         hasTokenHash: Boolean(tokenHash),
@@ -279,6 +357,8 @@ export async function GET(request) {
     }
 
     if (code) {
+      // Complete the code exchange before any redirect. Redirecting early leaves
+      // the browser without a persisted Supabase session on first render.
       if (authDiagEnabled) {
         console.log("[AUTH_DIAG]", {
           timestamp: new Date().toISOString(),
@@ -287,7 +367,18 @@ export async function GET(request) {
           stack: new Error().stack,
         });
       }
-      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+      const { data: exchangeData, error: exchangeError } =
+        await supabase.auth.exchangeCodeForSession(code);
+      if (shouldLogCallback) {
+        console.info("[AUTH_CALLBACK_TRACE] exchange_result", {
+          ok: !exchangeError,
+          errorCode: exchangeError?.code || null,
+          errorMessage: exchangeError?.message || null,
+          hasSession: Boolean(exchangeData?.session),
+          hasUser: Boolean(exchangeData?.user),
+          cookiesSet: cookiesSetDuringAuth.map((cookie) => cookie.name),
+        });
+      }
       if (exchangeError) {
         const reason = classifyAuthCallbackError(exchangeError);
         return buildLoginRedirectResponse({
@@ -341,8 +432,19 @@ export async function GET(request) {
     }
 
     const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const {
       data: { user },
     } = await supabase.auth.getUser();
+    if (shouldLogCallback) {
+      console.info("[AUTH_CALLBACK_TRACE] session_after_exchange", {
+        hasSession: Boolean(session),
+        hasUser: Boolean(user),
+        userId: user?.id || null,
+        cookiesSet: cookiesSetDuringAuth.map((cookie) => cookie.name),
+      });
+    }
 
     if (!user) {
       return buildLoginRedirectResponse({

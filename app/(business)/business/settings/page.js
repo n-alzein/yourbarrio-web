@@ -703,6 +703,7 @@ export default function SettingsPage() {
                       profile?.profile_photo_url ||
                       ""
                     }
+                    userMetadata={user?.user_metadata}
                     name={form.full_name || profile?.business_name || profile?.full_name}
                     displayName={form.full_name || profile?.full_name}
                     businessName={form.full_name || profile?.business_name}
@@ -710,7 +711,9 @@ export default function SettingsPage() {
                     alt="Business profile photo"
                     width={144}
                     height={144}
-                    className="h-28 w-28 border border-slate-200 object-cover shadow-sm sm:h-36 sm:w-36"
+                    shape="rounded-square"
+                    identityType="business"
+                    className="h-28 w-28 overflow-hidden rounded-2xl border border-slate-200 bg-gray-100 object-cover shadow-sm ring-1 ring-black/5 sm:h-36 sm:w-36"
                     initialsClassName="text-3xl sm:text-4xl"
                   />
                   <div className="space-y-1.5">

@@ -43,6 +43,7 @@ import {
 } from "@/lib/accountDeletion/status";
 import { shouldSuppressAuthUiReset } from "@/lib/auth/loginErrors";
 import { normalizePublicUserRole } from "@/lib/auth/currentAccountContext";
+import { resolveAvatarUrl } from "@/lib/avatarUrl";
 
 const AuthContext = createContext({
   supabase: null,
@@ -172,6 +173,44 @@ const buildSignedInState = ({ user, profile, business }) => ({
   role: resolveRole(profile, user, null),
   error: null,
 });
+
+function mergeAuthUser(prevUser, nextUser) {
+  if (!nextUser) return nextUser ?? null;
+  if (!prevUser || prevUser.id !== nextUser.id) return nextUser;
+  return {
+    ...prevUser,
+    ...nextUser,
+    app_metadata: {
+      ...(prevUser.app_metadata || {}),
+      ...(nextUser.app_metadata || {}),
+    },
+    user_metadata: {
+      ...(prevUser.user_metadata || {}),
+      ...(nextUser.user_metadata || {}),
+    },
+  };
+}
+
+function mergeProfileAvatar(prevProfile, nextProfile, user) {
+  if (!nextProfile) return nextProfile ?? null;
+  const nextAvatar = resolveAvatarUrl(nextProfile.profile_photo_url);
+  if (nextAvatar) {
+    return {
+      ...nextProfile,
+      profile_photo_url: nextAvatar,
+    };
+  }
+
+  const priorAvatar = resolveAvatarUrl(
+    prevProfile?.profile_photo_url,
+    user?.user_metadata
+  );
+  if (!priorAvatar) return nextProfile;
+  return {
+    ...nextProfile,
+    profile_photo_url: priorAvatar,
+  };
+}
 
 const withGuardState = (base) => ({
   ...base,
@@ -717,11 +756,27 @@ function seedAuthState({
     nextState.user = initialUser;
     nextState.authStatus = "authenticated";
     changed = true;
+  } else if (!supportModeActive && initialUser && nextState.user?.id === initialUser.id) {
+    const mergedUser = mergeAuthUser(nextState.user, initialUser);
+    if (mergedUser !== nextState.user) {
+      nextState.user = mergedUser;
+      changed = true;
+    }
   }
 
   if (!supportModeActive && initialProfile && !nextState.profile) {
-    nextState.profile = initialProfile;
+    nextState.profile = mergeProfileAvatar(nextState.profile, initialProfile, nextState.user);
     changed = true;
+  } else if (
+    !supportModeActive &&
+    initialProfile &&
+    nextState.profile?.id === initialProfile.id
+  ) {
+    const mergedProfile = mergeProfileAvatar(nextState.profile, initialProfile, nextState.user);
+    if (mergedProfile?.profile_photo_url !== nextState.profile?.profile_photo_url) {
+      nextState.profile = mergedProfile;
+      changed = true;
+    }
   }
 
   if (!supportModeActive && initialBusiness && !nextState.business) {
@@ -942,6 +997,15 @@ async function applyUserUpdate(user) {
     (!authStore.state.profile || authStore.profileUserId !== nextId);
 
   if (currentId === nextId && !statusChanged && !needsProfile) {
+    const mergedUser = mergeAuthUser(authStore.state.user, user);
+    const currentAvatar = resolveAvatarUrl(authStore.state.user?.user_metadata);
+    const mergedAvatar = resolveAvatarUrl(mergedUser?.user_metadata);
+    if (mergedUser && mergedAvatar && mergedAvatar !== currentAvatar) {
+      updateAuthState({
+        user: mergedUser,
+        role: resolveRole(authStore.state.profile, mergedUser, authStore.state.role),
+      });
+    }
     return;
   }
 
@@ -959,11 +1023,12 @@ async function applyUserUpdate(user) {
   }
 
   if (currentId !== nextId || statusChanged) {
+    const mergedUser = mergeAuthUser(authStore.state.user, user);
     updateAuthState({
-      ...withGuardState(buildSignedInState({ user })),
+      ...withGuardState(buildSignedInState({ user: mergedUser })),
       profile: authStore.state.profile,
       business: currentId === nextId ? authStore.state.business : null,
-      role: resolveRole(authStore.state.profile, user, authStore.state.role),
+      role: resolveRole(authStore.state.profile, mergedUser, authStore.state.role),
     });
   }
 
@@ -994,7 +1059,9 @@ async function applyUserUpdate(user) {
     }
     return;
   }
-  const nextRole = resolveRole(profile, user, authStore.state.role);
+  const nextProfile = mergeProfileAvatar(authStore.state.profile, profile, authStore.state.user || user);
+  const nextUser = mergeAuthUser(authStore.state.user, user);
+  const nextRole = resolveRole(nextProfile, nextUser, authStore.state.role);
   let business = null;
   if (nextRole === "business") {
     const { business: businessRow } = await getBusinessForUser(user);
@@ -1005,7 +1072,8 @@ async function applyUserUpdate(user) {
     authStore.businessUserId = null;
   }
   updateAuthState({
-    profile,
+    user: nextUser,
+    profile: nextProfile,
     business,
     role: nextRole,
   });
@@ -1684,7 +1752,8 @@ export function AuthProvider({
     }
     const { profile, error } = await fetchProfile(authState.user);
     if (error || !mountedRef.current) return;
-    const nextRole = resolveRole(profile, authState.user, authState.role);
+    const nextProfile = mergeProfileAvatar(authState.profile, profile, authState.user);
+    const nextRole = resolveRole(nextProfile, authState.user, authState.role);
     let business = null;
     if (nextRole === "business") {
       const { business: businessRow } = await fetchBusiness(authState.user);
@@ -1697,11 +1766,11 @@ export function AuthProvider({
       authStore.businessUserId = null;
     }
     updateAuthState({
-      profile,
+      profile: nextProfile,
       business,
       role: nextRole,
     });
-  }, [authState.role, authState.user]);
+  }, [authState.profile, authState.role, authState.user]);
 
   const resetAuthUiStateCb = useCallback((reason) => {
     resetAuthUiState(reason);

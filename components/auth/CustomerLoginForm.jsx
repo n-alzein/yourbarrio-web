@@ -24,6 +24,7 @@ import {
   getRequestedPathFromCurrentUrl,
   readClientRedirectState,
 } from "@/lib/auth/clientRedirectState";
+import { buildOAuthCallbackUrl, logOAuthStart } from "@/lib/auth/oauthRedirect";
 
 export default function CustomerLoginForm({
   next: nextOverride = null,
@@ -381,21 +382,16 @@ export default function CustomerLoginForm({
         queryNext ||
         sanitizeAuthRedirectPath(consumeAuthIntent({ role: "customer", fallbackPath: "/" }), "/");
 
+      const currentOrigin = window.location.origin;
+      const redirectTo = buildOAuthCallbackUrl({
+        currentOrigin,
+        next: storedIntent,
+      });
+      logOAuthStart({ provider: "google", redirectTo, currentOrigin });
+
       const { error: oauthError } = await client.auth.signInWithOAuth({
         provider: "google",
-        options: {
-          redirectTo: (() => {
-            const origin = window.location.origin;
-            const callback = new URL("/api/auth/callback", origin);
-            if (storedIntent) {
-              callback.searchParams.set("next", storedIntent);
-            }
-            if (process.env.NODE_ENV !== "production") {
-              console.info("[auth-next] oauth redirectTo:", callback.toString());
-            }
-            return callback.toString();
-          })(),
-        },
+        options: { redirectTo },
       });
 
       if (attemptIdRef.current !== attemptId) return;

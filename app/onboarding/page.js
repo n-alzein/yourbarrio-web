@@ -3,7 +3,7 @@ import OnboardingClient from "@/app/(onboarding)/onboarding/OnboardingClient";
 import AuthSeed from "@/components/auth/AuthSeed";
 import ProtectedRouteLoginPrompt from "@/components/auth/ProtectedRouteLoginPrompt";
 import { getSupabaseServerAuthedClient } from "@/lib/supabaseServer";
-import { resolveCurrentUserRoleFromClient } from "@/lib/auth/getCurrentUserRole";
+import { resolveCurrentUserRoleFromClient } from "@/lib/auth/resolveCurrentUserRoleFromClient";
 import { BUSINESS_CREATE_PASSWORD_PATH } from "@/lib/auth/businessPasswordGate";
 import { isBusinessOnboardingComplete } from "@/lib/business/onboardingCompletion";
 

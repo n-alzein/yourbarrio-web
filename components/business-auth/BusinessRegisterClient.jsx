@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useMemo } from "react";
 import { PATHS } from "@/lib/auth/paths";
+import { buildOAuthCallbackUrl, logOAuthStart } from "@/lib/auth/oauthRedirect";
 
 function BusinessRegisterInner() {
   const supabaseRef = useRef(null);
@@ -15,9 +16,9 @@ function BusinessRegisterInner() {
   const googleTarget = PATHS.business.onboarding || "/onboarding";
   const postAuthTarget = "/onboarding";
   const googleRedirectUrl = useMemo(() => {
-    const origin =
+    const currentOrigin =
       typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-    return `${origin}/api/auth/callback?next=${encodeURIComponent(googleTarget)}`;
+    return buildOAuthCallbackUrl({ currentOrigin, next: googleTarget });
   }, [googleTarget]);
   const getSupabase = useCallback(async () => {
     if (!supabaseRef.current) {
@@ -119,6 +120,11 @@ function BusinessRegisterInner() {
       setLoading(false);
       return;
     }
+    logOAuthStart({
+      provider: "google",
+      redirectTo: googleRedirectUrl,
+      currentOrigin: typeof window !== "undefined" ? window.location.origin : "",
+    });
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {

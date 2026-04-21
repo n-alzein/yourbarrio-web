@@ -10,6 +10,7 @@ import CustomerMap from "@/components/customer/CustomerMap";
 import { getCustomerBusinessUrl } from "@/lib/ids/publicRefs";
 import { setAuthIntent } from "@/lib/auth/authIntent";
 import { getAuthedContext } from "@/lib/auth/getAuthedContext";
+import { useCurrentAccountContext } from "@/lib/auth/useCurrentAccountContext";
 import { getLocationCacheKey } from "@/lib/location";
 import { hasCoordinates } from "@/lib/location/filter";
 import NearbySplitViewShell from "./_components/NearbySplitViewShell";
@@ -116,6 +117,7 @@ const getBusinessSelection = (business) => {
 export default function NearbyBusinessesClient() {
   const router = useRouter();
   const { user, loadingUser } = useAuth();
+  const accountContext = useCurrentAccountContext();
   const { openModal } = useModal();
   const gateBusinessProfileAccess = useBusinessProfileAccessGate();
   const searchParams = useSearchParams();
@@ -153,6 +155,7 @@ export default function NearbyBusinessesClient() {
   const ybRequestIdRef = useRef(0);
 
   const savedBusinessesCacheKey = user?.id ? `yb_saved_businesses_${user.id}` : null;
+  const showSaveControls = !accountContext.isBusiness && !accountContext.rolePending;
 
   useEffect(() => {
     const initial = (() => {
@@ -177,7 +180,7 @@ export default function NearbyBusinessesClient() {
   }, [hasLoadedYb]);
 
   useEffect(() => {
-    if (!savedBusinessesCacheKey) {
+    if (!savedBusinessesCacheKey || !showSaveControls) {
       setSavedBusinessIds(new Set());
       return;
     }
@@ -191,12 +194,12 @@ export default function NearbyBusinessesClient() {
     } catch {
       /* ignore cache errors */
     }
-  }, [savedBusinessesCacheKey]);
+  }, [savedBusinessesCacheKey, showSaveControls]);
 
   useEffect(() => {
     let active = true;
     const loadSavedBusinesses = async () => {
-      if (!user?.id) return;
+      if (!user?.id || !showSaveControls) return;
       try {
         const { client, userId } = await getAuthedContext("loadSavedBusinesses");
         const { data, error } = await client
@@ -223,7 +226,7 @@ export default function NearbyBusinessesClient() {
     return () => {
       active = false;
     };
-  }, [savedBusinessesCacheKey, user?.id]);
+  }, [savedBusinessesCacheKey, showSaveControls, user?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -572,6 +575,7 @@ export default function NearbyBusinessesClient() {
     async (business) => {
       const businessId = business?.id;
       if (!businessId) return;
+      if (!showSaveControls) return;
 
       if (!user?.id) {
         const currentPath =
@@ -595,22 +599,15 @@ export default function NearbyBusinessesClient() {
       setSavingBusinessIds((prev) => new Set(prev).add(businessId));
 
       try {
-        const { client, userId } = await getAuthedContext("toggleSaveBusiness");
-        if (wasSaved) {
-          const { error } = await client
-            .from("saved_businesses")
-            .delete()
-            .eq("user_id", userId)
-            .eq("business_id", businessId);
-          if (error) throw error;
-        } else {
-          const { error } = await client
-            .from("saved_businesses")
-            .upsert(
-              { user_id: userId, business_id: businessId },
-              { onConflict: "user_id,business_id" }
-            );
-          if (error) throw error;
+        const response = await fetch("/api/customer/saved-businesses", {
+          method: wasSaved ? "DELETE" : "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ businessId }),
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload?.error || "Save shop update failed");
         }
       } catch (err) {
         console.error("Save shop toggle failed", err);
@@ -624,7 +621,7 @@ export default function NearbyBusinessesClient() {
         });
       }
     },
-    [openModal, persistSavedBusinessIds, savedBusinessIds, user?.id]
+    [openModal, persistSavedBusinessIds, savedBusinessIds, showSaveControls, user?.id]
   );
 
   const onMarkerClick = useCallback((businessId) => {
@@ -827,6 +824,7 @@ export default function NearbyBusinessesClient() {
                 onToggleSaveShop={onToggleSaveShop}
                 savedBusinessIds={savedBusinessIds}
                 savingBusinessIds={savingBusinessIds}
+                showSaveControls={showSaveControls}
                 isMobile={isMobile}
                 registerCard={registerCard}
                 onResetFilters={() => {

@@ -549,13 +549,16 @@ export default function CustomerSavedClient({
       const next = savedShops.filter((item) => getShopId(item) !== businessId);
       setSavedShops(next);
       try {
-        const client = supabase ?? getSupabaseBrowserClient();
-        const { error: deleteError } = await client
-          .from("saved_businesses")
-          .delete()
-          .eq("user_id", resolvedUserId)
-          .eq("business_id", businessId);
-        if (deleteError) throw deleteError;
+        const response = await fetch("/api/customer/saved-businesses", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ businessId }),
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload?.error || "Failed to unsave shop");
+        }
         if (typeof window !== "undefined") {
           const shopCacheKey = buildShopCacheKey(resolvedUserId);
           const shopIdsCacheKey = buildShopIdsCacheKey(resolvedUserId);
@@ -583,7 +586,7 @@ export default function CustomerSavedClient({
         });
       }
     },
-    [resolvedUserId, savedShops, supabase]
+    [resolvedUserId, savedShops]
   );
 
   if (loadingUser && !user && !initialUserId) {

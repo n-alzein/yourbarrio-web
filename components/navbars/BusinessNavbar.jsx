@@ -21,7 +21,7 @@ import AccountSidebar from "@/components/nav/AccountSidebar";
 import BusinessAccountMenuItems from "@/components/nav/BusinessAccountMenuItems";
 import { openBusinessAuthPopup } from "@/lib/openBusinessAuthPopup";
 import { fetchUnreadTotal } from "@/lib/messages";
-import { resolveImageSrc } from "@/lib/safeImage";
+import { resolveAvatarUrl } from "@/lib/avatarUrl";
 import { getBusinessDisplayName } from "@/lib/auth/displayName";
 import SafeAvatar from "@/components/SafeAvatar";
 import { useRealtimeChannel } from "@/lib/realtime/useRealtimeChannel";
@@ -154,9 +154,12 @@ function BusinessNavbarInner({ pathname, forcedAuth = null }) {
     loadPhoto();
   }, [resolvedUser, supabase]);
 
-  const avatar = resolveImageSrc(
-    resolvedProfile?.profile_photo_url?.trim() || photoUrl?.trim() || "",
-    "/business-placeholder.png"
+  const avatar = resolveAvatarUrl(
+    resolvedProfile?.profile_photo_url,
+    photoUrl,
+    resolvedUser?.user_metadata,
+    profile?.profile_photo_url,
+    user?.user_metadata
   );
 
   const isActive = (href) => pathname === href;

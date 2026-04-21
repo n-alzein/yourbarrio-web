@@ -19,6 +19,7 @@ import {
   getRequestedPathFromCurrentUrl,
   readClientRedirectState,
 } from "@/lib/auth/clientRedirectState";
+import { buildOAuthCallbackUrl, logOAuthStart } from "@/lib/auth/oauthRedirect";
 
 function BusinessLoginInner({ isPopup, callbackError = "", sessionExpired = false }) {
   const authDiagEnabled = process.env.NEXT_PUBLIC_AUTH_DIAG === "1";
@@ -509,9 +510,10 @@ function BusinessLoginInner({ isPopup, callbackError = "", sessionExpired = fals
         setAuthError("");
       }
 
-      const origin =
+      const currentOrigin =
         typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-      const redirectTo = `${origin}/api/auth/callback`;
+      const redirectTo = buildOAuthCallbackUrl({ currentOrigin });
+      logOAuthStart({ provider: "google", redirectTo, currentOrigin });
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",

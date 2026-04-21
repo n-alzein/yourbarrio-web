@@ -486,6 +486,7 @@ export default function SettingsPage() {
                       effectiveProfile?.profile_photo_url ||
                       ""
                     }
+                    userMetadata={user?.user_metadata}
                     fullName={form?.full_name || effectiveProfile?.full_name}
                     displayName={form?.full_name || effectiveProfile?.full_name}
                     email={userEmail}

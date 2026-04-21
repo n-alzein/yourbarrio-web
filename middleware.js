@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getCookieBaseOptions } from "@/lib/authCookies";
-import { resolveCurrentUserRoleFromClient } from "@/lib/auth/getCurrentUserRole";
+import { resolveCurrentUserRoleFromClient } from "@/lib/auth/resolveCurrentUserRoleFromClient";
 import {
   BUSINESS_CREATE_PASSWORD_PATH,
   getBusinessAuthCookieNames,
@@ -44,6 +44,22 @@ function logMiddlewareAuthTrace(request, payload = {}) {
     requestIncludesAuthCookies: authCookieNames.length > 0,
     ...payload,
   });
+}
+
+function shouldLogOAuthHandoff(pathname, hasAuthCookies = false) {
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.AUTH_DIAG_SERVER === "1" ||
+    process.env.NEXT_PUBLIC_AUTH_DIAG === "1"
+  ) && (
+    hasAuthCookies ||
+    pathname.startsWith("/api/auth/callback") ||
+    pathname.startsWith("/auth/callback") ||
+    pathname.startsWith("/oauth/callback") ||
+    pathname.startsWith("/customer") ||
+    pathname.startsWith("/business") ||
+    pathname.startsWith("/onboarding")
+  );
 }
 
 function isCustomerNearbyPath(pathname) {
@@ -257,8 +273,10 @@ export async function middleware(request) {
 
   const withSupabaseCookies = (targetResponse = response, options = {}) => {
     const cookies = response.cookies.getAll();
-    cookies.forEach(({ name, value }) => {
-      targetResponse.cookies.set(name, value);
+    // Preserve the full cookie object when forwarding auth cookies to redirects.
+    // Dropping attributes here can strip the immediate post-callback session.
+    cookies.forEach((cookie) => {
+      targetResponse.cookies.set(cookie);
     });
     if (process.env.NODE_ENV !== "production" && isBusinessLandingRoute) {
       targetResponse.headers.set(
@@ -340,6 +358,15 @@ export async function middleware(request) {
         to: targetPath,
       });
     }
+    if (shouldLogOAuthHandoff(pathname, true)) {
+      console.info("[AUTH_MW_HANDOFF] redirect", {
+        pathname,
+        host: request.headers.get("host") || request.nextUrl.host,
+        userId: user?.id || null,
+        role,
+        to: targetPath,
+      });
+    }
     logMiddlewareAuthTrace(request, {
       middlewareCanReadUser: Boolean(user?.id),
       userId: user?.id || null,
@@ -395,12 +422,15 @@ export async function middleware(request) {
   const { user, role } = await resolveCurrentUserRoleFromClient(supabase, {
     log: shouldLogRole,
   });
-  if (process.env.NODE_ENV !== "production") {
-    console.info("[auth-next] middleware auth state:", {
+  if (shouldLogOAuthHandoff(pathname, hasAuthCookies)) {
+    console.info("[AUTH_MW_HANDOFF]", {
       pathname,
+      host: request.headers.get("host") || request.nextUrl.host,
       hasAuthCookies,
       userId: user?.id || null,
       role: role || null,
+      canRedirect,
+      isRscQuery,
     });
   }
 

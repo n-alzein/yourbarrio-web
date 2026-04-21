@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import BusinessAuthPopupLink from "@/components/business/BusinessAuthPopupLink";
 import BusinessHeroHeaderActions from "@/components/business/BusinessHeroHeaderActions";
 import { getSupabaseServerAuthedClient } from "@/lib/supabaseServer";
-import { resolveCurrentUserRoleFromClient } from "@/lib/auth/getCurrentUserRole";
+import { resolveCurrentUserRoleFromClient } from "@/lib/auth/resolveCurrentUserRoleFromClient";
 import { BUSINESS_CREATE_PASSWORD_PATH } from "@/lib/auth/businessPasswordGate";
 import { PATHS } from "@/lib/auth/paths";
 import { isBusinessOnboardingComplete } from "@/lib/business/onboardingCompletion";

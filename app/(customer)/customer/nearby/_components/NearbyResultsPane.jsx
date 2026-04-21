@@ -30,6 +30,7 @@ export default function NearbyResultsPane({
   onToggleSaveShop,
   savedBusinessIds,
   savingBusinessIds,
+  showSaveControls = true,
   registerCard,
   onResetFilters,
 }) {
@@ -81,6 +82,7 @@ export default function NearbyResultsPane({
           onToggleSave={onToggleSaveShop}
           isSaved={savedBusinessIds?.has?.(business.id)}
           saveLoading={savingBusinessIds?.has?.(business.id)}
+          showSaveControl={showSaveControls}
           isMobile={isMobile}
           registerCard={registerCard}
         />

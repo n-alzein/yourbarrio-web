@@ -4,6 +4,7 @@ import { useState } from "react";
 import BaseModal from "./BaseModal";
 import { useAuth } from "../AuthProvider";
 import { useModal } from "./ModalProvider";
+import { buildOAuthCallbackUrl, logOAuthStart } from "@/lib/auth/oauthRedirect";
 
 export default function CustomerSignupModal({ onClose }) {
   const { supabase } = useAuth();
@@ -103,13 +104,15 @@ export default function CustomerSignupModal({ onClose }) {
     setError("");
     setLoading(true);
 
-    const origin =
+    const currentOrigin =
       typeof window !== "undefined" ? window.location.origin : "";
+    const redirectTo = buildOAuthCallbackUrl({ currentOrigin });
+    logOAuthStart({ provider: "google", redirectTo, currentOrigin });
 
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       // Use shared OAuth callback to exchange code + create profile
-      options: { redirectTo: `${origin}/api/auth/callback` },
+      options: { redirectTo },
     });
 
     if (oauthError) {

@@ -14,7 +14,7 @@ import AccountMenuItems from "@/components/nav/AccountMenuItems";
 import AccountSidebar from "@/components/nav/AccountSidebar";
 import { fetchUnreadTotal, getUnreadCount } from "@/lib/messages";
 import { getBusinessDisplayName } from "@/lib/auth/displayName";
-import { resolveImageSrc } from "@/lib/safeImage";
+import { resolveAvatarUrl } from "@/lib/avatarUrl";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useLocation } from "@/components/location/LocationProvider";
 import { getLocationLabel, isZipLike, normalizeSelectedLocation } from "@/lib/location";
@@ -93,11 +93,11 @@ export default function HeaderAccountWidget({
     return window.matchMedia("(min-width: 1024px)").matches;
   });
 
-  const avatar = resolveImageSrc(
-    accountProfile?.profile_photo_url?.trim() ||
-      accountUser?.user_metadata?.avatar_url ||
-      "",
-    CUSTOMER_AVATAR_FALLBACK
+  const avatar = resolveAvatarUrl(
+    accountProfile?.profile_photo_url,
+    accountUser?.user_metadata,
+    profile?.profile_photo_url,
+    user?.user_metadata
   );
 
   const displayName = isBusiness

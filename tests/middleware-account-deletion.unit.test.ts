@@ -7,7 +7,7 @@ const { resolveCurrentUserRoleFromClientMock, createServerClientMock } = vi.hois
   createServerClientMock: vi.fn(),
 }));
 
-vi.mock("@/lib/auth/getCurrentUserRole", () => ({
+vi.mock("@/lib/auth/resolveCurrentUserRoleFromClient", () => ({
   resolveCurrentUserRoleFromClient: resolveCurrentUserRoleFromClientMock,
 }));
 

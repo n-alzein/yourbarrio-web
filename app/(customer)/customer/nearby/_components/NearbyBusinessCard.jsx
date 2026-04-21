@@ -49,6 +49,7 @@ export default function NearbyBusinessCard({
   onToggleSave,
   isSaved = false,
   saveLoading = false,
+  showSaveControl = true,
   registerCard,
 }) {
   const distanceLabel = formatDistance(business.distance_km ?? business.distanceKm ?? null);
@@ -86,27 +87,29 @@ export default function NearbyBusinessCard({
       onFocus={() => onHover(business.id)}
       onBlur={onLeave}
     >
-      <button
-        type="button"
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onToggleSave?.(business);
-        }}
-        disabled={saveLoading}
-        className={`absolute right-2 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-white/90 text-slate-600 shadow-sm backdrop-blur transition hover:border-rose-200 hover:text-rose-500 hover:opacity-100 focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-violet-400/70 disabled:cursor-wait disabled:opacity-70 ${
-          isSaved ? "opacity-90" : "opacity-75"
-        }`}
-        aria-pressed={isSaved}
-        aria-label={isSaved ? "Remove saved shop" : "Save shop"}
-        title={isSaved ? "Remove saved shop" : "Save shop"}
-      >
-        <Heart
-          className={`h-5 w-5 ${isSaved ? "text-rose-500" : ""}`}
-          fill={isSaved ? "currentColor" : "none"}
-          aria-hidden="true"
-        />
-      </button>
+      {showSaveControl ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onToggleSave?.(business);
+          }}
+          disabled={saveLoading}
+          className={`absolute right-2 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-white/90 text-slate-600 shadow-sm backdrop-blur transition hover:border-rose-200 hover:text-rose-500 hover:opacity-100 focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-violet-400/70 disabled:cursor-wait disabled:opacity-70 ${
+            isSaved ? "opacity-90" : "opacity-75"
+          }`}
+          aria-pressed={isSaved}
+          aria-label={isSaved ? "Remove saved shop" : "Save shop"}
+          title={isSaved ? "Remove saved shop" : "Save shop"}
+        >
+          <Heart
+            className={`h-5 w-5 ${isSaved ? "text-rose-500" : ""}`}
+            fill={isSaved ? "currentColor" : "none"}
+            aria-hidden="true"
+          />
+        </button>
+      ) : null}
 
       <div className="relative p-3">
         <button
