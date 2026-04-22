@@ -19,6 +19,12 @@ vi.mock("@/lib/supabaseServer", () => ({
 }));
 vi.mock("@/lib/auth/ensureUserProvisioning", () => ({
   ensureUserProvisionedForUser: ensureUserProvisionedForUserMock,
+  isTombstonedUserRow: (row: Record<string, unknown> | null) =>
+    Boolean(
+      row?.email === "deleted+11111111-1111-4111-8111-111111111111@deleted.local" ||
+        row?.full_name === "Deleted user" ||
+        row?.account_status === "deleted"
+    ),
 }));
 
 import { getCurrentAccountContext } from "@/lib/auth/getCurrentAccountContext";
@@ -73,11 +79,72 @@ function createSupabaseWithMissingThenRecoveredProfile() {
   };
 }
 
+function createSupabaseWithTombstoneThenRecoveredProfile() {
+  const user = {
+    id: "11111111-1111-4111-8111-111111111111",
+    email: "GoogleUser@Example.com",
+    app_metadata: {},
+    user_metadata: {
+      full_name: "Google User",
+      picture: "https://lh3.googleusercontent.com/google.jpg",
+    },
+  };
+  const tombstoneProfile = {
+    id: user.id,
+    email: `deleted+${user.id}@deleted.local`,
+    role: "customer",
+    full_name: "Deleted user",
+    profile_photo_url: null,
+    account_status: "deleted",
+  };
+  const recoveredProfile = {
+    id: user.id,
+    email: "googleuser@example.com",
+    role: "customer",
+    full_name: "Google User",
+    profile_photo_url: "https://lh3.googleusercontent.com/google.jpg",
+    account_status: "active",
+  };
+  const usersMaybeSingle = vi
+    .fn()
+    .mockResolvedValueOnce({ data: tombstoneProfile, error: null })
+    .mockResolvedValueOnce({ data: recoveredProfile, error: null });
+  const businessesMaybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+  const from = vi.fn((table: string) => {
+    const maybeSingle = table === "users" ? usersMaybeSingle : businessesMaybeSingle;
+    return {
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle,
+        })),
+      })),
+    };
+  });
+
+  return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user },
+        error: null,
+      }),
+    },
+    from,
+    __mocks: {
+      user,
+      tombstoneProfile,
+      recoveredProfile,
+      usersMaybeSingle,
+      businessesMaybeSingle,
+    },
+  };
+}
+
 describe("getCurrentAccountContext provisioning recovery", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     ensureUserProvisionedForUserMock.mockResolvedValue({
       userCreated: true,
+      userRepaired: false,
       role: "customer",
     });
   });
@@ -94,6 +161,38 @@ describe("getCurrentAccountContext provisioning recovery", () => {
       expect.objectContaining({
         userId: supabase.__mocks.user.id,
         email: "GoogleUser@Example.com",
+        fullName: "Google User",
+        avatarUrl: "https://lh3.googleusercontent.com/google.jpg",
+        fallbackRole: "customer",
+        source: "unit_test",
+      })
+    );
+    expect(supabase.__mocks.usersMaybeSingle).toHaveBeenCalledTimes(2);
+    expect(context.isAuthenticated).toBe(true);
+    expect(context.user?.id).toBe(supabase.__mocks.user.id);
+    expect(context.profile).toEqual(supabase.__mocks.recoveredProfile);
+    expect(context.role).toBe("customer");
+  });
+
+  it("repairs and refetches public.users when auth user is tied to a tombstoned profile row", async () => {
+    const supabase = createSupabaseWithTombstoneThenRecoveredProfile();
+    ensureUserProvisionedForUserMock.mockResolvedValue({
+      userCreated: false,
+      userRepaired: true,
+      role: "customer",
+    });
+
+    const context = await getCurrentAccountContext({
+      supabase,
+      source: "unit_test",
+    });
+
+    expect(ensureUserProvisionedForUserMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: supabase.__mocks.user.id,
+        email: "GoogleUser@Example.com",
+        fullName: "Google User",
+        avatarUrl: "https://lh3.googleusercontent.com/google.jpg",
         fallbackRole: "customer",
         source: "unit_test",
       })

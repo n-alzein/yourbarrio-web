@@ -148,6 +148,12 @@ async function ensureUserProvisioned({ user, debug }) {
   await ensureUserProvisionedForUser({
     userId: user?.id,
     email: user?.email || "",
+    fullName: user?.user_metadata?.full_name || user?.user_metadata?.name || "",
+    avatarUrl:
+      user?.user_metadata?.avatar_url ||
+      user?.user_metadata?.picture ||
+      user?.user_metadata?.profile_photo_url ||
+      "",
     fallbackRole: normalizeAppRole(user?.app_metadata?.role),
     debug,
     source: "api_auth_callback",

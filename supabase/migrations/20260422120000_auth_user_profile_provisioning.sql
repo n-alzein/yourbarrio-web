@@ -53,9 +53,82 @@ BEGIN
   )
   ON CONFLICT (id) DO UPDATE
   SET
-    email = coalesce(public.users.email, EXCLUDED.email),
-    full_name = coalesce(nullif(public.users.full_name, ''), EXCLUDED.full_name),
-    profile_photo_url = coalesce(public.users.profile_photo_url, EXCLUDED.profile_photo_url),
+    email = CASE
+      WHEN
+        public.users.email ILIKE 'deleted+%@deleted.local'
+        OR public.users.email ILIKE 'deleted+%@yourbarrio.invalid'
+        OR public.users.full_name = 'Deleted user'
+        OR public.users.business_name = 'Deleted user'
+        OR public.users.account_status = 'deleted'
+        OR public.users.deleted_at IS NOT NULL
+        OR public.users.anonymized_at IS NOT NULL
+      THEN EXCLUDED.email
+      ELSE coalesce(public.users.email, EXCLUDED.email)
+    END,
+    full_name = CASE
+      WHEN
+        public.users.email ILIKE 'deleted+%@deleted.local'
+        OR public.users.email ILIKE 'deleted+%@yourbarrio.invalid'
+        OR public.users.full_name = 'Deleted user'
+        OR public.users.business_name = 'Deleted user'
+        OR public.users.account_status = 'deleted'
+        OR public.users.deleted_at IS NOT NULL
+        OR public.users.anonymized_at IS NOT NULL
+      THEN EXCLUDED.full_name
+      ELSE coalesce(nullif(public.users.full_name, ''), EXCLUDED.full_name)
+    END,
+    profile_photo_url = CASE
+      WHEN
+        public.users.email ILIKE 'deleted+%@deleted.local'
+        OR public.users.email ILIKE 'deleted+%@yourbarrio.invalid'
+        OR public.users.full_name = 'Deleted user'
+        OR public.users.business_name = 'Deleted user'
+        OR public.users.account_status = 'deleted'
+        OR public.users.deleted_at IS NOT NULL
+        OR public.users.anonymized_at IS NOT NULL
+      THEN EXCLUDED.profile_photo_url
+      ELSE coalesce(public.users.profile_photo_url, EXCLUDED.profile_photo_url)
+    END,
+    business_name = CASE
+      WHEN public.users.business_name = 'Deleted user' THEN NULL
+      ELSE public.users.business_name
+    END,
+    account_status = CASE
+      WHEN
+        public.users.email ILIKE 'deleted+%@deleted.local'
+        OR public.users.email ILIKE 'deleted+%@yourbarrio.invalid'
+        OR public.users.full_name = 'Deleted user'
+        OR public.users.business_name = 'Deleted user'
+        OR public.users.account_status = 'deleted'
+        OR public.users.deleted_at IS NOT NULL
+        OR public.users.anonymized_at IS NOT NULL
+      THEN 'active'
+      ELSE public.users.account_status
+    END,
+    deleted_at = CASE
+      WHEN
+        public.users.email ILIKE 'deleted+%@deleted.local'
+        OR public.users.email ILIKE 'deleted+%@yourbarrio.invalid'
+        OR public.users.full_name = 'Deleted user'
+        OR public.users.business_name = 'Deleted user'
+        OR public.users.account_status = 'deleted'
+        OR public.users.deleted_at IS NOT NULL
+        OR public.users.anonymized_at IS NOT NULL
+      THEN NULL
+      ELSE public.users.deleted_at
+    END,
+    anonymized_at = CASE
+      WHEN
+        public.users.email ILIKE 'deleted+%@deleted.local'
+        OR public.users.email ILIKE 'deleted+%@yourbarrio.invalid'
+        OR public.users.full_name = 'Deleted user'
+        OR public.users.business_name = 'Deleted user'
+        OR public.users.account_status = 'deleted'
+        OR public.users.deleted_at IS NOT NULL
+        OR public.users.anonymized_at IS NOT NULL
+      THEN NULL
+      ELSE public.users.anonymized_at
+    END,
     updated_at = now();
 
   RETURN NEW;
@@ -94,4 +167,12 @@ SELECT
   now()
 FROM auth.users au
 LEFT JOIN public.users pu ON pu.id = au.id
-WHERE pu.id IS NULL;
+WHERE
+  pu.id IS NULL
+  OR pu.email ILIKE 'deleted+%@deleted.local'
+  OR pu.email ILIKE 'deleted+%@yourbarrio.invalid'
+  OR pu.full_name = 'Deleted user'
+  OR pu.business_name = 'Deleted user'
+  OR pu.account_status = 'deleted'
+  OR pu.deleted_at IS NOT NULL
+  OR pu.anonymized_at IS NOT NULL;
