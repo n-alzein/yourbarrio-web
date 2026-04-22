@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
 
 const { getSupabaseServerClientMock } = vi.hoisted(() => ({
   getSupabaseServerClientMock: vi.fn(),
@@ -96,5 +97,17 @@ describe("ensureUserProvisionedForUser", () => {
       }),
       { onConflict: "id", ignoreDuplicates: false }
     );
+  });
+
+  it("has a database trigger migration for auth.users profile provisioning", () => {
+    const migration = fs.readFileSync(
+      "supabase/migrations/20260422120000_auth_user_profile_provisioning.sql",
+      "utf8"
+    );
+
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION public.handle_auth_user_profile_provisioning");
+    expect(migration).toContain("AFTER INSERT ON auth.users");
+    expect(migration).toContain("LEFT JOIN public.users pu ON pu.id = au.id");
+    expect(migration).toContain("WHERE pu.id IS NULL");
   });
 });
