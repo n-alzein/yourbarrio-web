@@ -29,11 +29,7 @@ function normalizeOrigin(value) {
   const input = String(value || "").trim();
   if (!input) return "";
   try {
-    const url = new URL(input);
-    if (url.hostname === "yourbarrio.com" || url.hostname === "www.yourbarrio.com") {
-      return "https://yourbarrio.com";
-    }
-    return url.origin;
+    return new URL(input).origin;
   } catch {
     return "";
   }
@@ -48,14 +44,11 @@ function resolveCallbackOrigin(request, requestUrl) {
   const configuredOrigin = normalizeOrigin(
     process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || ""
   );
-  if (
-    configuredOrigin &&
-    (hostname === "yourbarrio.com" || hostname === "www.yourbarrio.com")
-  ) {
+  if (configuredOrigin && hostname.endsWith("yourbarrio.com")) {
     return configuredOrigin;
   }
-  if (hostname === "yourbarrio.com" || hostname === "www.yourbarrio.com") {
-    return "https://yourbarrio.com";
+  if (hostname === "yourbarrio.com" || hostname.endsWith(".yourbarrio.com")) {
+    return "https://www.yourbarrio.com";
   }
   return requestUrl.origin;
 }

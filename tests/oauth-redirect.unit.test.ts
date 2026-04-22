@@ -20,7 +20,7 @@ describe("OAuth callback URL generation", () => {
   });
 
   it("keeps Vercel preview domains on the preview origin", () => {
-    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://yourbarrio.com");
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://www.yourbarrio.com");
 
     expect(
       buildOAuthCallbackUrl({
@@ -32,28 +32,36 @@ describe("OAuth callback URL generation", () => {
     );
   });
 
-  it("keeps apex YourBarrio on the canonical apex origin", () => {
+  it("canonicalizes apex YourBarrio to www", () => {
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");
     vi.stubEnv("SITE_URL", "");
 
-    expect(getOAuthRedirectOrigin("https://yourbarrio.com")).toBe("https://yourbarrio.com");
+    expect(getOAuthRedirectOrigin("https://yourbarrio.com")).toBe(
+      "https://www.yourbarrio.com"
+    );
   });
 
-  it("canonicalizes www YourBarrio to the apex origin", () => {
-    expect(getOAuthRedirectOrigin("https://www.yourbarrio.com")).toBe("https://yourbarrio.com");
+  it("keeps www YourBarrio on the canonical www origin", () => {
+    expect(getOAuthRedirectOrigin("https://www.yourbarrio.com")).toBe(
+      "https://www.yourbarrio.com"
+    );
   });
 
   it("honors NEXT_PUBLIC_SITE_URL for YourBarrio production hosts", () => {
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://www.yourbarrio.com");
 
-    expect(getOAuthRedirectOrigin("https://yourbarrio.com")).toBe("https://yourbarrio.com");
+    expect(getOAuthRedirectOrigin("https://yourbarrio.com")).toBe(
+      "https://www.yourbarrio.com"
+    );
   });
 
   it("falls back to SITE_URL when public site URL is absent", () => {
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");
     vi.stubEnv("SITE_URL", "https://www.yourbarrio.com");
 
-    expect(getOAuthRedirectOrigin("https://yourbarrio.com")).toBe("https://yourbarrio.com");
+    expect(getOAuthRedirectOrigin("https://yourbarrio.com")).toBe(
+      "https://www.yourbarrio.com"
+    );
   });
 
   it("reports safe diagnostics without exposing secret values", () => {
@@ -66,10 +74,10 @@ describe("OAuth callback URL generation", () => {
     ).toEqual({
       hasSupabaseUrl: true,
       hasSupabaseAnonKey: true,
-      configuredSiteUrl: "https://yourbarrio.com",
+      configuredSiteUrl: "https://www.yourbarrio.com",
       detectedOrigin: "https://yourbarrio.com",
-      redirectOrigin: "https://yourbarrio.com",
-      callbackUrl: "https://yourbarrio.com/api/auth/callback",
+      redirectOrigin: "https://www.yourbarrio.com",
+      callbackUrl: "https://www.yourbarrio.com/api/auth/callback",
     });
   });
 });

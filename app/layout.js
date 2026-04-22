@@ -10,12 +10,8 @@ import { resolveAvatarUrl } from "@/lib/avatarUrl";
 import { Analytics } from "@vercel/analytics/react";
 
 export const metadata = {
-  metadataBase: new URL("https://yourbarrio.com"),
   title: "YourBarrio - Shop Local",
   description: "YourBarrio neighborhood discovery landing page",
-  alternates: {
-    canonical: "/",
-  },
   other: {
     "yb-shell-root": "root",
   },

@@ -76,7 +76,7 @@ describe("auth callback session handoff", () => {
     vi.clearAllMocks();
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://crskbfbleiubpkvyvvlf.supabase.co");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon-key");
-    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://yourbarrio.com");
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://www.yourbarrio.com");
     cookiesMock.mockResolvedValue(makeCookieStore());
     ensureUserProvisionedForUserMock.mockResolvedValue(undefined);
     ensureBusinessProvisionedForUserMock.mockResolvedValue(undefined);
@@ -128,7 +128,7 @@ describe("auth callback session handoff", () => {
     );
 
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("https://yourbarrio.com/customer/home");
+    expect(response.headers.get("location")).toBe("https://www.yourbarrio.com/customer/home");
     expect(response.headers.get("x-auth-callback-has-cookies")).toBe("1");
     expect(response.headers.get("set-cookie")).toContain(
       "sb-crskbfbleiubpkvyvvlf-auth-token=persisted-session"
@@ -156,7 +156,7 @@ describe("auth callback session handoff", () => {
 
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
-      "https://yourbarrio.com/login?next=%2Fcustomer%2Fhome&auth=magic_link_expired"
+      "https://www.yourbarrio.com/login?next=%2Fcustomer%2Fhome&auth=magic_link_expired"
     );
     expect(response.headers.get("x-auth-callback-has-cookies")).toBe("0");
     expect(response.headers.get("set-cookie")).toBeNull();

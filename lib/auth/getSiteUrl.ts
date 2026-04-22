@@ -27,11 +27,7 @@ function toNormalizedUrl(value: string): string | null {
   const input = String(value || "").trim();
   if (!input) return null;
   try {
-    const url = new URL(input);
-    if (url.hostname === "yourbarrio.com" || url.hostname === "www.yourbarrio.com") {
-      return "https://yourbarrio.com";
-    }
-    return url.toString().replace(/\/$/, "");
+    return new URL(input).toString().replace(/\/$/, "");
   } catch {
     return null;
   }
@@ -50,7 +46,7 @@ function shouldForceCanonicalProductionUrl(siteUrl: string): boolean {
 
 function resolveFinalSiteUrl(fallbackUrl: string): string {
   const canonicalUrl = getCanonicalConfiguredSiteUrl();
-  let siteUrl = canonicalUrl || toNormalizedUrl(fallbackUrl) || fallbackUrl;
+  let siteUrl = canonicalUrl || fallbackUrl;
 
   if (shouldForceCanonicalProductionUrl(siteUrl)) {
     const publicCanonicalUrl = toNormalizedUrl(process.env.NEXT_PUBLIC_SITE_URL || "");
