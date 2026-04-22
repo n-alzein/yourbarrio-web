@@ -69,6 +69,10 @@ describe("getValidAvatarUrl", () => {
     expect(getValidAvatarUrl("", " null ", "undefined", "/customer-placeholder.png")).toBeNull();
   });
 
+  it("rejects partial non-image avatar strings before rendering", () => {
+    expect(getValidAvatarUrl("not-a-google-avatar")).toBeNull();
+  });
+
   it("does not clear an existing valid avatar with an invalid new payload", () => {
     expect(mergeAvatarState("https://lh3.googleusercontent.com/google.jpg", "")).toBe(
       "https://lh3.googleusercontent.com/google.jpg"
@@ -107,6 +111,7 @@ describe("SafeAvatar", () => {
 
     const avatar = screen.getByAltText("Profile avatar");
     expect(avatar).toHaveAttribute("src", "https://lh3.googleusercontent.com/google.jpg");
+    expect(avatar).toHaveAttribute("referrerPolicy", "no-referrer");
     expect(screen.queryByText("TA")).not.toBeInTheDocument();
   });
 
@@ -197,6 +202,36 @@ describe("SafeAvatar", () => {
 
     fireEvent.error(screen.getByAltText("Profile avatar"));
 
+    expect(screen.getByRole("img", { name: "Profile avatar" })).toHaveAttribute(
+      "data-avatar-fallback",
+      "initials"
+    );
+    expect(screen.getByText("TA")).toBeInTheDocument();
+  });
+
+  it("falls back to initials when a Google avatar URL fails to load", () => {
+    render(
+      <SafeAvatar
+        src=""
+        userMetadata={{ picture: "https://lh3.googleusercontent.com/broken-google-avatar.jpg" }}
+        fullName="Google Account"
+        alt="Profile avatar"
+      />
+    );
+
+    fireEvent.error(screen.getByAltText("Profile avatar"));
+
+    expect(screen.getByRole("img", { name: "Profile avatar" })).toHaveAttribute(
+      "data-avatar-fallback",
+      "initials"
+    );
+    expect(screen.getByText("GA")).toBeInTheDocument();
+  });
+
+  it("renders initials immediately for invalid avatar source strings", () => {
+    render(<SafeAvatar src="not-a-google-avatar" fullName="Test Account" alt="Profile avatar" />);
+
+    expect(screen.queryByAltText("Profile avatar")).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Profile avatar" })).toHaveAttribute(
       "data-avatar-fallback",
       "initials"

@@ -167,6 +167,9 @@ function SafeAvatarInner({
   const [showFallback, setShowFallback] = useState(showFallbackInitially);
   const [loadedSrc, setLoadedSrc] = useState(null);
   const { onError, onLoad, ...avatarImgProps } = imgProps || {};
+  const referrerPolicy =
+    avatarImgProps.referrerPolicy ??
+    (/^https?:\/\//i.test(currentSrc || "") ? "no-referrer" : undefined);
 
   const initials = useMemo(
     () =>
@@ -233,6 +236,7 @@ function SafeAvatarInner({
       {...avatarImgProps}
       src={currentSrc}
       alt={label}
+      referrerPolicy={referrerPolicy}
       className={className}
       style={avatarStyle}
       onLoad={(event) => {
