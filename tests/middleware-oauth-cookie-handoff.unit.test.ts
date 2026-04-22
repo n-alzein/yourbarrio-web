@@ -26,6 +26,20 @@ function makeRequest(pathname: string, cookie = "sb-test-auth-token=fake-session
   });
 }
 
+function makeWwwDocumentRequest(pathname: string, cookie = "sb-test-auth-token=fake-session") {
+  return new NextRequest(`https://www.yourbarrio.com${pathname}`, {
+    headers: {
+      host: "www.yourbarrio.com",
+      "x-forwarded-host": "www.yourbarrio.com",
+      "x-forwarded-proto": "https",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-dest": "document",
+      "sec-fetch-user": "?1",
+      cookie,
+    },
+  });
+}
+
 function buildSupabaseMock() {
   return {
     rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "missing session" } }),
@@ -101,5 +115,19 @@ describe("middleware OAuth cookie handoff", () => {
     expect(response.headers.get("set-cookie")).toContain(
       "sb-test-auth-token=refreshed-session"
     );
+  });
+
+  it("does not run a canonical host redirect for www document requests during recovery mode", async () => {
+    resolveCurrentUserRoleFromClientMock.mockResolvedValue({
+      user: { id: "customer-user" },
+      role: "customer",
+    });
+
+    const response = await middleware(makeWwwDocumentRequest("/customer/home?tab=orders"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(createServerClientMock).toHaveBeenCalledTimes(1);
+    expect(resolveCurrentUserRoleFromClientMock).toHaveBeenCalledTimes(1);
   });
 });
