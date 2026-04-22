@@ -80,6 +80,8 @@ const AuthContext = createContext({
   supportModeActive: false,
 });
 
+const AUTH_HANDOFF_PARAM = "yb_auth_handoff";
+
 const resolveRole = (profile, user = null, fallbackRole = null) => {
   return (
     normalizePublicUserRole(profile?.role) ||
@@ -1539,6 +1541,7 @@ export function AuthProvider({
   const [isNestedProvider] = useState(() => Boolean(parentAuth?.providerInstanceId));
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const isAuthHandoff = searchParams?.get(AUTH_HANDOFF_PARAM) === "1";
   const authDiagEnabledLocal = useMemo(
     () =>
       process.env.NEXT_PUBLIC_AUTH_DIAG === "1" &&
@@ -1581,6 +1584,7 @@ export function AuthProvider({
       role: authState.role || null,
       hasInitialUser: Boolean(initialUser?.id),
       initialUserId: initialUser?.id || null,
+      isAuthHandoff,
     });
   }, [
     authState.authInitialized,
@@ -1588,6 +1592,7 @@ export function AuthProvider({
     authState.role,
     authState.user?.id,
     initialUser?.id,
+    isAuthHandoff,
     pathname,
   ]);
 
@@ -1842,6 +1847,17 @@ export function AuthProvider({
     if (!pathname) return;
     emitAuthUiReset("route_change");
   }, [isNestedProvider, pathname]);
+
+  useEffect(() => {
+    if (!isAuthHandoff) return;
+    if (!authState.authInitialized) return;
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has(AUTH_HANDOFF_PARAM)) return;
+    url.searchParams.delete(AUTH_HANDOFF_PARAM);
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, "", nextUrl || url.pathname);
+  }, [authState.authInitialized, isAuthHandoff]);
 
   useEffect(() => {
     if (isNestedProvider) return;

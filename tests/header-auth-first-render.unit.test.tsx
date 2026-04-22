@@ -183,4 +183,17 @@ describe("HeaderAccountWidget first render auth boundary", () => {
     expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign up" })).toBeInTheDocument();
   });
+
+  it("does not show guest CTA while post-callback auth is still restoring", () => {
+    mockAuthState.current = {
+      ...mockAuthState.current,
+      authStatus: "loading",
+      user: null,
+    };
+
+    render(<HeaderAccountWidget surface="public" variant="desktop" />);
+
+    expect(screen.queryByRole("button", { name: "Sign in" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign up" })).not.toBeInTheDocument();
+  });
 });

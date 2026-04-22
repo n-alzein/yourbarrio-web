@@ -18,6 +18,7 @@ import {
 } from "@/lib/accountDeletion/status";
 
 const AUTH_CALLBACK_HANDLER_MARKER = "app/api/auth/callback/route.js";
+const AUTH_HANDOFF_PARAM = "yb_auth_handoff";
 
 function firstHeaderValue(value) {
   return String(value || "")
@@ -261,13 +262,15 @@ export async function GET(request) {
     if (shouldLogCallback) {
       console.info("[auth-next] callback final redirect:", chosenDestination);
     }
+    const finalUrl = new URL(chosenDestination, redirectOrigin);
+    finalUrl.searchParams.set(AUTH_HANDOFF_PARAM, "1");
     const { response: redirectResponse, hasSupabaseCookies } = attachSupabaseCookies(
-      NextResponse.redirect(new URL(chosenDestination, redirectOrigin), 303)
+      NextResponse.redirect(finalUrl, 303)
     );
     if (shouldLogCallback) {
       const setCookieHeader = redirectResponse.headers.get("set-cookie") || "";
       console.info("[AUTH_CALLBACK_TRACE] final_response", {
-        destination: chosenDestination,
+        destination: `${finalUrl.pathname}${finalUrl.search}`,
         redirectOrigin,
         hasSupabaseCookies,
         hasSetCookieHeader: Boolean(setCookieHeader),
@@ -279,7 +282,10 @@ export async function GET(request) {
       });
     }
     redirectResponse.headers.set("x-auth-callback-handler", AUTH_CALLBACK_HANDLER_MARKER);
-    redirectResponse.headers.set("x-auth-callback-destination", chosenDestination);
+    redirectResponse.headers.set(
+      "x-auth-callback-destination",
+      `${finalUrl.pathname}${finalUrl.search}`
+    );
     redirectResponse.headers.set(
       "x-auth-callback-has-cookies",
       hasSupabaseCookies ? "1" : "0"
@@ -291,14 +297,17 @@ export async function GET(request) {
     if (shouldLogCallback) {
       console.warn(
         "[AUTH_CALLBACK_TRACE] destination",
-        chosenDestination,
+        `${finalUrl.pathname}${finalUrl.search}`,
         "rawNext",
         rawNext,
         "reason",
         reason || null
       );
       redirectResponse.headers.set("X-YB-Auth-NextRaw", rawNext ?? "");
-      redirectResponse.headers.set("X-YB-Auth-NextChosen", chosenDestination);
+      redirectResponse.headers.set(
+        "X-YB-Auth-NextChosen",
+        `${finalUrl.pathname}${finalUrl.search}`
+      );
       redirectResponse.headers.set("X-YB-Auth-Role", role ?? "");
     }
     return redirectResponse;

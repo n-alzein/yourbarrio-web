@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import Footer from "@/components/Footer";
 import ModalMount from "@/components/modals/ModalMount";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -30,6 +30,9 @@ export default function AppShell({
   initialAuth = null,
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isAuthHandoff = searchParams?.get("yb_auth_handoff") === "1";
+  const initialAuthResolved = Boolean(initialAuth?.user?.id) || !isAuthHandoff;
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_AUTH_DIAG !== "1") return;
     console.info("[AUTH_CLIENT_BOOTSTRAP]", {
@@ -39,8 +42,17 @@ export default function AppShell({
       initialUserId: initialAuth?.user?.id || null,
       initialRole: initialAuth?.role || null,
       hasInitialProfile: Boolean(initialAuth?.profile?.id),
+      isAuthHandoff,
+      initialAuthResolved,
     });
-  }, [initialAuth?.profile?.id, initialAuth?.role, initialAuth?.user?.id, pathname]);
+  }, [
+    initialAuth?.profile?.id,
+    initialAuth?.role,
+    initialAuth?.user?.id,
+    initialAuthResolved,
+    isAuthHandoff,
+    pathname,
+  ]);
   const flushFooterOnHome = pathname === "/" || pathname === "/customer/home";
   const flushFooterOnPublicListings = pathname === "/listings";
   const flushFooterOnPublicBusinessProfile = pathname?.startsWith("/b/");
@@ -96,7 +108,7 @@ export default function AppShell({
               initialUser={initialAuth?.user ?? null}
               initialProfile={initialAuth?.profile ?? null}
               initialRole={initialAuth?.role ?? null}
-              initialAuthResolved
+              initialAuthResolved={initialAuthResolved}
             >
               <AutoRefreshGuardBanner />
               <RealtimeProvider>
