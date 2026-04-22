@@ -2,6 +2,9 @@
 -- The app also has a server-side fallback, but this trigger is the primary
 -- provisioning path for newly-created OAuth/password/magic-link accounts.
 
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS anonymized_at timestamptz;
+
 CREATE OR REPLACE FUNCTION public.handle_auth_user_profile_provisioning()
 RETURNS trigger
 LANGUAGE plpgsql

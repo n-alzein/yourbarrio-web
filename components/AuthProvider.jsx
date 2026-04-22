@@ -1147,6 +1147,51 @@ async function getBusinessForUser(user) {
   return authStore.businessPromise;
 }
 
+async function fetchServerAccountSnapshot(reason = "bootstrap") {
+  try {
+    logAuthConsistency("server_snapshot:start", { reason });
+    const res = await fetch("/api/me", {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        "x-yb-auth-bootstrap": reason,
+      },
+    });
+    const payload = await res.json().catch(() => ({}));
+    const user = payload?.user ?? null;
+    if (!res.ok || !user?.id) {
+      logAuthConsistency("server_snapshot:empty", {
+        reason,
+        status: res.status,
+        hasUser: Boolean(user?.id),
+      });
+      return { user: null, profile: null, role: null, error: null };
+    }
+    const profile = payload?.profile ?? null;
+    const role =
+      payload?.accountContext?.role ||
+      profile?.role ||
+      user?.app_metadata?.role ||
+      user?.user_metadata?.role ||
+      null;
+    logAuthConsistency("server_snapshot:resolved", {
+      reason,
+      status: res.status,
+      userId: user.id,
+      hasProfile: Boolean(profile?.id),
+      role,
+    });
+    return { user, profile, role, error: null };
+  } catch (error) {
+    logAuthConsistency("server_snapshot:error", {
+      reason,
+      error: error?.message || String(error),
+    });
+    return { user: null, profile: null, role: null, error };
+  }
+}
+
 async function applyUserUpdate(user) {
   if (authStore.state.supportModeActive) {
     return;
@@ -1343,6 +1388,7 @@ async function bootstrapAuth() {
 
   authStore.bootstrapPromise = (async () => {
     updateAuthState({ authStatus: "loading", error: null });
+    logAuthConsistency("bootstrap:start");
     let user = null;
     let sessionChecked = false;
     let sessionError = null;
@@ -1363,6 +1409,11 @@ async function bootstrapAuth() {
         const session = data?.session ?? null;
         updateAuthState({ session });
         user = session?.user ?? null;
+        logAuthConsistency("bootstrap:get_session", {
+          hasSession: Boolean(session),
+          userId: user?.id || null,
+          error: error?.message ?? null,
+        });
         logAuthDiag("auth:getSession:result", {
           ok: !error,
           hasUser: Boolean(user),
@@ -1375,6 +1426,9 @@ async function bootstrapAuth() {
         if (!authStore.state.user?.id) {
           updateAuthState({ session: null });
         }
+        logAuthConsistency("bootstrap:get_session:error", {
+          error: err?.message ?? String(err),
+        });
         logAuthDiag("auth:getSession:result", {
           ok: false,
           hasUser: false,
@@ -1391,6 +1445,32 @@ async function bootstrapAuth() {
 
     if (sessionChecked) {
       if (!user || sessionError) {
+        const serverSnapshot = await fetchServerAccountSnapshot(
+          sessionError ? "bootstrap_session_error" : "bootstrap_empty_session"
+        );
+        if (serverSnapshot.user?.id) {
+          const nextUser = mergeAuthUser(authStore.state.user, serverSnapshot.user);
+          const nextProfile = serverSnapshot.profile
+            ? mergeProfileAvatar(
+                keepProfileForUser(authStore.state.profile, nextUser),
+                serverSnapshot.profile,
+                nextUser
+              )
+            : keepProfileForUser(authStore.state.profile, nextUser);
+          updateAuthState({
+            ...withGuardState(buildSignedInState({ user: nextUser })),
+            profile: nextProfile,
+            role: resolveRole(nextProfile, nextUser, serverSnapshot.role),
+            authInitialized: true,
+            error: null,
+          });
+          logAuthConsistency("bootstrap:server_snapshot:published", {
+            userId: nextUser?.id || null,
+            hasProfile: Boolean(nextProfile?.id),
+            role: authStore.state.role || null,
+          });
+          return;
+        }
         if (authStore.state.user?.id && authStore.state.authStatus === "authenticated") {
           logAuthConsistency("bootstrap:no_session:kept_authenticated", {
             reason: sessionError ? "session_error" : "empty_session",
@@ -1437,6 +1517,10 @@ async function bootstrapAuth() {
       });
     } finally {
       updateAuthState({ authInitialized: true });
+      logAuthConsistency("bootstrap:end", {
+        userId: authStore.state.user?.id || null,
+        authStatus: authStore.state.authStatus,
+      });
     }
   })().finally(() => {
     if (authStore.bootstrapAbortController === abortController) {

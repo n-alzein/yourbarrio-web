@@ -332,4 +332,51 @@ describe("auth state consistency", () => {
       );
     });
   });
+
+  it("restores from server account snapshot when browser session is empty after OAuth", async () => {
+    mockSupabase = makeSupabase({
+      getSessionImpl: vi.fn().mockResolvedValue({
+        data: { session: null },
+        error: null,
+      }),
+    });
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        user: googleUser(),
+        profile: {
+          id: "user-1",
+          role: "customer",
+          full_name: "Google User",
+          profile_photo_url: "https://lh3.googleusercontent.com/google.jpg",
+        },
+        accountContext: {
+          role: "customer",
+        },
+      }),
+    } as Response);
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("status")).toHaveTextContent("authenticated");
+      expect(screen.getByTestId("user-id")).toHaveTextContent("user-1");
+      expect(screen.getByTestId("profile-id")).toHaveTextContent("user-1");
+      expect(screen.getByTestId("avatar")).toHaveTextContent(
+        "https://lh3.googleusercontent.com/google.jpg"
+      );
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/me",
+      expect.objectContaining({
+        cache: "no-store",
+        credentials: "include",
+      })
+    );
+  });
 });
