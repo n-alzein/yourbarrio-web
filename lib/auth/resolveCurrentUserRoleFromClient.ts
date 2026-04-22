@@ -49,12 +49,19 @@ export async function resolveCurrentUserRoleFromClient(
       return { user, role: appRole };
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle()
-      .catch((error: unknown) => ({ data: null, error }));
+    let profile = null;
+    let profileError: unknown = null;
+    try {
+      const result = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      profile = result.data;
+      profileError = result.error;
+    } catch (error) {
+      profileError = error;
+    }
     if (!profileError) {
       const profileRole = normalizeRole(profile?.role);
       if (profileRole) {
@@ -68,11 +75,18 @@ export async function resolveCurrentUserRoleFromClient(
       });
     }
 
-    const { data: adminRows, error: adminError } = await supabase
-      .from("admin_role_members")
-      .select("role_key")
-      .eq("user_id", user.id)
-      .catch((error: unknown) => ({ data: null, error }));
+    let adminRows = null;
+    let adminError: unknown = null;
+    try {
+      const result = await supabase
+        .from("admin_role_members")
+        .select("role_key")
+        .eq("user_id", user.id);
+      adminRows = result.data;
+      adminError = result.error;
+    } catch (error) {
+      adminError = error;
+    }
 
     if (!adminError && Array.isArray(adminRows)) {
       const hasAdminRole = adminRows.some((row) => ADMIN_ROLE_KEYS.has(String(row?.role_key || "")));
