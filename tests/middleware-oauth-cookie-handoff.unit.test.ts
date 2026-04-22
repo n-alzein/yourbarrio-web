@@ -26,6 +26,19 @@ function makeRequest(pathname: string, cookie = "sb-test-auth-token=fake-session
   });
 }
 
+function makeWwwDocumentRequest(pathname: string) {
+  return new NextRequest(`https://www.yourbarrio.com${pathname}`, {
+    headers: {
+      host: "www.yourbarrio.com",
+      "x-forwarded-host": "www.yourbarrio.com",
+      "x-forwarded-proto": "https",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-dest": "document",
+      "sec-fetch-user": "?1",
+    },
+  });
+}
+
 function buildSupabaseMock() {
   return {
     rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "missing session" } }),
@@ -101,5 +114,16 @@ describe("middleware OAuth cookie handoff", () => {
     expect(response.headers.get("set-cookie")).toContain(
       "sb-test-auth-token=refreshed-session"
     );
+  });
+
+  it("redirects www document navigations to the apex production host before auth handling", async () => {
+    const response = await middleware(makeWwwDocumentRequest("/customer/home?tab=orders"));
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(
+      "https://yourbarrio.com/customer/home?tab=orders"
+    );
+    expect(createServerClientMock).not.toHaveBeenCalled();
+    expect(resolveCurrentUserRoleFromClientMock).not.toHaveBeenCalled();
   });
 });

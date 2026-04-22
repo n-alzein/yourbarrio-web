@@ -21,6 +21,28 @@ const IMPERSONATE_TARGET_ROLE_COOKIE = "yb_impersonate_target_role";
 const CUSTOMER_NEARBY_PUBLIC_FLAG_PATH = "/api/flags/customer-nearby-public";
 const NEARBY_PUBLIC_COOKIE_NAME = "yb_nearby_public";
 
+function firstHeaderValue(value) {
+  return String(value || "")
+    .split(",")[0]
+    .trim();
+}
+
+function getRequestHost(request) {
+  return (
+    firstHeaderValue(request.headers.get("x-forwarded-host")) ||
+    firstHeaderValue(request.headers.get("host")) ||
+    request.nextUrl.host
+  );
+}
+
+function shouldLogCanonicalHost() {
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.AUTH_DIAG_SERVER === "1" ||
+    process.env.NEXT_PUBLIC_AUTH_DIAG === "1"
+  );
+}
+
 function shouldTraceAuthFlow(pathname) {
   if (!pathname) return false;
   return (
@@ -206,6 +228,36 @@ export async function middleware(request) {
     nextUrlHeader.includes("_rsc=") ||
     nextUrlString.includes("_rsc=");
   const canRedirect = isDocumentNavigation && !isRscQuery;
+  const requestHost = getRequestHost(request);
+  const requestHostname = requestHost.split(":")[0].toLowerCase();
+  if (requestHostname === "www.yourbarrio.com") {
+    if (canRedirect) {
+      const canonicalUrl = request.nextUrl.clone();
+      canonicalUrl.protocol = "https:";
+      canonicalUrl.hostname = "yourbarrio.com";
+      canonicalUrl.port = "";
+      if (shouldLogCanonicalHost()) {
+        console.info("[CANONICAL_HOST]", {
+          fromHost: requestHost,
+          toOrigin: "https://yourbarrio.com",
+          pathname,
+          redirected: true,
+          isRscQuery,
+        });
+      }
+      return NextResponse.redirect(canonicalUrl, 308);
+    }
+    if (shouldLogCanonicalHost()) {
+      console.warn("[CANONICAL_HOST]", {
+        fromHost: requestHost,
+        toOrigin: "https://yourbarrio.com",
+        pathname,
+        redirected: false,
+        reason: "non_document_or_rsc",
+        isRscQuery,
+      });
+    }
+  }
   const isBusinessLandingRoute = pathname === "/business" || pathname === "/business/";
   const isDebugRsc = process.env.DEBUG_RSC === "1";
   const businessLandingGuardMeta = {
@@ -882,6 +934,7 @@ export async function middleware(request) {
 
 export const config = {
   matcher: [
+    "/:path*",
     "/admin/:path*",
     "/customer/:path*",
     "/business/:path*",
