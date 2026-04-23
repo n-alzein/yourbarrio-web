@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { useAuth } from "@/components/AuthProvider";
 
 export default function AuthSeed({
@@ -12,7 +12,7 @@ export default function AuthSeed({
 }) {
   const { seedAuthState } = useAuth();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof seedAuthState !== "function") return;
     seedAuthState({
       initialUser: user ?? null,

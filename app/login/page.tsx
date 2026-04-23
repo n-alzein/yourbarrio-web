@@ -1,7 +1,17 @@
 import CustomerLoginForm from "@/components/auth/CustomerLoginForm";
+import { redirect } from "next/navigation";
+import { getCurrentAccountContext } from "@/lib/auth/getCurrentAccountContext";
+import { getPostLoginRedirect } from "@/lib/auth/redirects";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+function getNonLoginNext(value: string | null) {
+  if (!value) return null;
+  if (value === "/login" || value.startsWith("/login?")) return null;
+  if (value === "/signin" || value.startsWith("/signin?")) return null;
+  return value;
+}
 
 export default async function LoginPage({
   searchParams,
@@ -15,6 +25,33 @@ export default async function LoginPage({
       : typeof resolvedSearchParams.returnUrl === "string"
         ? resolvedSearchParams.returnUrl
         : null;
+  const accountContext = await getCurrentAccountContext({
+    source: "login-page",
+  });
+
+  if (accountContext?.user?.id) {
+    const destination = getPostLoginRedirect({
+      role:
+        accountContext.role ||
+        accountContext.profile?.role ||
+        accountContext.user?.app_metadata?.role ||
+        accountContext.user?.user_metadata?.role ||
+        "customer",
+      requestedPath: getNonLoginNext(next),
+    });
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[AUTH_LOGIN_REDIRECT]", {
+        source: "login-page",
+        hasSession: true,
+        userId: accountContext.user.id,
+        hasProfile: Boolean(accountContext.profile?.id),
+        role: accountContext.role || accountContext.profile?.role || null,
+        requestedPath: next || null,
+        destination,
+      });
+    }
+    redirect(destination);
+  }
 
   if (process.env.NODE_ENV !== "production") {
     console.info("[auth-next] login page next:", next || "/");

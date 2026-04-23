@@ -9,6 +9,8 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+DROP FUNCTION IF EXISTS public.admin_list_accounts(text, boolean, text, integer, integer);
+
 CREATE OR REPLACE FUNCTION public.admin_list_accounts(
   p_role text DEFAULT 'all',
   p_internal boolean DEFAULT NULL,

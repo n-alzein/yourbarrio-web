@@ -134,6 +134,7 @@ describe("auth state consistency", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
     __resetAuthStoreForTests();
@@ -378,5 +379,53 @@ describe("auth state consistency", () => {
         credentials: "include",
       })
     );
+  });
+
+  it("does not downgrade an OAuth handoff landing to guest on a transient empty server snapshot", async () => {
+    window.history.pushState({}, "", "/customer/home?yb_auth_handoff=1&yb_auth_fresh=test");
+    searchParams = new URLSearchParams("yb_auth_handoff=1&yb_auth_fresh=test");
+    mockSupabase = makeSupabase({
+      getSessionImpl: vi.fn().mockResolvedValue({
+        data: { session: null },
+        error: null,
+      }),
+    });
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({}),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          user: googleUser(),
+          profile: {
+            id: "user-1",
+            role: "customer",
+            full_name: "Google User",
+            profile_photo_url: "https://lh3.googleusercontent.com/google.jpg",
+          },
+          accountContext: {
+            role: "customer",
+          },
+        }),
+      } as Response);
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    expect(screen.getByTestId("status")).toHaveTextContent("loading");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("status")).toHaveTextContent("authenticated");
+      expect(screen.getByTestId("user-id")).toHaveTextContent("user-1");
+      expect(screen.getByTestId("profile-id")).toHaveTextContent("user-1");
+    });
+    expect(screen.queryByText("unauthenticated")).not.toBeInTheDocument();
   });
 });

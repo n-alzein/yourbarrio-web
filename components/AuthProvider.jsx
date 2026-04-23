@@ -1192,6 +1192,44 @@ async function fetchServerAccountSnapshot(reason = "bootstrap") {
   }
 }
 
+function isAuthHandoffUrl() {
+  if (typeof window === "undefined") return false;
+  try {
+    const url = new URL(window.location.href);
+    return url.searchParams.get(AUTH_HANDOFF_PARAM) === "1";
+  } catch {
+    return false;
+  }
+}
+
+async function fetchServerAccountSnapshotWithHandoffRetry(reason = "bootstrap") {
+  const maxAttempts = isAuthHandoffUrl() ? 5 : 1;
+  let lastSnapshot = { user: null, profile: null, role: null, error: null };
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    lastSnapshot = await fetchServerAccountSnapshot(
+      attempt === 1 ? reason : `${reason}_retry_${attempt}`
+    );
+    if (lastSnapshot.user?.id) {
+      if (attempt > 1) {
+        logAuthConsistency("server_snapshot:handoff_retry_recovered", {
+          reason,
+          attempt,
+          userId: lastSnapshot.user.id,
+        });
+      }
+      return lastSnapshot;
+    }
+    if (attempt < maxAttempts) {
+      logAuthConsistency("server_snapshot:handoff_retry_wait", {
+        reason,
+        attempt,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  }
+  return lastSnapshot;
+}
+
 async function applyUserUpdate(user) {
   if (authStore.state.supportModeActive) {
     return;
@@ -1373,6 +1411,35 @@ async function handleMissingUserAuthEvent(event) {
     return;
   }
 
+  if (isAuthHandoffUrl()) {
+    const serverSnapshot = await fetchServerAccountSnapshotWithHandoffRetry(
+      `auth_event_no_user_${event || "unknown"}`
+    );
+    if (serverSnapshot.user?.id) {
+      const nextUser = mergeAuthUser(authStore.state.user, serverSnapshot.user);
+      const nextProfile = serverSnapshot.profile
+        ? mergeProfileAvatar(
+            keepProfileForUser(authStore.state.profile, nextUser),
+            serverSnapshot.profile,
+            nextUser
+          )
+        : keepProfileForUser(authStore.state.profile, nextUser);
+      updateAuthState({
+        ...withGuardState(buildSignedInState({ user: nextUser })),
+        profile: nextProfile,
+        role: resolveRole(nextProfile, nextUser, serverSnapshot.role),
+        authInitialized: true,
+        error: null,
+        lastAuthEvent: event,
+      });
+      logAuthConsistency("auth_event:no_user:handoff_recovered", {
+        event,
+        userId: nextUser?.id || null,
+      });
+      return;
+    }
+  }
+
   applySignedOutState("auth_event:no_user", {
     resetGuardState: false,
     clearAuthSuppression: true,
@@ -1445,7 +1512,7 @@ async function bootstrapAuth() {
 
     if (sessionChecked) {
       if (!user || sessionError) {
-        const serverSnapshot = await fetchServerAccountSnapshot(
+        const serverSnapshot = await fetchServerAccountSnapshotWithHandoffRetry(
           sessionError ? "bootstrap_session_error" : "bootstrap_empty_session"
         );
         if (serverSnapshot.user?.id) {

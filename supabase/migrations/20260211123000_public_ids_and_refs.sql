@@ -9,9 +9,12 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
 CREATE OR REPLACE FUNCTION public.generate_short_id()
 RETURNS text
 LANGUAGE sql
+SET search_path = extensions, pg_catalog
 AS $$
   SELECT substr(encode(gen_random_bytes(6), 'hex'), 1, 12);
 $$;
@@ -173,6 +176,8 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS public.admin_list_accounts(text, boolean, text, integer, integer);
+
 CREATE OR REPLACE FUNCTION public.admin_list_accounts(
   p_role text DEFAULT 'all',
   p_internal boolean DEFAULT NULL,
@@ -305,4 +310,3 @@ GRANT EXECUTE ON FUNCTION public.admin_resolve_user_ref(text) TO authenticated;
 
 REVOKE ALL ON FUNCTION public.resolve_listing_ref(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.resolve_listing_ref(text) TO anon, authenticated;
-

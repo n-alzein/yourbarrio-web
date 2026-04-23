@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { useModal } from "@/components/modals/ModalProvider";
@@ -39,7 +39,6 @@ export default function CustomerLoginForm({
     authAttemptId,
   } = useAuth();
   const modal = useModal();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const authDiagEnabled = process.env.NEXT_PUBLIC_AUTH_DIAG === "1";
   const debugAuth = process.env.NEXT_PUBLIC_DEBUG_AUTH === "1";
@@ -336,15 +335,15 @@ export default function CustomerLoginForm({
       onSuccess?.(dest, { isAdmin });
       if (isAdmin) {
         if (process.env.NODE_ENV !== "production") {
-          console.info("[auth-next] post-login push:", dest);
+          console.info("[auth-next] post-login replace:", dest);
         }
         window.location.replace(dest);
         return;
       }
       if (process.env.NODE_ENV !== "production") {
-        console.info("[auth-next] post-login push:", dest);
+        console.info("[auth-next] post-login replace:", dest);
       }
-      router.replace(dest);
+      window.location.replace(dest);
     } catch (err) {
       if (isStale()) return;
       if (!isGenericInvalidCredentialsError(err)) {

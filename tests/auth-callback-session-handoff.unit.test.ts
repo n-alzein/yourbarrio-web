@@ -128,8 +128,8 @@ describe("auth callback session handoff", () => {
     );
 
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe(
-      "https://www.yourbarrio.com/auth/handoff?next=%2Fcustomer%2Fhome&yb_auth_handoff=1"
+    expect(response.headers.get("location")).toMatch(
+      /^https:\/\/www\.yourbarrio\.com\/customer\/home\?yb_auth_handoff=1&yb_auth_fresh=/
     );
     expect(response.headers.get("x-auth-callback-has-cookies")).toBe("1");
     expect(response.headers.get("x-auth-callback-has-set-cookie")).toBe("1");
@@ -195,8 +195,8 @@ describe("auth callback session handoff", () => {
     );
 
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe(
-      "https://www.yourbarrio.com/auth/handoff?next=%2Fcustomer%2Fhome&yb_auth_handoff=1"
+    expect(response.headers.get("location")).toMatch(
+      /^https:\/\/www\.yourbarrio\.com\/customer\/home\?yb_auth_handoff=1&yb_auth_fresh=/
     );
     expect(response.headers.get("location")).not.toContain("/login");
     expect(response.headers.get("x-auth-callback-has-cookies")).toBe("1");

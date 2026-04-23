@@ -5,11 +5,14 @@ BEGIN
   END IF;
 END$$;
 
-LOCK TABLE public.listings IN SHARE ROW EXCLUSIVE MODE;
+DO $$
+BEGIN
+  LOCK TABLE public.listings IN SHARE ROW EXCLUSIVE MODE;
 
-UPDATE public.listings
-SET public_id = public.generate_short_id()
-WHERE public_id IS NULL OR btrim(public_id) = '';
+  UPDATE public.listings
+  SET public_id = public.generate_short_id()
+  WHERE public_id IS NULL OR btrim(public_id) = '';
+END$$;
 
 DO $$
 DECLARE

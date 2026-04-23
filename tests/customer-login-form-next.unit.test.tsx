@@ -4,6 +4,7 @@ import CustomerLoginForm from "@/components/auth/CustomerLoginForm";
 
 const replaceMock = vi.fn();
 const pushMock = vi.fn();
+const locationReplaceMock = vi.fn();
 const openModalMock = vi.fn();
 const beginAuthAttemptMock = vi.fn(() => 1);
 const endAuthAttemptMock = vi.fn();
@@ -121,6 +122,7 @@ describe("CustomerLoginForm next priority", () => {
   beforeEach(() => {
     replaceMock.mockReset();
     pushMock.mockReset();
+    locationReplaceMock.mockReset();
     openModalMock.mockReset();
     beginAuthAttemptMock.mockClear();
     endAuthAttemptMock.mockClear();
@@ -132,6 +134,13 @@ describe("CustomerLoginForm next priority", () => {
       endAuthAttempt: endAuthAttemptMock,
       authAttemptId: 0,
     };
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: {
+        ...window.location,
+        replace: locationReplaceMock,
+      },
+    });
   });
 
   it("redirects to the explicit next path after password login even when stale intent exists", async () => {
@@ -148,8 +157,9 @@ describe("CustomerLoginForm next priority", () => {
     fireEvent.click(screen.getByRole("button", { name: "Log in" }));
 
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith("/b/test-shop?ref=hero");
+      expect(locationReplaceMock).toHaveBeenCalledWith("/b/test-shop?ref=hero");
     });
+    expect(replaceMock).not.toHaveBeenCalled();
     expect(consumeAuthIntentMock).not.toHaveBeenCalled();
   });
 
@@ -167,7 +177,8 @@ describe("CustomerLoginForm next priority", () => {
     fireEvent.click(screen.getByRole("button", { name: "Log in" }));
 
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith("/customer/home");
+      expect(locationReplaceMock).toHaveBeenCalledWith("/customer/home");
     });
+    expect(replaceMock).not.toHaveBeenCalled();
   });
 });

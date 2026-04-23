@@ -19,7 +19,6 @@ import {
 
 const AUTH_CALLBACK_HANDLER_MARKER = "app/api/auth/callback/route.js";
 const AUTH_HANDOFF_PARAM = "yb_auth_handoff";
-const AUTH_HANDOFF_PATH = "/auth/handoff";
 
 function firstHeaderValue(value) {
   return String(value || "")
@@ -135,6 +134,13 @@ function isAllowedNextPath(value) {
     !path.startsWith("/_next/") &&
     !path.startsWith("/_vercel/")
   );
+}
+
+function addFreshAuthParams(path) {
+  const parsed = new URL(path || "/", "https://yourbarrio.local");
+  parsed.searchParams.set(AUTH_HANDOFF_PARAM, "1");
+  parsed.searchParams.set("yb_auth_fresh", Date.now().toString(36));
+  return `${parsed.pathname}${parsed.search}`;
 }
 
 async function ensureBusinessProvisioned({ user, debug }) {
@@ -259,20 +265,18 @@ export async function GET(request) {
   };
 
   const buildRedirectResponse = ({ destination, role, reason }) => {
-    const chosenDestination = destination || "/onboarding";
+    const chosenDestination = addFreshAuthParams(destination || "/onboarding");
     if (shouldLogCallback) {
       console.info("[auth-next] callback final redirect:", chosenDestination);
     }
-    const handoffUrl = new URL(AUTH_HANDOFF_PATH, redirectOrigin);
-    handoffUrl.searchParams.set("next", chosenDestination);
-    handoffUrl.searchParams.set(AUTH_HANDOFF_PARAM, "1");
+    const finalUrl = new URL(chosenDestination, redirectOrigin);
     const { response: redirectResponse, hasSupabaseCookies } = attachSupabaseCookies(
-      NextResponse.redirect(handoffUrl, 303)
+      NextResponse.redirect(finalUrl, 303)
     );
     if (shouldLogCallback) {
       const setCookieHeader = redirectResponse.headers.get("set-cookie") || "";
       console.info("[AUTH_CALLBACK_TRACE] final_response", {
-        destination: `${handoffUrl.pathname}${handoffUrl.search}`,
+        destination: `${finalUrl.pathname}${finalUrl.search}`,
         finalDestination: chosenDestination,
         redirectOrigin,
         hasSupabaseCookies,
@@ -287,7 +291,7 @@ export async function GET(request) {
     redirectResponse.headers.set("x-auth-callback-handler", AUTH_CALLBACK_HANDLER_MARKER);
     redirectResponse.headers.set(
       "x-auth-callback-destination",
-      `${handoffUrl.pathname}${handoffUrl.search}`
+      `${finalUrl.pathname}${finalUrl.search}`
     );
     redirectResponse.headers.set(
       "x-auth-callback-has-cookies",
@@ -300,7 +304,7 @@ export async function GET(request) {
     if (shouldLogCallback) {
       console.warn(
         "[AUTH_CALLBACK_TRACE] destination",
-        `${handoffUrl.pathname}${handoffUrl.search}`,
+        `${finalUrl.pathname}${finalUrl.search}`,
         "rawNext",
         rawNext,
         "reason",
@@ -309,7 +313,7 @@ export async function GET(request) {
       redirectResponse.headers.set("X-YB-Auth-NextRaw", rawNext ?? "");
       redirectResponse.headers.set(
         "X-YB-Auth-NextChosen",
-        `${handoffUrl.pathname}${handoffUrl.search}`
+        `${finalUrl.pathname}${finalUrl.search}`
       );
       redirectResponse.headers.set("X-YB-Auth-Role", role ?? "");
     }
