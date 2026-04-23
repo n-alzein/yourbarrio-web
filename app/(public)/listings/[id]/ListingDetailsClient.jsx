@@ -596,6 +596,11 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
   const purchaseRestricted = accountContext.purchaseRestricted;
   const purchaseEligibilityPending = accountContext.rolePending;
   const galleryPhotos = extractPhotoUrls(listing.photo_url);
+  const mobileGalleryPhotos = galleryPhotos.slice(0, 5);
+  const mobileGalleryOverflowCount = Math.max(
+    galleryPhotos.length - mobileGalleryPhotos.length,
+    0
+  );
   const inventory = normalizeInventory(listing);
   const badgeStyle = getAvailabilityBadgeStyle(inventory.availability, isLight);
   const isOutOfStock = inventory.availability === "out" || maxPurchasableQuantity <= 0;
@@ -643,7 +648,7 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
               style={{ background: "var(--surface)", border: "1px solid rgba(15,23,42,0.08)" }}
             >
               {galleryPhotos.length > 1 ? (
-                <div className="absolute left-4 top-4 z-10 flex flex-col gap-2 rounded-[20px] border p-2 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.18)]">
+                <div className="absolute left-4 top-4 z-10 hidden flex-col gap-2 rounded-[20px] border p-2 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.18)] md:flex">
                   {galleryPhotos.map((photo, idx) => {
                     const active = heroSrc === photo;
                     return (
@@ -717,6 +722,51 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
                 </div>
                 <div className="pointer-events-none absolute inset-0 ring-1 ring-black/[0.04]" />
               </div>
+              {galleryPhotos.length > 1 ? (
+                <div className="mx-4 mt-3 flex max-w-full gap-2 overflow-x-auto scroll-smooth px-1 pb-2 md:hidden">
+                  {mobileGalleryPhotos.map((photo, idx) => {
+                    const active = heroSrc === photo;
+                    const showOverflowCount =
+                      idx === mobileGalleryPhotos.length - 1 &&
+                      mobileGalleryOverflowCount > 0;
+                    return (
+                      <button
+                        key={`${photo}-${idx}-mobile`}
+                        type="button"
+                        onClick={() => setHeroSrc(photo)}
+                        className={`relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border bg-white transition ${
+                          active ? "ring-2 ring-purple-500" : ""
+                        }`}
+                        style={{
+                          borderColor: active
+                            ? "rgba(110,52,255,0.45)"
+                            : "rgba(15,23,42,0.08)",
+                        }}
+                        aria-label={
+                          showOverflowCount
+                            ? `View photo ${idx + 1}, plus ${mobileGalleryOverflowCount} more`
+                            : `View photo ${idx + 1}`
+                        }
+                      >
+                        <SafeImage
+                          src={photo}
+                          alt={`Listing photo ${idx + 1}`}
+                          className="object-cover"
+                          fill
+                          sizes="64px"
+                          useNextImage
+                          fallbackSrc={getListingCategoryPlaceholder(listing)}
+                        />
+                        {showOverflowCount ? (
+                          <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-sm font-semibold text-white">
+                            +{mobileGalleryOverflowCount}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
               <div className="space-y-0 p-5 md:p-6">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] opacity-72">

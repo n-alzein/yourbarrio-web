@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useReducer, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { getBusinessTypeOptions } from "@/lib/taxonomy/businessTypes";
@@ -349,106 +350,179 @@ export default function BusinessOnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen px-4 sm:px-6 lg:px-10 pt-0 pb-20 relative text-white overflow-hidden bg-slate-950">
-      <div className="absolute inset-0 bg-[#05010d]" />
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/40 via-slate-950 to-amber-900/30" />
-      <div className="absolute -top-32 -left-20 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
-      <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-amber-400/20 blur-3xl" />
+    <div className="relative min-h-screen overflow-hidden bg-[#fbf9ff] px-4 py-8 text-slate-950 sm:px-6 lg:px-10 lg:py-10">
+      <div className="relative mx-auto max-w-7xl">
+        <div className="grid gap-8 lg:min-h-[calc(100vh-5rem)] lg:grid-cols-[0.86fr_1.14fr] lg:items-center xl:gap-12">
+          <aside className="px-1 sm:px-2 lg:px-0">
+            <div className="max-w-[510px]">
+              <div className="flex items-center">
+                <Image
+                  src="/logo.png"
+                  alt="YourBarrio"
+                  width={867}
+                  height={306}
+                  priority
+                  className="h-auto w-[178px] object-contain"
+                />
+              </div>
 
-      <div className="relative max-w-6xl mx-auto">
-        <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
-          <div className="space-y-8 pt-6 md:pt-10">
-            <div className="space-y-4">
-              <h1 className="text-4xl sm:text-5xl font-semibold leading-tight text-[#fff]">
-                Build a storefront that feels local, modern, and trusted.
-              </h1>
-              <p className="text-base sm:text-lg text-slate-200 max-w-xl">
-                Share the essentials now so customers can find you, contact you, and
-                start ordering in minutes.
-              </p>
-            </div>
+              <div className="mt-14 max-w-[430px]">
+                <p className="text-xs font-bold uppercase tracking-[0.38em] text-purple-700">
+                  Local marketplace launch
+                </p>
+                <h1 className="mt-5 text-4xl font-semibold leading-[1.04] tracking-tight text-slate-950 sm:text-5xl">
+                  Open your shop on YourBarrio
+                </h1>
+                <p className="mt-4 text-base leading-7 text-slate-700">
+                  Help nearby customers discover your business, explore what you
+                  offer, and reach out in minutes. Set up the essentials now and
+                  update your details anytime.
+                </p>
+              </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              {[
-                {
-                  title: "Neighborhood discovery",
-                  detail: "Appear in nearby searches with accurate location data.",
-                },
-                {
-                  title: "Better conversions",
-                  detail: "Clear details increase trust and first-time orders.",
-                },
-                {
-                  title: "Profile ready",
-                  detail: "We pre-fill your business page with your brand story.",
-                },
-                {
-                  title: "Flexible updates",
-                  detail: "Change any detail later from Business Settings.",
-                },
-              ].map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4"
-                >
-                  <p className="text-sm font-semibold text-[#fff]">{item.title}</p>
-                  <p className="mt-2 text-sm text-slate-300">{item.detail}</p>
+              <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-medium text-slate-700">
+                {["Free to start", "Edit anytime", "Reach locals"].map((item) => (
+                  <span key={item} className="inline-flex items-center gap-2">
+                    <span className="grid h-5 w-5 place-items-center rounded-full bg-purple-600 text-[#fff]">
+                      <svg
+                        aria-hidden="true"
+                        className="h-3 w-3"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 0 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </span>
+                    {item}
+                  </span>
+                ))}
+              </div>
+
+              <div className="mt-7 max-w-[430px] rounded-3xl border border-purple-100/70 bg-white/95 p-5 shadow-[0_28px_70px_-44px_rgba(88,28,135,0.36)]">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.32em] text-purple-700">
+                    YourBarrio preview
+                  </p>
+                  <span
+                    className="grid h-9 w-9 place-items-center rounded-full bg-purple-600 text-[#fff]"
+                    aria-hidden="true"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M20.8 4.6c-1.8-1.7-4.6-1.6-6.3.2L12 7.4 9.5 4.8C7.8 3 5 2.9 3.2 4.6c-1.9 1.8-2 4.9-.1 6.8L12 20l8.9-8.6c1.9-1.9 1.8-5-.1-6.8Z" />
+                    </svg>
+                  </span>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          <div className="relative pt-6 md:pt-10">
-            <div className="absolute inset-0 rounded-[28px] bg-gradient-to-br from-emerald-500/10 via-transparent to-amber-500/10" />
+                <div className="mt-4 grid gap-5 sm:grid-cols-[1fr_128px]">
+                  <div>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                        Jewelry & Accessories
+                      </span>
+                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                        Popular nearby
+                      </span>
+                    </div>
+                    <h2 className="mt-4 flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-950">
+                      Luna Studio
+                      <span className="h-2.5 w-2.5 rounded-full bg-purple-400" />
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      Handcrafted pieces, keepsakes, and gifts for everyday wear.
+                    </p>
+                    <div className="mt-4 flex flex-wrap items-center gap-2.5 text-sm text-slate-600">
+                      <span className="font-semibold text-slate-950">4.8 star</span>
+                      <span>24 reviews</span>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                      <span>12 saves</span>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                      <span className="text-slate-500/75">Updated recently</span>
+                    </div>
+                  </div>
+
+                  <div className="overflow-hidden rounded-2xl bg-transparent">
+                    <Image
+                      src="/images/categories/jewelry-accessories.png"
+                      alt=""
+                      width={128}
+                      height={156}
+                      className="h-36 w-full object-cover"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <div className="relative">
             <form
               onSubmit={handleSubmit}
-              className="relative rounded-[28px] border border-white/10 bg-white/[0.08] backdrop-blur-2xl shadow-2xl px-6 sm:px-8 py-8 space-y-8"
+              className="relative rounded-[28px] border border-purple-100/80 bg-white px-5 py-6 text-slate-950 shadow-[0_24px_80px_-48px_rgba(41,20,89,0.45)] sm:px-8 sm:py-8"
             >
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col gap-4 border-b border-purple-100/70 pb-6 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h2 className="text-2xl font-semibold">Business details</h2>
-                  <p className="text-sm text-slate-200">
-                    Tell us about your business and where customers can find you.
+                  <p className="text-sm font-semibold uppercase tracking-[0.14em] text-purple-700">
+                    Launch your local shop
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                    Business details
+                  </h2>
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+                    Add the essentials customers need to discover, trust, and contact
+                    your business.
                   </p>
                 </div>
-                <div className="h-10 w-10 rounded-2xl border border-white/10 bg-white/10 grid place-items-center text-sm font-semibold">
-                  1/1
+                <div className="inline-flex w-fit min-w-[92px] whitespace-nowrap items-center gap-2 rounded-full border border-purple-100/70 bg-purple-50/55 px-3.5 py-2 text-xs font-medium text-purple-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+                  Step 1 of 1
                 </div>
               </div>
 
               {message && (
-                <div className="rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                   {message}
                 </div>
               )}
 
+              <div className="mt-8 space-y-8">
+
               <FormSection
                 title="Basics"
-                description="Give shoppers a quick snapshot of what you offer."
+                description="Start with the name and category customers will recognize."
               >
                 <FormField
                   label="Business name"
                   value={form.businessName}
-                  placeholder="e.g., Barrio Coffee House"
+                  placeholder="e.g., Luna Studio"
                   onChange={(v) => updateField("businessName", v)}
                   required
                 />
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">
+                  <label className="mb-2 block text-sm font-semibold text-slate-800">
                     Business type
                   </label>
                   <select
                     value={form.business_type}
                     onChange={(e) => updateField("business_type", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/20 text-white focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400/40 outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-purple-400 focus:ring-4 focus:ring-purple-500/15"
                     required
                   >
                     <option value="" disabled>
                       Select a business type
                     </option>
                     {BUSINESS_TYPE_OPTIONS.map((type) => (
-                      <option key={type.slug} value={type.slug} className="text-black">
+                      <option key={type.slug} value={type.slug}>
                         {type.label}
                       </option>
                     ))}
@@ -467,7 +541,7 @@ export default function BusinessOnboardingPage() {
 
               <FormSection
                 title="Location"
-                description="Accurate address details help customers and delivery teams."
+                description="Use the address customers should associate with your shop."
               >
                 <FormField
                   label="Street address"
@@ -484,7 +558,7 @@ export default function BusinessOnboardingPage() {
                     }
                   }}
                   required
-                  helper="Enter the street and number."
+                  helper="Use the storefront, studio, or service address customers should see."
                   error={fieldErrors.address}
                 />
 
@@ -504,11 +578,11 @@ export default function BusinessOnboardingPage() {
                   helper="Optional"
                 />
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-5 md:grid-cols-3">
                   <FormField
                     label="City"
                     value={form.city}
-                    placeholder="Long Beach"
+                    placeholder="City"
                     onChange={(v) => updateField("city", v)}
                     required
                     error={fieldErrors.city}
@@ -530,7 +604,7 @@ export default function BusinessOnboardingPage() {
                   <FormField
                     label="Postal code"
                     value={form.postal_code}
-                    placeholder="90802"
+                    placeholder="ZIP code"
                     onChange={(v) => updateField("postal_code", v)}
                     required
                     error={fieldErrors.postal_code}
@@ -540,9 +614,9 @@ export default function BusinessOnboardingPage() {
 
               <FormSection
                 title="Contact"
-                description="Share how customers can reach you online or by phone."
+                description="Give nearby customers a clear way to reach you."
               >
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-5 md:grid-cols-2">
                   <FormField
                     label="Phone number"
                     value={form.phone}
@@ -560,21 +634,20 @@ export default function BusinessOnboardingPage() {
                 </div>
               </FormSection>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className={`w-full py-3 rounded-xl text-base sm:text-lg font-semibold text-white
-                bg-gradient-to-r from-emerald-500 via-teal-500 to-amber-500
-                shadow-[0_12px_40px_-20px_rgba(16,185,129,0.8)] transition transform
-                ${
-                  loading
-                    ? "opacity-70 cursor-not-allowed"
-                    : "hover:scale-[1.01] active:scale-95"
-                }
-              `}
-              >
-                {loading ? "Creating..." : "Create Business Profile"}
-              </button>
+                <div className="-mb-1 rounded-2xl border border-purple-100 bg-white px-4 py-2 text-xs leading-5 text-slate-500/85">
+                  <span className="font-semibold text-purple-700">Free to start.</span> Nearby
+                  customers can discover your storefront after setup, and you can
+                  edit details anytime.
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#6e34ff] to-[#7538ee] px-5 py-3.5 text-base font-bold text-[#fff] shadow-[0_12px_28px_-18px_rgba(110,52,255,0.64)] transition hover:from-[#5e2de0] hover:to-[#6d28d9] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/40 disabled:cursor-not-allowed disabled:from-purple-300 disabled:to-purple-300 disabled:shadow-none"
+                >
+                  {loading ? "Creating..." : "Launch your storefront"}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -588,15 +661,70 @@ export default function BusinessOnboardingPage() {
 // ------------------------------
 function FormSection({ title, description, children }) {
   return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-lg font-semibold">{title}</h3>
-        {description ? (
-          <p className="text-sm text-white/60 mt-1">{description}</p>
-        ) : null}
+    <section className="rounded-2xl border border-purple-100/70 bg-white p-5 shadow-[0_10px_30px_-24px_rgba(88,28,135,0.45)] sm:p-6">
+      <div className="mb-5 flex items-start gap-2">
+        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-purple-50/50 p-0 text-purple-500">
+          <SectionIcon title={title} />
+        </div>
+        <div>
+          <h3 className="text-base font-semibold tracking-tight text-slate-950">{title}</h3>
+          {description ? (
+            <p className="mt-1 text-sm leading-5 text-slate-500">{description}</p>
+          ) : null}
+        </div>
       </div>
-      <div className="space-y-4">{children}</div>
-    </div>
+      <div className="space-y-6">{children}</div>
+    </section>
+  );
+}
+
+function SectionIcon({ title }) {
+  if (title === "Location") {
+    return (
+      <svg
+        aria-hidden="true"
+        className="h-4 w-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path d="M12 21s7-5.1 7-11a7 7 0 1 0-14 0c0 5.9 7 11 7 11Z" />
+        <circle cx="12" cy="10" r="2.5" />
+      </svg>
+    );
+  }
+
+  if (title === "Contact") {
+    return (
+      <svg
+        aria-hidden="true"
+        className="h-4 w-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-11Z" />
+        <path d="m6.5 8 5.5 4 5.5-4" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M5 20V7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5V20" />
+      <path d="M3 20h18" />
+      <path d="M9 9h6" />
+      <path d="M9 13h6" />
+    </svg>
   );
 }
 
@@ -615,17 +743,17 @@ function FormField({
 }) {
   const hasError = Boolean(error);
   const inputClassName = [
-    "w-full px-4 py-3 rounded-xl bg-white/5 border text-sm",
-    "text-white placeholder-white/40 focus:ring-2 focus:border-transparent outline-none",
+    "w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-950 shadow-sm",
+    "placeholder:text-slate-400 outline-none transition focus:ring-4",
     hasError
-      ? "border-rose-400/80 focus:ring-rose-400/40"
-      : "border-white/20 focus:ring-emerald-400/40",
+      ? "border-rose-300 focus:border-rose-400 focus:ring-rose-500/15"
+      : "border-slate-200 focus:border-purple-400 focus:ring-purple-500/15",
   ].join(" ");
   return (
     <div>
-      <label className="block text-sm font-medium mb-1">
+      <label className="mb-2 block text-sm font-semibold text-slate-800">
         {label}
-        {required ? <span className="text-rose-300"> *</span> : null}
+        {required ? <span className="text-rose-500"> *</span> : null}
       </label>
       {Array.isArray(options) && options.length ? (
         <select
@@ -636,7 +764,7 @@ function FormField({
         >
           <option value="">{placeholder || "Select an option"}</option>
           {options.map((option) => (
-            <option key={option.value} value={option.value} className="text-black">
+            <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
@@ -654,10 +782,10 @@ function FormField({
         />
       )}
       {helper && !hasError ? (
-        <p className="mt-2 text-xs text-white/50">{helper}</p>
+        <p className="mt-2.5 text-xs leading-5 text-slate-500">{helper}</p>
       ) : null}
       {hasError ? (
-        <p className="mt-2 text-xs text-rose-200">{error}</p>
+        <p className="mt-2.5 text-xs font-medium leading-5 text-rose-600">{error}</p>
       ) : null}
     </div>
   );
@@ -672,15 +800,14 @@ function FormTextArea({
   required = false,
 }) {
   const textareaClassName = [
-    "w-full px-4 py-3 rounded-xl bg-white/5 border border-white/20",
-    "text-white text-sm placeholder-white/40 focus:ring-2 focus:ring-emerald-400/40",
-    "focus:border-transparent outline-none",
+    "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 shadow-sm",
+    "placeholder:text-slate-400 outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-500/15",
   ].join(" ");
   return (
     <div>
-      <label className="block text-sm font-medium mb-1">
+      <label className="mb-2 block text-sm font-semibold text-slate-800">
         {label}
-        {required ? <span className="text-rose-300"> *</span> : null}
+        {required ? <span className="text-rose-500"> *</span> : null}
       </label>
       <textarea
         value={value}
