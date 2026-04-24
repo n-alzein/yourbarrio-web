@@ -7,6 +7,7 @@ import {
   formatOrderDateTime,
   getOrderStatusDescription,
 } from "@/lib/orders";
+import { formatEntityId } from "@/lib/entityIds";
 import { requireRole } from "@/lib/auth/server";
 import { getSupportAwareClient } from "@/lib/support/supportAwareData";
 
@@ -110,6 +111,8 @@ export default async function AccountOrdersPage({ searchParams }) {
                   ? "ASAP"
                   : schedule || "ASAP";
               const lastUpdate = order.updated_at || order.created_at;
+              const displayOrderId =
+                formatEntityId("order", order.order_number) || order.order_number;
               return (
                 <div
                   key={order.id}
@@ -121,7 +124,7 @@ export default async function AccountOrdersPage({ searchParams }) {
                       <OrderItemThumbnails order={order} />
                       <div className="space-y-1 min-w-0">
                         <p className="text-sm font-semibold">
-                          Order {order.order_number}
+                          Order {displayOrderId}
                         </p>
                         <p className="text-xs opacity-70">{vendorName}</p>
                         <p className="text-xs opacity-70">

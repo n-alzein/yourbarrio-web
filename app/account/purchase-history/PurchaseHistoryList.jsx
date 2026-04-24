@@ -5,6 +5,7 @@ import {
   getOrderStatusLabel,
   groupOrdersByPurchaseDate,
 } from "@/lib/orders";
+import { formatEntityId } from "@/lib/entityIds";
 import {
   getOrderItemThumbnailUrl,
   getOrderThumbnailItems,
@@ -93,12 +94,14 @@ export default function PurchaseHistoryList({ orders }) {
               const vendorName = getVendorName(order);
               const thumbnailUrl = getOrderThumbnailUrl(order);
               const isMultiItemOrder = Array.isArray(order?.order_items) && order.order_items.length > 1;
+              const displayOrderId =
+                formatEntityId("order", order.order_number) || order.order_number;
 
               return (
                 <Link
                   key={order.id}
                   href={`/orders/${order.order_number}`}
-                  aria-label={`View receipt for order ${order.order_number} from ${vendorName}`}
+                  aria-label={`View receipt for order ${displayOrderId} from ${vendorName}`}
                   className="group rounded-3xl px-4 py-4 md:px-5 flex items-center justify-between gap-4 transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(15,23,42,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{
                     background: "var(--surface)",
@@ -131,7 +134,7 @@ export default function PurchaseHistoryList({ orders }) {
                     <div className="min-w-0 space-y-1.5">
                       <p className="text-base font-semibold truncate">{vendorName}</p>
                       <p className="text-xs opacity-70">
-                        Order {order.order_number} · {formatOrderPurchaseTime(order)}
+                        Order {displayOrderId} · {formatOrderPurchaseTime(order)}
                       </p>
                     </div>
                   </div>

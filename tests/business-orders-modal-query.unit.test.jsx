@@ -70,13 +70,13 @@ describe("BusinessOrdersClient modal query behavior", () => {
     render(<BusinessOrdersClient />);
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Order YB-M5F8YS" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Order YB-ORD-M5F8YS" })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /close order details/i }));
 
     await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: "Order YB-M5F8YS" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Order YB-ORD-M5F8YS" })).not.toBeInTheDocument();
     });
 
     expect(replaceMock).toHaveBeenCalledWith(
@@ -92,14 +92,14 @@ describe("BusinessOrdersClient modal query behavior", () => {
 
     await waitFor(() => {
       expect(
-        screen.getAllByRole("button", { name: "Open order YB-M5F8YS" }).length
+        screen.getAllByRole("button", { name: "Open order YB-ORD-M5F8YS" }).length
       ).toBeGreaterThan(0);
     });
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Open order YB-M5F8YS" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Open order YB-ORD-M5F8YS" })[0]);
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Order YB-M5F8YS" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Order YB-ORD-M5F8YS" })).toBeInTheDocument();
     });
 
     expect(replaceMock).toHaveBeenCalledWith(
@@ -115,12 +115,12 @@ describe("BusinessOrdersClient modal query behavior", () => {
 
     await waitFor(() => {
       expect(
-        screen.getAllByRole("button", { name: "Open order YB-M5F8YS" }).length
+        screen.getAllByRole("button", { name: "Open order YB-ORD-M5F8YS" }).length
       ).toBeGreaterThan(0);
     });
 
     fireEvent.keyDown(
-      screen.getAllByRole("button", { name: "Open order YB-M5F8YS" })[0],
+      screen.getAllByRole("button", { name: "Open order YB-ORD-M5F8YS" })[0],
       {
         key: "Enter",
       }
@@ -138,7 +138,7 @@ describe("BusinessOrdersClient modal query behavior", () => {
     render(<BusinessOrdersClient />);
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Order YB-M5F8YS" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Order YB-ORD-M5F8YS" })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("dialog"));
@@ -156,7 +156,7 @@ describe("BusinessOrdersClient modal query behavior", () => {
     render(<BusinessOrdersClient />);
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Order YB-M5F8YS" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Order YB-ORD-M5F8YS" })).toBeInTheDocument();
     });
 
     fireEvent.keyDown(window, { key: "Escape" });
@@ -165,6 +165,16 @@ describe("BusinessOrdersClient modal query behavior", () => {
       expect(replaceMock).toHaveBeenCalledWith("/business/orders?tab=progress", {
         scroll: false,
       });
+    });
+  });
+
+  it("opens the same order when the query param uses the canonical YB-ORD format", async () => {
+    searchParamsValue = "tab=progress&order=YB-ORD-M5F8YS";
+
+    render(<BusinessOrdersClient />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Order YB-ORD-M5F8YS" })).toBeInTheDocument();
     });
   });
 });

@@ -1,4 +1,5 @@
 import "server-only";
+import { normalizeIdValue, parseEntityDisplayId } from "@/lib/entityIds";
 
 /**
  * Admin accounts data source notes:
@@ -37,7 +38,7 @@ export type AdminUserRow = {
 };
 
 export type AdminUsersDiag = {
-  path: "service-query" | "service-rpc-fallback" | "actor-rpc";
+  path: "service-query" | "service-rpc-fallback" | "actor-rpc" | "service-business-id-query";
   usingServiceRole: boolean;
   rpcUsed?: boolean;
   serviceError?: { code?: string; message?: string; details?: string | null };
@@ -81,6 +82,57 @@ function buildSearchOr(q: string) {
     clauses.push(`id.eq.${safe.toLowerCase()}`);
   }
   return clauses.join(",");
+}
+
+async function resolveBusinessOwnerIdsForSearch(client: any, q: string): Promise<{
+  ownerUserIds: string[];
+  exactIdentifierAttempted: boolean;
+}> {
+  const raw = String(q || "").trim();
+  if (!raw) {
+    return { ownerUserIds: [], exactIdentifierAttempted: false };
+  }
+
+  const parsed = parseEntityDisplayId(raw);
+  const normalized = normalizeIdValue(raw);
+  const ownerUserIds = new Set<string>();
+  const uuidCandidates = Array.from(
+    new Set([raw, normalized].filter((value) => value && UUID_REGEX.test(value)))
+  );
+  const publicIdCandidates = Array.from(
+    new Set([raw, normalized].filter((value) => value && !UUID_REGEX.test(value)))
+  );
+
+  const exactIdentifierAttempted = Boolean(parsed?.type === "business" || uuidCandidates.length);
+
+  for (const candidate of uuidCandidates) {
+    const { data } = await client
+      .from("businesses")
+      .select("owner_user_id")
+      .or(`id.eq.${candidate},owner_user_id.eq.${candidate}`);
+
+    for (const row of Array.isArray(data) ? data : []) {
+      const ownerUserId = String(row?.owner_user_id || "").trim();
+      if (ownerUserId) ownerUserIds.add(ownerUserId);
+    }
+  }
+
+  for (const candidate of publicIdCandidates) {
+    const { data } = await client
+      .from("businesses")
+      .select("owner_user_id")
+      .ilike("public_id", candidate.toLowerCase());
+
+    for (const row of Array.isArray(data) ? data : []) {
+      const ownerUserId = String(row?.owner_user_id || "").trim();
+      if (ownerUserId) ownerUserIds.add(ownerUserId);
+    }
+  }
+
+  return {
+    ownerUserIds: Array.from(ownerUserIds),
+    exactIdentifierAttempted,
+  };
 }
 
 function normalizeRole(value: string | null | undefined) {
@@ -291,6 +343,71 @@ async function fetchViaRpc({
   };
 }
 
+async function fetchBusinessesByOwnerIds({
+  client,
+  ownerUserIds,
+  includeInternal,
+  usingServiceRole,
+}: {
+  client: any;
+  ownerUserIds: string[];
+  includeInternal: boolean | undefined;
+  usingServiceRole: boolean;
+}): Promise<AdminUsersResult> {
+  const { roleKeysByUserId, error: adminRoleMembersError } = await getAdminRoleMembers(client);
+  const { data, error } = await client
+    .from("users")
+    .select("id, public_id, email, full_name, phone, business_name, role, is_internal, city, created_at")
+    .in("id", Array.from(new Set(ownerUserIds)));
+
+  const diag: AdminUsersDiag = {
+    path: "service-business-id-query",
+    usingServiceRole,
+  };
+
+  if (adminRoleMembersError) {
+    console.warn("[admin-accounts] admin_role_members read failed", {
+      code: adminRoleMembersError.code,
+      message: adminRoleMembersError.message,
+      details: adminRoleMembersError.details,
+    });
+  }
+
+  if (error) {
+    return {
+      rows: [],
+      count: 0,
+      fallbackUsed: false,
+      error,
+      diag,
+    };
+  }
+
+  const normalized = normalizeRows(Array.isArray(data) ? data : [], roleKeysByUserId).filter(
+    (row) => row.account_role === "business"
+  );
+  const businessInternalByOwnerId = await getBusinessInternalByOwnerId(
+    client,
+    normalized.map((row) => row.id)
+  );
+  const withBusinessInternal = applyBusinessInternalState(normalized, businessInternalByOwnerId);
+  const filtered =
+    typeof includeInternal === "boolean"
+      ? withBusinessInternal.filter((row) => row.is_internal === includeInternal)
+      : withBusinessInternal;
+
+  filtered.sort((left, right) =>
+    String(right.created_at || "").localeCompare(String(left.created_at || ""))
+  );
+
+  return {
+    rows: filtered,
+    count: filtered.length,
+    fallbackUsed: false,
+    diag,
+  };
+}
+
 export async function fetchAdminUsers(params: FetchAdminUsersParams): Promise<AdminUsersResult> {
   const {
     client,
@@ -301,6 +418,30 @@ export async function fetchAdminUsers(params: FetchAdminUsersParams): Promise<Ad
     from = 0,
     to = 19,
   } = params;
+
+  const trimmedQuery = String(q || "").trim();
+  if (usingServiceRole && role === "business" && trimmedQuery) {
+    const businessMatch = await resolveBusinessOwnerIdsForSearch(client, trimmedQuery);
+    if (businessMatch.ownerUserIds.length > 0) {
+      return fetchBusinessesByOwnerIds({
+        client,
+        ownerUserIds: businessMatch.ownerUserIds,
+        includeInternal,
+        usingServiceRole: true,
+      });
+    }
+    if (businessMatch.exactIdentifierAttempted) {
+      return {
+        rows: [],
+        count: 0,
+        fallbackUsed: false,
+        diag: {
+          path: "service-business-id-query",
+          usingServiceRole: true,
+        },
+      };
+    }
+  }
 
   if (!usingServiceRole) {
     return fetchViaRpc({

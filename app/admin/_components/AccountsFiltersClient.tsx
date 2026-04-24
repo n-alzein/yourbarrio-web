@@ -39,6 +39,10 @@ export default function AccountsFiltersClient({
   const urlPageSize = normalizePageSize(searchParams.get("pageSize"), initialPageSize);
   const effectiveRole = presetRole || urlRole;
   const internalLabel = presetRole === "business" ? "Internal/test business" : "Internal tester access";
+  const searchPlaceholder =
+    presetRole === "business"
+      ? "Search business UUID, YB-BIZ, public ID, name, email, phone"
+      : "Search ID, name, email, phone, business";
 
   useEffect(() => {
     setQueryInput(urlQuery);
@@ -79,7 +83,7 @@ export default function AccountsFiltersClient({
           <input
             value={queryInput}
             onChange={(event) => setQueryInput(event.target.value)}
-            placeholder="Search ID, name, email, phone, business"
+            placeholder={searchPlaceholder}
             className="w-full min-w-[220px] flex-1 rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm sm:max-w-xl"
           />
 

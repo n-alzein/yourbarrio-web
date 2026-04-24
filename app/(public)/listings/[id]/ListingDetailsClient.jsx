@@ -8,7 +8,6 @@ import {
   Heart,
   MapPin,
   MoreHorizontal,
-  Shield,
   ShoppingBag,
   Truck,
 } from "lucide-react";
@@ -21,9 +20,7 @@ import { getAuthedContext } from "@/lib/auth/getAuthedContext";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import { getOrCreateConversation } from "@/lib/messages";
-import { useTheme } from "@/components/ThemeProvider";
 import {
-  getAvailabilityBadgeStyle,
   getMaxPurchasableQuantity,
   normalizeInventory,
 } from "@/lib/inventory";
@@ -45,6 +42,7 @@ import {
   formatCents,
   PICKUP_FULFILLMENT_TYPE,
 } from "@/lib/fulfillment";
+import { formatEntityId } from "@/lib/entityIds";
 import { calculateListingPricing } from "@/lib/pricing";
 import { getCustomerBusinessUrl, getListingUrl } from "@/lib/ids/publicRefs";
 import {
@@ -70,8 +68,6 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
   const accountContext = useCurrentAccountContext();
   const gateBusinessProfileAccess = useBusinessProfileAccessGate();
   const router = useRouter();
-  const { theme, hydrated } = useTheme();
-  const isLight = hydrated ? theme === "light" : true;
   const { addItem, setFulfillmentType: updateCartFulfillmentType } = useCart();
   const { openModal } = useModal();
   const routeParams = useParams();
@@ -587,6 +583,8 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
   if (!listing) return null;
 
   const storeName = business?.business_name || business?.full_name || "Local business";
+  const displayListingId =
+    formatEntityId("listing", listing?.public_id) || null;
   const city = business?.city || "Your area";
   const address = business?.address || null;
   const listingCategory = getListingCategoryLabel(listing, "Local listing");
@@ -602,8 +600,15 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
     0
   );
   const inventory = normalizeInventory(listing);
-  const badgeStyle = getAvailabilityBadgeStyle(inventory.availability, isLight);
   const isOutOfStock = inventory.availability === "out" || maxPurchasableQuantity <= 0;
+  const availabilityText =
+    inventory.availability === "out"
+      ? "Out of stock"
+      : fulfillmentSummary.pickupAvailable
+        ? "Available today"
+        : "In stock";
+  const availabilityTextClassName = isOutOfStock ? "text-slate-500" : "text-emerald-700";
+  const availabilityDotClassName = isOutOfStock ? "bg-slate-400" : "bg-emerald-600";
   const businessProfileHref = business?.id ? getCustomerBusinessUrl(business) : null;
   const isBusinessVerified = ["auto_verified", "manually_verified"].includes(
     String(business?.verification_status || "").trim().toLowerCase()
@@ -768,27 +773,7 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
                 </div>
               ) : null}
               <div className="space-y-0 p-5 md:p-6">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] opacity-72">
-                    <Shield className="h-3.5 w-3.5 opacity-80" />
-                    {listingCategory}
-                  </span>
-                  <span
-                    className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]"
-                    style={
-                      badgeStyle
-                        ? {
-                            color: badgeStyle.color,
-                            borderColor: badgeStyle.border,
-                            background: badgeStyle.background,
-                          }
-                        : undefined
-                    }
-                  >
-                    {inventory.label}
-                  </span>
-                </div>
-                <div className="mt-4 space-y-2.5">
+                <div className="space-y-2.5">
                   <h1 className="text-2xl font-semibold leading-tight tracking-[-0.02em] md:text-[2rem]">
                     {listing.title}
                   </h1>
@@ -806,6 +791,9 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
                         <span>{businessType}</span>
                       </>
                     ) : null}
+                  </div>
+                  <div className="pt-1 text-xs text-slate-500">
+                    <span>{listingCategory}</span>
                   </div>
                 </div>
                 <div className="mt-5 border-t pt-4" style={{ borderColor: "rgba(15,23,42,0.08)" }}>
@@ -900,39 +888,61 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
                   fallback="A local item from YourBarrio businesses."
                   className="mt-5 text-[15px]"
                 />
+                {(displayListingId || listingCategory) ? (
+                  <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                    {listingCategory ? (
+                      <span>
+                        <span className="font-medium text-slate-600">Category:</span> {listingCategory}
+                      </span>
+                    ) : null}
+                    {listingCategory && displayListingId ? (
+                      <span className="text-slate-400">·</span>
+                    ) : null}
+                    {displayListingId ? (
+                      <span>
+                        <span className="font-medium text-slate-600">Ref:</span> {displayListingId}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
 
           <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
             <div
-              className="rounded-3xl p-5 shadow-[0_22px_44px_-30px_rgba(15,23,42,0.24)]"
-              style={{ background: "var(--surface)", border: "1px solid rgba(15,23,42,0.08)" }}
+              className="rounded-3xl p-5 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.18)]"
+              style={{ background: "var(--surface)", border: "1px solid rgba(15,23,42,0.06)" }}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-2">
-                  <div className="mb-3 text-[2rem] font-semibold leading-none tracking-[-0.03em]">
+                  <div className="text-[2rem] font-semibold leading-none tracking-[-0.03em]">
                     {formattedPrice ? `$${formattedPrice}` : "Contact store"}
                   </div>
                   {formattedPrice ? (
-                    <p className="text-xs opacity-65">All-in price before tax</p>
+                    <p className="text-xs opacity-65">Price before tax</p>
                   ) : null}
                   <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span
-                      className="rounded-full border px-2.5 py-1 text-[11px] font-semibold"
-                      style={
-                        badgeStyle
-                          ? {
-                              color: badgeStyle.color,
-                              borderColor: badgeStyle.border,
-                              background: badgeStyle.background,
-                            }
-                          : undefined
-                      }
-                    >
-                      {inventory.label}
+                    <span className={`inline-flex items-center gap-1.5 font-medium ${availabilityTextClassName}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${availabilityDotClassName}`} />
+                      {availabilityText}
                     </span>
-                    <span className="opacity-60">Sold by {storeName}</span>
+                    <span className="opacity-55">by</span>
+                    {businessProfileHref ? (
+                      <Link
+                        href={businessProfileHref}
+                        onClick={(event) => {
+                          if (!gateBusinessProfileAccess(event, businessProfileHref)) {
+                            return;
+                          }
+                        }}
+                        className="font-medium text-slate-700 transition hover:text-slate-900 hover:underline hover:underline-offset-4"
+                      >
+                        {storeName}
+                      </Link>
+                    ) : (
+                      <span className="font-medium text-slate-700">{storeName}</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -940,26 +950,23 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
                     <button
                       type="button"
                       onClick={handleToggleSave}
-                      className="rounded-full p-2 transition hover:bg-black/[0.04]"
+                      className="rounded-full p-2 text-slate-500 transition hover:bg-black/[0.03] hover:text-slate-700"
                       aria-pressed={isSaved}
                       aria-label={isSaved ? "Unsave listing" : "Save listing"}
                       disabled={saveLoading}
                     >
-                      <Heart
-                        className={`h-5 w-5 ${isSaved ? "text-rose-400" : "opacity-70"}`}
-                        fill={isSaved ? "currentColor" : "none"}
-                      />
+                      <Heart className={`h-5 w-5 ${isSaved ? "text-rose-400" : ""}`} fill={isSaved ? "currentColor" : "none"} />
                     </button>
                   ) : null}
                   <div className="relative" ref={listingMenuRef}>
                     <button
                       type="button"
                       onClick={() => setListingMenuOpen((open) => !open)}
-                      className="rounded-full p-2 transition hover:bg-black/[0.04]"
+                      className="rounded-full p-2 text-slate-500 transition hover:bg-black/[0.03] hover:text-slate-700"
                       aria-expanded={listingMenuOpen}
                       aria-label="Open listing actions menu"
                     >
-                      <MoreHorizontal className="h-5 w-5 opacity-80" />
+                      <MoreHorizontal className="h-5 w-5" />
                     </button>
                     {listingMenuOpen ? (
                       <div className="absolute right-0 top-11 z-30 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
@@ -998,9 +1005,9 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
                 </div>
               </div>
 
-              <div className="mt-6 border-t pt-6" style={{ borderColor: "rgba(15,23,42,0.08)" }}>
+              <div className="mt-5 border-t pt-5" style={{ borderColor: "rgba(15,23,42,0.08)" }}>
                 <div>
-                  <div className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] opacity-65">
+                  <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] opacity-65">
                     Fulfillment
                   </div>
                   {pickupOnly ? (
@@ -1120,10 +1127,10 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
                 </div>
               </div>
 
-              <div className="mt-6 border-t pt-6" style={{ borderColor: "rgba(15,23,42,0.08)" }}>
+              <div className="mt-5 border-t pt-5" style={{ borderColor: "rgba(15,23,42,0.08)" }}>
                 <div className="space-y-4">
                   <div>
-                    <label className="mb-4 block text-xs font-semibold uppercase tracking-[0.16em] opacity-65">
+                    <label className="mb-3 block text-xs font-semibold uppercase tracking-[0.16em] opacity-65">
                       Quantity
                     </label>
                     <select
@@ -1146,7 +1153,7 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
                   </div>
 
                   {purchaseEligibilityPending ? (
-                    <div className="mt-4 space-y-2">
+                    <div className="mt-3 space-y-2">
                       <button
                         type="button"
                         disabled
@@ -1160,7 +1167,7 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
                       </p>
                     </div>
                   ) : purchaseRestricted ? (
-                    <div className="mt-4 space-y-2">
+                    <div className="mt-3 space-y-2">
                       <button
                         type="button"
                         disabled
@@ -1174,7 +1181,7 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
                       </p>
                     </div>
                   ) : (
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-3 space-y-3">
                       <button
                         type="button"
                         onClick={handleAddToCart}
@@ -1213,7 +1220,7 @@ export default function ListingDetailsClient({ params, backHref = "/" }) {
               </div>
 
               {fulfillmentSummary.deliveryAvailable || fulfillmentSummary.pickupAvailable ? (
-                <div className="mt-6 border-t pt-6" style={{ borderColor: "rgba(15,23,42,0.08)" }}>
+                <div className="mt-5 border-t pt-5" style={{ borderColor: "rgba(15,23,42,0.08)" }}>
                   <div className="text-sm font-semibold">
                     <span className="opacity-80">What to expect</span>
                   </div>

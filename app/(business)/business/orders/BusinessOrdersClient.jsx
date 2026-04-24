@@ -11,6 +11,7 @@ import {
   getOrderStatusDescription,
   getOrderStatusLabel,
 } from "@/lib/orders";
+import { entityIdsMatch, formatEntityId } from "@/lib/entityIds";
 import {
   allowedTargets,
   canTransition,
@@ -53,6 +54,9 @@ const centsToDollars = (value) => Math.max(0, toNumberOrZero(value) / 100);
 
 const getOrderItems = (order) =>
   Array.isArray(order?.order_items) ? order.order_items : [];
+
+const getOrderDisplayId = (orderNumber) =>
+  formatEntityId("order", orderNumber) || orderNumber || "";
 
 const getOrderPreviewThumbnailUrl = (order) =>
   getOrderItemThumbnailUrl(getOrderItems(order)[0]);
@@ -214,7 +218,9 @@ export default function BusinessOrdersClient() {
 
   useEffect(() => {
     if (!orderParam || orderParam === dismissedOrderParam || selectedOrder?.id) return;
-    const matched = orders.find((order) => order.order_number === orderParam);
+    const matched = orders.find((order) =>
+      entityIdsMatch("order", order.order_number, orderParam)
+    );
     if (matched) {
       setSelectedOrder(matched);
     }
@@ -313,6 +319,7 @@ export default function BusinessOrdersClient() {
       next = next.filter((order) => {
         const haystack = [
           order.order_number,
+          getOrderDisplayId(order.order_number),
           order.contact_name,
           order.contact_phone,
           order.contact_email,
@@ -728,7 +735,7 @@ export default function BusinessOrdersClient() {
                           className="cursor-pointer transition hover:bg-[var(--overlay)] focus-within:bg-[var(--overlay)]"
                           tabIndex={0}
                           role="button"
-                          aria-label={`Open order ${order.order_number}`}
+                          aria-label={`Open order ${getOrderDisplayId(order.order_number)}`}
                           onClick={() => openOrderDetails(order)}
                           onKeyDown={(event) => handleOrderActivationKeyDown(event, order)}
                         >
@@ -737,7 +744,7 @@ export default function BusinessOrdersClient() {
                               <OrderThumbnail order={order} />
                               <div className="min-w-0 space-y-1">
                                 <p className="font-semibold">
-                                  Order {order.order_number}
+                                  Order {getOrderDisplayId(order.order_number)}
                                 </p>
                                 <p className="text-xs opacity-70">
                                   {formatOrderDateTime(order.created_at)}
@@ -849,7 +856,7 @@ export default function BusinessOrdersClient() {
                     style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
                     tabIndex={0}
                     role="button"
-                    aria-label={`Open order ${order.order_number}`}
+                    aria-label={`Open order ${getOrderDisplayId(order.order_number)}`}
                     onClick={() => openOrderDetails(order)}
                     onKeyDown={(event) => handleOrderActivationKeyDown(event, order)}
                   >
@@ -858,7 +865,7 @@ export default function BusinessOrdersClient() {
                         <OrderThumbnail order={order} />
                         <div className="min-w-0 space-y-1">
                           <p className="text-sm font-semibold">
-                            Order {order.order_number}
+                            Order {getOrderDisplayId(order.order_number)}
                           </p>
                           <p className="text-xs opacity-70">
                             {formatOrderDateTime(order.created_at)}
@@ -978,7 +985,7 @@ export default function BusinessOrdersClient() {
                   Order details
                 </p>
                 <h2 id="order-detail-title" className="text-2xl font-semibold">
-                  Order {selectedOrder.order_number}
+                  Order {getOrderDisplayId(selectedOrder.order_number)}
                 </h2>
                 <div className="flex flex-wrap items-center gap-2">
                   <OrderStatusBadge status={selectedOrder.status} />
@@ -1216,7 +1223,7 @@ export default function BusinessOrdersClient() {
                   Change status
                 </h3>
                 <p className="text-xs opacity-70">
-                  Order {statusMenuOrder.order_number}
+                  Order {getOrderDisplayId(statusMenuOrder.order_number)}
                 </p>
               </div>
               <button

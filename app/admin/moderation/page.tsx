@@ -11,6 +11,7 @@ import AdminFlash from "@/app/admin/_components/AdminFlash";
 import CopyIdButtonClient from "@/app/admin/_components/CopyIdButtonClient";
 import DangerConfirmClient from "@/app/admin/_components/DangerConfirmClient";
 import { requireAdminAnyRole } from "@/lib/admin/permissions";
+import { formatEntityId } from "@/lib/entityIds";
 import { getAdminUserUrl, getCustomerBusinessUrl, getListingUrl } from "@/lib/ids/publicRefs";
 import { getReasonLabel, getTargetLabel } from "@/lib/moderation/reasons";
 import { getAdminDataClient } from "@/lib/supabase/admin";
@@ -515,6 +516,12 @@ export default async function AdminModerationPage({
                       <p>
                         <span className="text-neutral-400">Inventory status:</span>{" "}
                         <span className="text-neutral-100">{selectedContext?.listing?.inventory_status || "-"}</span>
+                      </p>
+                      <p>
+                        <span className="text-neutral-400">Listing ref:</span>{" "}
+                        <span className="text-neutral-100">
+                          {formatEntityId("listing", selectedContext?.listing?.public_id) || "-"}
+                        </span>
                       </p>
                       <div className="flex flex-wrap gap-2 pt-2">
                         {selectedContext?.listing ? (

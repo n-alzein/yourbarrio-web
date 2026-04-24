@@ -4,6 +4,13 @@ import { getActorAdminRoleKeys } from "@/lib/admin/getActorAdminRoleKeys";
 import { type AdminRole } from "@/lib/admin/permissions";
 import { getSupabaseServerAuthedClient } from "@/lib/supabaseServer";
 
+const ROLE_ORDER: Record<AdminRole, number> = {
+  admin_readonly: 10,
+  admin_support: 20,
+  admin_ops: 30,
+  admin_super: 40,
+};
+
 export type AdminApiAuthSuccess = {
   ok: true;
   actorUser: { id: string; email: string | null };
@@ -34,7 +41,13 @@ export async function requireAdminApiRole(requiredRole: AdminRole): Promise<Admi
   }
 
   const actorRoleKeys = await getActorAdminRoleKeys(actorUser.id);
-  if (!actorRoleKeys.includes(requiredRole)) {
+  const requiredWeight = ROLE_ORDER[requiredRole];
+  const hasRequiredRole = actorRoleKeys.some((roleKey) => {
+    if (!(roleKey in ROLE_ORDER)) return false;
+    return ROLE_ORDER[roleKey as AdminRole] >= requiredWeight;
+  });
+
+  if (!hasRequiredRole) {
     return { ok: false, status: 403, error: "You don't have permission." };
   }
 

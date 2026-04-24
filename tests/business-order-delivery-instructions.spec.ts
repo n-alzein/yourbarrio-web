@@ -97,19 +97,19 @@ test.describe("Business order delivery instructions", () => {
 
     await page.goto("/business/orders");
 
-    const firstOrderRow = page.locator("tr", { hasText: "Order BIZ-1001" });
+    const firstOrderRow = page.locator("tr", { hasText: "Order YB-ORD-BIZ-1001" });
     await firstOrderRow.getByRole("button", { name: "View" }).click();
 
-    await expect(page.getByRole("heading", { name: "Order BIZ-1001" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Order YB-ORD-BIZ-1001" })).toBeVisible();
     await expect(page.getByText("Delivery instructions", { exact: true })).toBeVisible();
     await expect(page.getByText(seededInstructions, { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: /Close order details/i }).click();
 
-    const secondOrderRow = page.locator("tr", { hasText: "Order BIZ-1002" });
+    const secondOrderRow = page.locator("tr", { hasText: "Order YB-ORD-BIZ-1002" });
     await secondOrderRow.getByRole("button", { name: "View" }).click();
 
-    await expect(page.getByRole("heading", { name: "Order BIZ-1002" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Order YB-ORD-BIZ-1002" })).toBeVisible();
     await expect(page.getByText("Delivery instructions", { exact: true })).toHaveCount(0);
   });
 });

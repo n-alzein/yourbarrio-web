@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { formatEntityId } from "@/lib/entityIds";
 
 /** @typedef {import("@/lib/types/orders").Order} Order */
 /** @typedef {import("@/lib/types/cart").VendorSummary} VendorSummary */
@@ -58,13 +59,15 @@ function ReceiptItemName({ item }) {
 export default function OrderReceiptClient({ order, vendor, purchasedAtLabel }) {
   const items = order?.order_items || [];
   const statusLabel = statusCopy[order?.status] || "Processing";
+  const displayOrderId =
+    formatEntityId("order", order?.order_number) || order?.order_number;
 
   return (
     <div className="min-h-screen px-4 md:px-8 lg:px-12 py-12" style={{ background: "var(--background)", color: "var(--text)" }}>
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex flex-col gap-2">
           <p className="text-xs uppercase tracking-[0.2em] opacity-70">Order confirmation</p>
-          <h1 className="text-3xl font-semibold">Order {order?.order_number}</h1>
+          <h1 className="text-3xl font-semibold">Order {displayOrderId}</h1>
           <p className="text-sm opacity-80">Status: {statusLabel}</p>
           <p className="text-xs opacity-70 mb-3">
             Purchased {purchasedAtLabel}

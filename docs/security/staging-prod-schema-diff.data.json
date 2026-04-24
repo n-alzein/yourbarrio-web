@@ -1,0 +1,1481 @@
+{
+  "generatedAt": "2026-04-24T13:12:47.856Z",
+  "refs": {
+    "staging": "crskbfbleiubpkvyvvlf",
+    "production": "nbzqnjanqkzuwyxnkjtr"
+  },
+  "backups": {
+    "staging": {
+      "is_physical_backup": true,
+      "status": "COMPLETED",
+      "inserted_at": "2026-04-23T14:36:25.194Z"
+    },
+    "production": {
+      "is_physical_backup": true,
+      "status": "COMPLETED",
+      "inserted_at": "2026-04-24T09:58:07.795Z"
+    }
+  },
+  "diffs": {
+    "relations": {
+      "onlyStaging": [],
+      "onlyProd": [
+        {
+          "schema_name": "public",
+          "object_name": "rls_write_audit",
+          "qualified_name": "rls_write_audit",
+          "relkind": "r",
+          "owner": "postgres",
+          "rls_enabled": true,
+          "force_rls": false,
+          "reloptions": "",
+          "definition": null,
+          "object_type": "table"
+        },
+        {
+          "schema_name": "public",
+          "object_name": "user_public_profiles_old",
+          "qualified_name": "user_public_profiles_old",
+          "relkind": "r",
+          "owner": "postgres",
+          "rls_enabled": true,
+          "force_rls": false,
+          "reloptions": "",
+          "definition": null,
+          "object_type": "table"
+        }
+      ],
+      "different": [
+        {
+          "staging": {
+            "schema_name": "public",
+            "object_name": "public_listings_v",
+            "qualified_name": "public_listings_v",
+            "relkind": "v",
+            "owner": "postgres",
+            "rls_enabled": false,
+            "force_rls": false,
+            "reloptions": "security_invoker=true",
+            "definition": " SELECT l.id,\n    l.business_id,\n    l.title,\n    l.description,\n    l.price,\n    l.category,\n    l.city,\n    l.photo_url,\n    l.created_at,\n    l.inventory_quantity,\n    l.inventory_status,\n    l.low_stock_threshold,\n    l.inventory_last_updated_at,\n    l.category_id,\n    l.public_id,\n    l.listing_category,\n    l.listing_subcategory,\n    l.pickup_enabled,\n    l.local_delivery_enabled,\n    l.delivery_fee_cents,\n    l.use_business_delivery_defaults,\n    l.photo_variants,\n    l.is_internal\n   FROM listings l\n     JOIN businesses b ON b.owner_user_id = l.business_id\n  WHERE (b.verification_status = ANY (ARRAY['auto_verified'::text, 'manually_verified'::text])) AND (COALESCE(l.is_internal, false) = false AND COALESCE(b.is_internal, false) = false OR viewer_can_see_internal_content());",
+            "object_type": "view"
+          },
+          "production": {
+            "schema_name": "public",
+            "object_name": "public_listings_v",
+            "qualified_name": "public_listings_v",
+            "relkind": "v",
+            "owner": "postgres",
+            "rls_enabled": false,
+            "force_rls": false,
+            "reloptions": "security_invoker=true",
+            "definition": " SELECT l.id,\n    l.business_id,\n    l.title,\n    l.description,\n    l.price,\n    l.category,\n    l.city,\n    l.photo_url,\n    l.created_at,\n    l.is_test,\n    l.inventory_quantity,\n    l.inventory_status,\n    l.low_stock_threshold,\n    l.inventory_last_updated_at,\n    l.category_id,\n    l.public_id,\n    l.listing_category,\n    l.listing_subcategory,\n    l.pickup_enabled,\n    l.local_delivery_enabled,\n    l.delivery_fee_cents,\n    l.use_business_delivery_defaults,\n    l.photo_variants,\n    l.is_internal\n   FROM listings l\n     JOIN businesses b ON b.owner_user_id = l.business_id\n  WHERE (b.verification_status = ANY (ARRAY['auto_verified'::text, 'manually_verified'::text])) AND (COALESCE(l.is_internal, false) = false AND COALESCE(b.is_internal, false) = false OR viewer_can_see_internal_content());",
+            "object_type": "view"
+          }
+        }
+      ]
+    },
+    "functions": {
+      "onlyStaging": [
+        {
+          "schema_name": "public",
+          "function_name": "admin_take_moderation_case",
+          "signature": "admin_take_moderation_case(uuid)",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "search_path=public",
+          "definition": "CREATE OR REPLACE FUNCTION public.admin_take_moderation_case(p_flag_id uuid)\n RETURNS TABLE(ok boolean, message text)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_actor_id uuid;\nBEGIN\n  v_actor_id := auth.uid();\n  IF v_actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.has_admin_role('admin_ops') THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  IF p_flag_id IS NULL THEN\n    RAISE EXCEPTION 'p_flag_id is required';\n  END IF;\n\n  PERFORM public.admin_update_moderation_flag(\n    p_flag_id,\n    'in_review',\n    NULL,\n    jsonb_build_object('action', 'take_case')\n  );\n\n  RETURN QUERY SELECT true, 'case_taken'::text;\nEND;\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "has_any_exact_admin_role",
+          "signature": "has_any_exact_admin_role(text[])",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "search_path=public",
+          "definition": "CREATE OR REPLACE FUNCTION public.has_any_exact_admin_role(required_roles text[])\n RETURNS boolean\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  current_user_id uuid;\nBEGIN\n  current_user_id := auth.uid();\n  IF current_user_id IS NULL THEN\n    RETURN false;\n  END IF;\n\n  IF required_roles IS NULL OR cardinality(required_roles) = 0 THEN\n    RETURN false;\n  END IF;\n\n  RETURN EXISTS (\n    SELECT 1\n    FROM public.admin_role_members arm\n    WHERE arm.user_id = current_user_id\n      AND arm.role_key = ANY(required_roles)\n  );\nEND;\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "log_admin_action",
+          "signature": "log_admin_action(text,text,text,jsonb,uuid)",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "search_path=public",
+          "definition": "CREATE OR REPLACE FUNCTION public.log_admin_action(p_action text, p_target_type text DEFAULT NULL::text, p_target_id text DEFAULT NULL::text, p_meta jsonb DEFAULT '{}'::jsonb, p_actor_user_id uuid DEFAULT auth.uid())\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  inserted_id uuid;\nBEGIN\n  IF p_action IS NULL OR length(trim(p_action)) = 0 THEN\n    RAISE EXCEPTION 'p_action is required';\n  END IF;\n\n  INSERT INTO public.admin_audit_log (\n    actor_user_id,\n    action,\n    target_type,\n    target_id,\n    meta\n  ) VALUES (\n    p_actor_user_id,\n    p_action,\n    p_target_type,\n    p_target_id,\n    COALESCE(p_meta, '{}'::jsonb)\n  )\n  RETURNING id INTO inserted_id;\n\n  RETURN inserted_id;\nEND;\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "log_admin_action",
+          "signature": "log_admin_action(text,uuid,jsonb,uuid,text)",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "search_path=public",
+          "definition": "CREATE OR REPLACE FUNCTION public.log_admin_action(p_action text, p_actor_user_id uuid, p_meta jsonb, p_target_id uuid, p_target_type text)\n RETURNS uuid\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  SELECT public.log_admin_action(\n    p_action => p_action,\n    p_actor_user_id => p_actor_user_id,\n    p_target_type => p_target_type,\n    p_target_id => p_target_id::text,\n    p_meta => COALESCE(p_meta, '{}'::jsonb)\n  );\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "log_admin_action",
+          "signature": "log_admin_action(text,uuid,text,uuid,jsonb)",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "search_path=public",
+          "definition": "CREATE OR REPLACE FUNCTION public.log_admin_action(p_action text, p_actor_user_id uuid, p_target_type text, p_target_id uuid, p_meta jsonb)\n RETURNS uuid\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  SELECT public.log_admin_action(\n    p_action => p_action,\n    p_actor_user_id => p_actor_user_id,\n    p_target_type => p_target_type,\n    p_target_id => p_target_id::text,\n    p_meta => COALESCE(p_meta, '{}'::jsonb)\n  );\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "set_business_reviews_public_id",
+          "signature": "set_business_reviews_public_id()",
+          "owner": "postgres",
+          "security_definer": false,
+          "proconfig": "",
+          "definition": "CREATE OR REPLACE FUNCTION public.set_business_reviews_public_id()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF NEW.public_id IS NULL OR btrim(NEW.public_id) = '' THEN\n    NEW.public_id := public.generate_short_id();\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "set_users_public_id",
+          "signature": "set_users_public_id()",
+          "owner": "postgres",
+          "security_definer": false,
+          "proconfig": "",
+          "definition": "CREATE OR REPLACE FUNCTION public.set_users_public_id()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF NEW.public_id IS NULL OR btrim(NEW.public_id) = '' THEN\n    NEW.public_id := public.generate_short_id();\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+        }
+      ],
+      "onlyProd": [
+        {
+          "schema_name": "public",
+          "function_name": "audit_write",
+          "signature": "audit_write()",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "",
+          "definition": "CREATE OR REPLACE FUNCTION public.audit_write()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\nbegin\n  insert into public.rls_write_audit(table_name, action, seen_uid, seen_role, row_id)\n  values (tg_table_name, tg_op, auth.uid(), auth.role(),\n          coalesce((new).id, (old).id));\n  return coalesce(new, old);\nend;\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "get_my_role",
+          "signature": "get_my_role()",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "search_path=public, row_security=off",
+          "definition": "CREATE OR REPLACE FUNCTION public.get_my_role()\n RETURNS text\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\n SET row_security TO 'off'\nAS $function$\n  select coalesce(\n    (select u.role from public.users u where u.id = auth.uid()),\n    'unknown'\n  );\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "handle_auth_user_created",
+          "signature": "handle_auth_user_created()",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "search_path=public",
+          "definition": "CREATE OR REPLACE FUNCTION public.handle_auth_user_created()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  full_name_value text;\n  avatar_url_value text;\n  provider_value text;\n  password_set_value boolean;\nbegin\n  provider_value := coalesce(new.raw_app_meta_data ->> 'provider', 'email');\n\n  full_name_value :=\n    coalesce(\n      nullif(btrim(new.raw_user_meta_data ->> 'full_name'), ''),\n      nullif(btrim(new.raw_user_meta_data ->> 'name'), ''),\n      nullif(\n        btrim(\n          concat_ws(\n            ' ',\n            new.raw_user_meta_data ->> 'first_name',\n            new.raw_user_meta_data ->> 'last_name'\n          )\n        ),\n        ''\n      )\n    );\n\n  avatar_url_value :=\n    coalesce(\n      nullif(btrim(new.raw_user_meta_data ->> 'avatar_url'), ''),\n      nullif(btrim(new.raw_user_meta_data ->> 'picture'), '')\n    );\n\n  password_set_value := case\n    when provider_value in ('google', 'apple', 'azure', 'github', 'facebook', 'discord', 'linkedin', 'twitter', 'spotify', 'slack', 'notion', 'figma', 'workos', 'sso')\n      then true\n    else false\n  end;\n\n  insert into public.users (\n    id,\n    role,\n    email,\n    full_name,\n    profile_photo_url,\n    password_set,\n    created_at,\n    updated_at\n  )\n  values (\n    new.id,\n    'customer',\n    new.email,\n    full_name_value,\n    avatar_url_value,\n    password_set_value,\n    coalesce(new.created_at, now()),\n    now()\n  )\n  on conflict (id) do update\n  set\n    email = excluded.email,\n    full_name = coalesce(public.users.full_name, excluded.full_name),\n    profile_photo_url = coalesce(public.users.profile_photo_url, excluded.profile_photo_url),\n    password_set = case\n      when public.users.password_set is true then true\n      else excluded.password_set\n    end,\n    updated_at = now();\n\n  return new;\nend;\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "is_business_user",
+          "signature": "is_business_user()",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "search_path=public, row_security=off",
+          "definition": "CREATE OR REPLACE FUNCTION public.is_business_user()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\n SET row_security TO 'off'\nAS $function$\n  select exists (\n    select 1\n    from public.users u\n    where u.id = auth.uid()\n      and u.role = 'business'\n  );\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "is_internal",
+          "signature": "is_internal()",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "search_path=public, row_security=off",
+          "definition": "CREATE OR REPLACE FUNCTION public.is_internal()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\n SET row_security TO 'off'\nAS $function$\n  select exists (\n    select 1\n    from public.users u\n    where u.id = auth.uid()\n      and coalesce(u.is_internal,false) = true\n  );\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "jwt_role_claim",
+          "signature": "jwt_role_claim()",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "search_path=public, row_security=off",
+          "definition": "CREATE OR REPLACE FUNCTION public.jwt_role_claim()\n RETURNS jsonb\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\n SET row_security TO 'off'\nAS $function$\n  select jsonb_build_object(\n    'user_role',\n    coalesce((select u.role from public.users u where u.id = auth.uid()), 'unknown')\n  );\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "log_admin_action",
+          "signature": "log_admin_action(text,uuid,text,text,jsonb)",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "search_path=public",
+          "definition": "CREATE OR REPLACE FUNCTION public.log_admin_action(p_action text, p_actor_user_id uuid, p_target_type text, p_target_id text, p_meta jsonb)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  v_id uuid;\nbegin\n  insert into public.admin_audit_log (\n    action,\n    actor_user_id,\n    target_type,\n    target_id,\n    meta\n  )\n  values (\n    p_action,\n    p_actor_user_id,\n    p_target_type,\n    p_target_id,\n    coalesce(p_meta, '{}'::jsonb)\n  )\n  returning id into v_id;\n\n  return v_id;\nend;\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "set_listing_public_id",
+          "signature": "set_listing_public_id()",
+          "owner": "postgres",
+          "security_definer": false,
+          "proconfig": "",
+          "definition": "CREATE OR REPLACE FUNCTION public.set_listing_public_id()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nbegin\n  if new.public_id is null or btrim(new.public_id) = '' then\n    new.public_id := public.generate_short_id();\n  end if;\n  return new;\nend;\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "tg_enforce_business_reviews_update",
+          "signature": "tg_enforce_business_reviews_update()",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "search_path=public",
+          "definition": "CREATE OR REPLACE FUNCTION public.tg_enforce_business_reviews_update()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  v_uid uuid := auth.uid();\nbegin\n  -- Service role / admin: allow\n  if auth.role() = 'service_role' then\n    return new;\n  end if;\n\n  if public.is_admin() then\n    return new;\n  end if;\n\n  if v_uid is null then\n    raise exception 'Not authenticated';\n  end if;\n\n  -- Never allow changing ownership/identity fields\n  if new.id <> old.id\n     or new.business_id <> old.business_id\n     or new.customer_id <> old.customer_id\n     or new.created_at <> old.created_at\n  then\n    raise exception 'Review identity fields cannot be changed';\n  end if;\n\n  -- Customer editing own review: allow only rating/title/body\n  if v_uid = old.customer_id then\n    if (new.business_reply is distinct from old.business_reply)\n       or (new.business_reply_at is distinct from old.business_reply_at)\n    then\n      raise exception 'Customers cannot edit business reply fields';\n    end if;\n    return new;\n  end if;\n\n  -- Business replying on own business: allow only business_reply/business_reply_at\n  if v_uid = old.business_id then\n    if (new.rating is distinct from old.rating)\n       or (new.title is distinct from old.title)\n       or (new.body is distinct from old.body)\n    then\n      raise exception 'Businesses cannot edit customer review content';\n    end if;\n    return new;\n  end if;\n\n  raise exception 'Not allowed to update this review';\nend;\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "tg_force_public_profile_role",
+          "signature": "tg_force_public_profile_role()",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "search_path=public, row_security=off",
+          "definition": "CREATE OR REPLACE FUNCTION public.tg_force_public_profile_role()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\n SET row_security TO 'off'\nAS $function$\nbegin\n  -- Force role to be the canonical role from public.users\n  select u.role into new.role\n  from public.users u\n  where u.id = new.id;\n\n  -- If no users row, block (shouldn't happen in normal flow)\n  if new.role is null then\n    raise exception 'Cannot set public profile role: missing users row for %', new.id;\n  end if;\n\n  return new;\nend;\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "tg_set_updated_at",
+          "signature": "tg_set_updated_at()",
+          "owner": "postgres",
+          "security_definer": false,
+          "proconfig": "",
+          "definition": "CREATE OR REPLACE FUNCTION public.tg_set_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nbegin\n  new.updated_at = now();\n  return new;\nend;\n$function$\n"
+        },
+        {
+          "schema_name": "public",
+          "function_name": "unread_total",
+          "signature": "unread_total(text)",
+          "owner": "postgres",
+          "security_definer": true,
+          "proconfig": "search_path=public",
+          "definition": "CREATE OR REPLACE FUNCTION public.unread_total(p_role text)\n RETURNS integer\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select public.unread_total(p_role, auth.uid());\n$function$\n"
+        }
+      ],
+      "different": [
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "admin_add_user_note",
+            "signature": "admin_add_user_note(uuid,text)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.admin_add_user_note(p_target_user_id uuid, p_note text)\n RETURNS TABLE(id uuid, target_user_id uuid, actor_user_id uuid, note text, created_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_actor_id uuid;\n  v_note text;\n  v_inserted public.admin_user_notes%ROWTYPE;\nBEGIN\n  v_actor_id := auth.uid();\n  IF v_actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.is_admin_any_role(v_actor_id, ARRAY['admin_support', 'admin_ops', 'admin_super']::text[]) THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  IF p_target_user_id IS NULL THEN\n    RAISE EXCEPTION 'p_target_user_id is required';\n  END IF;\n\n  v_note := NULLIF(trim(COALESCE(p_note, '')), '');\n  IF v_note IS NULL THEN\n    RAISE EXCEPTION 'p_note is required';\n  END IF;\n\n  INSERT INTO public.admin_user_notes (\n    target_user_id,\n    actor_user_id,\n    note\n  ) VALUES (\n    p_target_user_id,\n    v_actor_id,\n    v_note\n  )\n  RETURNING * INTO v_inserted;\n\n  PERFORM public.log_admin_action(\n    p_action => 'user_internal_note_added',\n    p_target_type => 'user',\n    p_target_id => p_target_user_id::text,\n    p_meta => jsonb_build_object(\n      'note', v_note,\n      'admin_user_note_id', v_inserted.id\n    ),\n    p_actor_user_id => v_actor_id\n  );\n\n  RETURN QUERY\n  SELECT\n    v_inserted.id,\n    v_inserted.target_user_id,\n    v_inserted.actor_user_id,\n    v_inserted.note,\n    v_inserted.created_at;\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "admin_add_user_note",
+            "signature": "admin_add_user_note(uuid,text)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.admin_add_user_note(p_target_user_id uuid, p_note text)\n RETURNS TABLE(id uuid, target_user_id uuid, actor_user_id uuid, note text, created_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_actor_id uuid;\n  v_note text;\n  v_inserted public.admin_user_notes%ROWTYPE;\nBEGIN\n  v_actor_id := auth.uid();\n  IF v_actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.is_admin_any_role(v_actor_id, ARRAY['admin_support', 'admin_ops', 'admin_super']::text[]) THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  IF p_target_user_id IS NULL THEN\n    RAISE EXCEPTION 'p_target_user_id is required';\n  END IF;\n\n  v_note := NULLIF(trim(COALESCE(p_note, '')), '');\n  IF v_note IS NULL THEN\n    RAISE EXCEPTION 'p_note is required';\n  END IF;\n\n  INSERT INTO public.admin_user_notes (\n    target_user_id,\n    actor_user_id,\n    note\n  ) VALUES (\n    p_target_user_id,\n    v_actor_id,\n    v_note\n  )\n  RETURNING * INTO v_inserted;\n\n  PERFORM public.log_admin_action(\n    'user_internal_note_added',\n    'user',\n    p_target_user_id::text,\n    jsonb_build_object(\n      'note', v_note,\n      'admin_user_note_id', v_inserted.id\n    ),\n    v_actor_id\n  );\n\n  RETURN QUERY\n  SELECT\n    v_inserted.id,\n    v_inserted.target_user_id,\n    v_inserted.actor_user_id,\n    v_inserted.note,\n    v_inserted.created_at;\nEND;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "admin_delete_user_note",
+            "signature": "admin_delete_user_note(uuid)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.admin_delete_user_note(p_note_id uuid)\n RETURNS TABLE(id uuid, target_user_id uuid, actor_user_id uuid, note text, created_at timestamp with time zone, updated_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_actor_id uuid;\n  v_is_super boolean;\n  v_row public.admin_user_notes%ROWTYPE;\nBEGIN\n  v_actor_id := auth.uid();\n  IF v_actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.is_admin_any_role(v_actor_id, ARRAY['admin_support','admin_ops','admin_super']::text[]) THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  IF p_note_id IS NULL THEN\n    RAISE EXCEPTION 'p_note_id is required';\n  END IF;\n\n  v_is_super := public.is_admin_any_role(v_actor_id, ARRAY['admin_super']::text[]);\n\n  SELECT n.* INTO v_row\n  FROM public.admin_user_notes AS n\n  WHERE n.id = p_note_id;\n\n  IF NOT FOUND THEN\n    RAISE EXCEPTION 'Note not found';\n  END IF;\n\n  IF (v_row.actor_user_id <> v_actor_id) AND (NOT v_is_super) THEN\n    RAISE EXCEPTION 'Only the author or super admin can delete this note';\n  END IF;\n\n  DELETE FROM public.admin_user_notes AS n\n  WHERE n.id = p_note_id;\n\n  PERFORM public.log_admin_action(\n    p_action => 'user_internal_note_deleted',\n    p_target_type => 'user',\n    p_target_id => v_row.target_user_id::text,\n    p_meta => jsonb_build_object(\n      'admin_user_note_id', v_row.id,\n      'deleted_by_super', v_is_super AND (v_row.actor_user_id <> v_actor_id)\n    ),\n    p_actor_user_id => v_actor_id\n  );\n\n  RETURN QUERY\n  SELECT v_row.id, v_row.target_user_id, v_row.actor_user_id, v_row.note, v_row.created_at, v_row.updated_at;\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "admin_delete_user_note",
+            "signature": "admin_delete_user_note(uuid)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.admin_delete_user_note(p_note_id uuid)\n RETURNS TABLE(id uuid, target_user_id uuid, actor_user_id uuid, note text, created_at timestamp with time zone, updated_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_actor_id uuid;\n  v_is_super boolean;\n  v_row public.admin_user_notes%ROWTYPE;\nBEGIN\n  v_actor_id := auth.uid();\n  IF v_actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.is_admin_any_role(v_actor_id, ARRAY['admin_support','admin_ops','admin_super']::text[]) THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  IF p_note_id IS NULL THEN\n    RAISE EXCEPTION 'p_note_id is required';\n  END IF;\n\n  v_is_super := public.is_admin_any_role(v_actor_id, ARRAY['admin_super']::text[]);\n\n  SELECT n.* INTO v_row\n  FROM public.admin_user_notes AS n\n  WHERE n.id = p_note_id;\n\n  IF NOT FOUND THEN\n    RAISE EXCEPTION 'Note not found';\n  END IF;\n\n  IF (v_row.actor_user_id <> v_actor_id) AND (NOT v_is_super) THEN\n    RAISE EXCEPTION 'Only the author or super admin can delete this note';\n  END IF;\n\n  DELETE FROM public.admin_user_notes AS n\n  WHERE n.id = p_note_id;\n\n  PERFORM public.log_admin_action(\n    'user_internal_note_deleted',\n    'user',\n    v_row.target_user_id::text,\n    jsonb_build_object(\n      'admin_user_note_id', v_row.id,\n      'deleted_by_super', v_is_super AND (v_row.actor_user_id <> v_actor_id)\n    ),\n    v_actor_id\n  );\n\n  RETURN QUERY\n  SELECT v_row.id, v_row.target_user_id, v_row.actor_user_id, v_row.note, v_row.created_at, v_row.updated_at;\nEND;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "admin_hide_listing_and_resolve_flag",
+            "signature": "admin_hide_listing_and_resolve_flag(uuid,uuid,text)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.admin_hide_listing_and_resolve_flag(p_flag_id uuid, p_listing_id uuid, p_notes text DEFAULT NULL::text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_actor_id uuid;\n  v_has_column boolean;\n  v_hidden boolean := false;\n  v_existing_notes text;\n  v_action_note text;\n  v_next_notes text;\nBEGIN\n  v_actor_id := auth.uid();\n  IF v_actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.has_admin_role('admin_ops') THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  IF p_flag_id IS NULL OR p_listing_id IS NULL THEN\n    RAISE EXCEPTION 'p_flag_id and p_listing_id are required';\n  END IF;\n\n  SELECT mf.admin_notes\n  INTO v_existing_notes\n  FROM public.moderation_flags mf\n  WHERE mf.id = p_flag_id\n  FOR UPDATE;\n\n  IF NOT FOUND THEN\n    RAISE EXCEPTION 'Moderation flag not found';\n  END IF;\n\n  SELECT EXISTS (\n    SELECT 1\n    FROM information_schema.columns\n    WHERE table_schema = 'public'\n      AND table_name = 'listings'\n      AND column_name = 'is_published'\n  ) INTO v_has_column;\n\n  IF v_has_column THEN\n    EXECUTE 'UPDATE public.listings SET is_published = false WHERE id = $1' USING p_listing_id;\n    v_hidden := true;\n  END IF;\n\n  IF NOT v_hidden THEN\n    SELECT EXISTS (\n      SELECT 1\n      FROM information_schema.columns\n      WHERE table_schema = 'public'\n        AND table_name = 'listings'\n        AND column_name = 'is_active'\n    ) INTO v_has_column;\n\n    IF v_has_column THEN\n      EXECUTE 'UPDATE public.listings SET is_active = false WHERE id = $1' USING p_listing_id;\n      v_hidden := true;\n    END IF;\n  END IF;\n\n  IF NOT v_hidden THEN\n    SELECT EXISTS (\n      SELECT 1\n      FROM information_schema.columns\n      WHERE table_schema = 'public'\n        AND table_name = 'listings'\n        AND column_name = 'deleted_at'\n    ) INTO v_has_column;\n\n    IF v_has_column THEN\n      EXECUTE 'UPDATE public.listings SET deleted_at = now() WHERE id = $1' USING p_listing_id;\n      v_hidden := true;\n    END IF;\n  END IF;\n\n  v_action_note := '[' || to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') ||\n    '] Listing moderation action: hidden and resolved.';\n  IF NULLIF(trim(COALESCE(p_notes, '')), '') IS NOT NULL THEN\n    v_action_note := v_action_note || E'\\nNotes: ' || trim(COALESCE(p_notes, ''));\n  END IF;\n\n  v_next_notes := concat_ws(\n    E'\\n\\n',\n    NULLIF(trim(COALESCE(v_existing_notes, '')), ''),\n    v_action_note\n  );\n\n  PERFORM public.admin_update_moderation_flag(\n    p_flag_id,\n    'resolved',\n    v_next_notes,\n    jsonb_build_object(\n      'action', 'hide_listing_and_resolve_flag',\n      'listing_id', p_listing_id,\n      'listing_hidden', v_hidden\n    )\n  );\n\n  PERFORM public.log_admin_action(\n    p_action => 'moderation_hide_listing',\n    p_target_type => 'listing',\n    p_target_id => p_listing_id::text,\n    p_meta => jsonb_build_object(\n      'flag_id', p_flag_id,\n      'listing_id', p_listing_id,\n      'listing_hidden', v_hidden,\n      'notes', NULLIF(trim(COALESCE(p_notes, '')), '')\n    ),\n    p_actor_user_id => v_actor_id\n  );\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "admin_hide_listing_and_resolve_flag",
+            "signature": "admin_hide_listing_and_resolve_flag(uuid,uuid,text)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.admin_hide_listing_and_resolve_flag(p_flag_id uuid, p_listing_id uuid, p_notes text DEFAULT NULL::text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_actor_id uuid;\n  v_has_column boolean;\n  v_hidden boolean := false;\nBEGIN\n  v_actor_id := auth.uid();\n  IF v_actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.has_admin_role('admin_ops') THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  IF p_flag_id IS NULL OR p_listing_id IS NULL THEN\n    RAISE EXCEPTION 'p_flag_id and p_listing_id are required';\n  END IF;\n\n  SELECT EXISTS (\n    SELECT 1\n    FROM information_schema.columns\n    WHERE table_schema = 'public'\n      AND table_name = 'listings'\n      AND column_name = 'is_published'\n  ) INTO v_has_column;\n\n  IF v_has_column THEN\n    EXECUTE 'UPDATE public.listings SET is_published = false WHERE id = $1' USING p_listing_id;\n    v_hidden := true;\n  END IF;\n\n  IF NOT v_hidden THEN\n    SELECT EXISTS (\n      SELECT 1\n      FROM information_schema.columns\n      WHERE table_schema = 'public'\n        AND table_name = 'listings'\n        AND column_name = 'is_active'\n    ) INTO v_has_column;\n\n    IF v_has_column THEN\n      EXECUTE 'UPDATE public.listings SET is_active = false WHERE id = $1' USING p_listing_id;\n      v_hidden := true;\n    END IF;\n  END IF;\n\n  IF NOT v_hidden THEN\n    SELECT EXISTS (\n      SELECT 1\n      FROM information_schema.columns\n      WHERE table_schema = 'public'\n        AND table_name = 'listings'\n        AND column_name = 'deleted_at'\n    ) INTO v_has_column;\n\n    IF v_has_column THEN\n      EXECUTE 'UPDATE public.listings SET deleted_at = now() WHERE id = $1' USING p_listing_id;\n      v_hidden := true;\n    END IF;\n  END IF;\n\n  PERFORM public.admin_update_moderation_flag(\n    p_flag_id,\n    'resolved',\n    p_notes,\n    jsonb_build_object(\n      'action', 'hide_listing_and_resolve_flag',\n      'listing_id', p_listing_id,\n      'listing_hidden', v_hidden\n    )\n  );\n\n  PERFORM public.log_admin_action(\n    'moderation_hide_listing',\n    'listing',\n    p_listing_id::text,\n    jsonb_build_object(\n      'flag_id', p_flag_id,\n      'listing_id', p_listing_id,\n      'listing_hidden', v_hidden,\n      'notes', NULLIF(trim(COALESCE(p_notes, '')), '')\n    ),\n    v_actor_id\n  );\nEND;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "admin_hide_review_and_resolve_flag",
+            "signature": "admin_hide_review_and_resolve_flag(uuid,uuid,text)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.admin_hide_review_and_resolve_flag(p_flag_id uuid, p_review_id uuid, p_notes text DEFAULT NULL::text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_actor_id uuid;\n  v_has_column boolean;\n  v_hidden boolean := false;\n  v_existing_notes text;\n  v_action_note text;\n  v_next_notes text;\nBEGIN\n  v_actor_id := auth.uid();\n  IF v_actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.has_admin_role('admin_ops') THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  IF p_flag_id IS NULL OR p_review_id IS NULL THEN\n    RAISE EXCEPTION 'p_flag_id and p_review_id are required';\n  END IF;\n\n  SELECT mf.admin_notes\n  INTO v_existing_notes\n  FROM public.moderation_flags mf\n  WHERE mf.id = p_flag_id\n  FOR UPDATE;\n\n  IF NOT FOUND THEN\n    RAISE EXCEPTION 'Moderation flag not found';\n  END IF;\n\n  IF to_regclass('public.business_reviews') IS NULL THEN\n    RAISE EXCEPTION 'business_reviews table not found';\n  END IF;\n\n  SELECT EXISTS (\n    SELECT 1\n    FROM information_schema.columns\n    WHERE table_schema = 'public'\n      AND table_name = 'business_reviews'\n      AND column_name = 'is_hidden'\n  ) INTO v_has_column;\n\n  IF v_has_column THEN\n    EXECUTE 'UPDATE public.business_reviews SET is_hidden = true WHERE id = $1' USING p_review_id;\n    v_hidden := true;\n  END IF;\n\n  IF NOT v_hidden THEN\n    SELECT EXISTS (\n      SELECT 1\n      FROM information_schema.columns\n      WHERE table_schema = 'public'\n        AND table_name = 'business_reviews'\n        AND column_name = 'is_published'\n    ) INTO v_has_column;\n\n    IF v_has_column THEN\n      EXECUTE 'UPDATE public.business_reviews SET is_published = false WHERE id = $1' USING p_review_id;\n      v_hidden := true;\n    END IF;\n  END IF;\n\n  IF NOT v_hidden THEN\n    SELECT EXISTS (\n      SELECT 1\n      FROM information_schema.columns\n      WHERE table_schema = 'public'\n        AND table_name = 'business_reviews'\n        AND column_name = 'is_active'\n    ) INTO v_has_column;\n\n    IF v_has_column THEN\n      EXECUTE 'UPDATE public.business_reviews SET is_active = false WHERE id = $1' USING p_review_id;\n      v_hidden := true;\n    END IF;\n  END IF;\n\n  IF NOT v_hidden THEN\n    SELECT EXISTS (\n      SELECT 1\n      FROM information_schema.columns\n      WHERE table_schema = 'public'\n        AND table_name = 'business_reviews'\n        AND column_name = 'deleted_at'\n    ) INTO v_has_column;\n\n    IF v_has_column THEN\n      EXECUTE 'UPDATE public.business_reviews SET deleted_at = now() WHERE id = $1' USING p_review_id;\n      v_hidden := true;\n    END IF;\n  END IF;\n\n  v_action_note := '[' || to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') ||\n    '] Review moderation action: hidden and resolved.';\n  IF NULLIF(trim(COALESCE(p_notes, '')), '') IS NOT NULL THEN\n    v_action_note := v_action_note || E'\\nNotes: ' || trim(COALESCE(p_notes, ''));\n  END IF;\n\n  v_next_notes := concat_ws(\n    E'\\n\\n',\n    NULLIF(trim(COALESCE(v_existing_notes, '')), ''),\n    v_action_note\n  );\n\n  PERFORM public.admin_update_moderation_flag(\n    p_flag_id,\n    'resolved',\n    v_next_notes,\n    jsonb_build_object(\n      'action', 'hide_review_and_resolve_flag',\n      'review_id', p_review_id,\n      'review_hidden', v_hidden\n    )\n  );\n\n  PERFORM public.log_admin_action(\n    p_action => 'moderation_hide_review',\n    p_target_type => 'review',\n    p_target_id => p_review_id::text,\n    p_meta => jsonb_build_object(\n      'flag_id', p_flag_id,\n      'review_id', p_review_id,\n      'review_hidden', v_hidden,\n      'notes', NULLIF(trim(COALESCE(p_notes, '')), '')\n    ),\n    p_actor_user_id => v_actor_id\n  );\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "admin_hide_review_and_resolve_flag",
+            "signature": "admin_hide_review_and_resolve_flag(uuid,uuid,text)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.admin_hide_review_and_resolve_flag(p_flag_id uuid, p_review_id uuid, p_notes text DEFAULT NULL::text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_actor_id uuid;\n  v_has_column boolean;\n  v_hidden boolean := false;\nBEGIN\n  v_actor_id := auth.uid();\n  IF v_actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.has_admin_role('admin_ops') THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  IF p_flag_id IS NULL OR p_review_id IS NULL THEN\n    RAISE EXCEPTION 'p_flag_id and p_review_id are required';\n  END IF;\n\n  IF to_regclass('public.business_reviews') IS NULL THEN\n    RAISE EXCEPTION 'business_reviews table not found';\n  END IF;\n\n  SELECT EXISTS (\n    SELECT 1\n    FROM information_schema.columns\n    WHERE table_schema = 'public'\n      AND table_name = 'business_reviews'\n      AND column_name = 'is_hidden'\n  ) INTO v_has_column;\n\n  IF v_has_column THEN\n    EXECUTE 'UPDATE public.business_reviews SET is_hidden = true WHERE id = $1' USING p_review_id;\n    v_hidden := true;\n  END IF;\n\n  IF NOT v_hidden THEN\n    SELECT EXISTS (\n      SELECT 1\n      FROM information_schema.columns\n      WHERE table_schema = 'public'\n        AND table_name = 'business_reviews'\n        AND column_name = 'is_published'\n    ) INTO v_has_column;\n\n    IF v_has_column THEN\n      EXECUTE 'UPDATE public.business_reviews SET is_published = false WHERE id = $1' USING p_review_id;\n      v_hidden := true;\n    END IF;\n  END IF;\n\n  IF NOT v_hidden THEN\n    SELECT EXISTS (\n      SELECT 1\n      FROM information_schema.columns\n      WHERE table_schema = 'public'\n        AND table_name = 'business_reviews'\n        AND column_name = 'is_active'\n    ) INTO v_has_column;\n\n    IF v_has_column THEN\n      EXECUTE 'UPDATE public.business_reviews SET is_active = false WHERE id = $1' USING p_review_id;\n      v_hidden := true;\n    END IF;\n  END IF;\n\n  IF NOT v_hidden THEN\n    SELECT EXISTS (\n      SELECT 1\n      FROM information_schema.columns\n      WHERE table_schema = 'public'\n        AND table_name = 'business_reviews'\n        AND column_name = 'deleted_at'\n    ) INTO v_has_column;\n\n    IF v_has_column THEN\n      EXECUTE 'UPDATE public.business_reviews SET deleted_at = now() WHERE id = $1' USING p_review_id;\n      v_hidden := true;\n    END IF;\n  END IF;\n\n  PERFORM public.admin_update_moderation_flag(\n    p_flag_id,\n    'resolved',\n    p_notes,\n    jsonb_build_object(\n      'action', 'hide_review_and_resolve_flag',\n      'review_id', p_review_id,\n      'review_hidden', v_hidden\n    )\n  );\n\n  PERFORM public.log_admin_action(\n    'moderation_hide_review',\n    'review',\n    p_review_id::text,\n    jsonb_build_object(\n      'flag_id', p_flag_id,\n      'review_id', p_review_id,\n      'review_hidden', v_hidden,\n      'notes', NULLIF(trim(COALESCE(p_notes, '')), '')\n    ),\n    v_actor_id\n  );\nEND;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "admin_list_audit_logs",
+            "signature": "admin_list_audit_logs(text,text,timestamp with time zone,timestamp with time zone,integer,integer)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.admin_list_audit_logs(p_q text DEFAULT NULL::text, p_action text DEFAULT NULL::text, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_offset integer DEFAULT 0, p_limit integer DEFAULT 50)\n RETURNS TABLE(id uuid, created_at timestamp with time zone, actor_user_id uuid, actor_name text, actor_email text, action text, target_type text, target_id text, target_name text, target_email text, target_label text, meta jsonb, total_count bigint)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_q text := NULLIF(trim(COALESCE(p_q, '')), '');\n  v_action text := NULLIF(trim(COALESCE(p_action, '')), '');\n  v_offset integer := GREATEST(COALESCE(p_offset, 0), 0);\n  v_limit integer := LEAST(GREATEST(COALESCE(p_limit, 50), 1), 200);\nBEGIN\n  IF auth.uid() IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.has_admin_role('admin_readonly') THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  RETURN QUERY\n  WITH base AS (\n    SELECT\n      l.*,\n      COALESCE(l.target_id, '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AS target_is_uuid\n    FROM public.admin_audit_log l\n    WHERE\n      (v_action IS NULL OR l.action ILIKE '%' || v_action || '%')\n      AND (p_from IS NULL OR l.created_at >= p_from)\n      AND (p_to IS NULL OR l.created_at <= p_to)\n  ),\n  enriched AS (\n    SELECT\n      b.id,\n      b.created_at,\n      b.actor_user_id,\n      NULLIF(trim(u_actor.full_name), '')::text AS actor_name,\n      NULLIF(trim(u_actor.email), '')::text AS actor_email,\n      b.action,\n      b.target_type,\n      b.target_id,\n      CASE\n        WHEN b.target_type = 'user' THEN NULLIF(trim(u_target.full_name), '')\n        WHEN b.target_type = 'business' THEN NULLIF(trim(COALESCE(biz.business_name, biz.name)), '')\n        WHEN b.target_type = 'listing' THEN NULLIF(trim(li.title), '')\n        ELSE NULL\n      END::text AS target_name,\n      CASE\n        WHEN b.target_type = 'user' THEN NULLIF(trim(u_target.email), '')\n        ELSE NULL\n      END::text AS target_email,\n      CASE\n        WHEN b.target_type = 'user' THEN COALESCE(\n          CASE\n            WHEN NULLIF(trim(u_target.full_name), '') IS NOT NULL AND NULLIF(trim(u_target.email), '') IS NOT NULL\n              THEN trim(u_target.full_name) || ' <' || trim(u_target.email) || '>'\n            WHEN NULLIF(trim(u_target.email), '') IS NOT NULL\n              THEN trim(u_target.email)\n            WHEN NULLIF(trim(u_target.full_name), '') IS NOT NULL\n              THEN trim(u_target.full_name)\n            ELSE NULL\n          END,\n          COALESCE(b.target_id, 'user:unknown')\n        )\n        WHEN b.target_type = 'business' THEN COALESCE(\n          NULLIF(trim(COALESCE(biz.business_name, biz.name)), ''),\n          CASE\n            WHEN NULLIF(trim(COALESCE(biz.public_id, b.target_id)), '') IS NOT NULL\n              THEN 'business: ' || trim(COALESCE(biz.public_id, b.target_id))\n            ELSE 'business:unknown'\n          END\n        )\n        WHEN b.target_type = 'listing' THEN COALESCE(\n          NULLIF(trim(li.title), ''),\n          CASE\n            WHEN NULLIF(trim(COALESCE(li.public_id, b.target_id)), '') IS NOT NULL\n              THEN 'listing: ' || trim(COALESCE(li.public_id, b.target_id))\n            ELSE 'listing:unknown'\n          END\n        )\n        ELSE COALESCE(\n          NULLIF(trim(COALESCE(b.target_type, '')), '') || ':' || COALESCE(NULLIF(trim(b.target_id), ''), '-'),\n          COALESCE(NULLIF(trim(b.target_id), ''), '-')\n        )\n      END::text AS target_label,\n      b.meta\n    FROM base b\n    LEFT JOIN public.users u_actor\n      ON u_actor.id = b.actor_user_id\n    LEFT JOIN public.users u_target\n      ON b.target_type = 'user'\n      AND b.target_is_uuid\n      AND u_target.id = b.target_id::uuid\n    LEFT JOIN public.businesses biz\n      ON b.target_type = 'business'\n      AND (\n        (b.target_is_uuid AND biz.id = b.target_id::uuid)\n        OR lower(COALESCE(biz.public_id, '')) = lower(COALESCE(b.target_id, ''))\n      )\n    LEFT JOIN public.listings li\n      ON b.target_type = 'listing'\n      AND (\n        (b.target_is_uuid AND li.id = b.target_id::uuid)\n        OR lower(COALESCE(li.public_id, '')) = lower(COALESCE(b.target_id, ''))\n      )\n  )\n  SELECT\n    e.id,\n    e.created_at,\n    e.actor_user_id,\n    e.actor_name,\n    e.actor_email,\n    e.action,\n    e.target_type,\n    e.target_id,\n    e.target_name,\n    e.target_email,\n    e.target_label,\n    e.meta,\n    COUNT(*) OVER()::bigint AS total_count\n  FROM enriched e\n  WHERE\n    v_q IS NULL\n    OR COALESCE(e.action, '') ILIKE '%' || v_q || '%'\n    OR COALESCE(e.actor_name, '') ILIKE '%' || v_q || '%'\n    OR COALESCE(e.actor_email, '') ILIKE '%' || v_q || '%'\n    OR COALESCE(e.target_name, '') ILIKE '%' || v_q || '%'\n    OR COALESCE(e.target_email, '') ILIKE '%' || v_q || '%'\n    OR COALESCE(e.target_label, '') ILIKE '%' || v_q || '%'\n    OR COALESCE(e.target_id, '') ILIKE '%' || v_q || '%'\n  ORDER BY e.created_at DESC, e.id DESC\n  OFFSET v_offset\n  LIMIT v_limit;\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "admin_list_audit_logs",
+            "signature": "admin_list_audit_logs(text,text,timestamp with time zone,timestamp with time zone,integer,integer)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.admin_list_audit_logs(p_q text DEFAULT NULL::text, p_action text DEFAULT NULL::text, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_offset integer DEFAULT 0, p_limit integer DEFAULT 50)\n RETURNS TABLE(id uuid, created_at timestamp with time zone, actor_user_id uuid, actor_name text, actor_email text, action text, target_type text, target_id text, target_name text, target_email text, target_label text, meta jsonb, total_count bigint)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_q text := NULLIF(trim(COALESCE(p_q, '')), '');\n  v_action text := NULLIF(trim(COALESCE(p_action, '')), '');\n  v_offset integer := GREATEST(COALESCE(p_offset, 0), 0);\n  v_limit integer := LEAST(GREATEST(COALESCE(p_limit, 50), 1), 200);\nBEGIN\n  IF auth.uid() IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.has_admin_role('admin_readonly') THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  RETURN QUERY\n  WITH base AS (\n    SELECT\n      l.*,\n      CASE\n        WHEN COALESCE(l.target_id, '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\n        THEN l.target_id::uuid\n        ELSE NULL\n      END AS target_uuid\n    FROM public.admin_audit_log l\n    WHERE\n      (v_action IS NULL OR l.action ILIKE '%' || v_action || '%')\n      AND (p_from IS NULL OR l.created_at >= p_from)\n      AND (p_to IS NULL OR l.created_at <= p_to)\n  ),\n  enriched AS (\n    SELECT\n      b.id,\n      b.created_at,\n      b.actor_user_id,\n      NULLIF(trim(u_actor.full_name), '')::text AS actor_name,\n      NULLIF(trim(u_actor.email), '')::text AS actor_email,\n      b.action,\n      b.target_type,\n      b.target_id,\n      CASE\n        WHEN b.target_type = 'user' THEN NULLIF(trim(u_target.full_name), '')\n        WHEN b.target_type = 'business' THEN NULLIF(trim(COALESCE(biz.business_name, biz.name)), '')\n        WHEN b.target_type = 'listing' THEN NULLIF(trim(li.title), '')\n        ELSE NULL\n      END::text AS target_name,\n      CASE\n        WHEN b.target_type = 'user' THEN NULLIF(trim(u_target.email), '')\n        ELSE NULL\n      END::text AS target_email,\n      CASE\n        WHEN b.target_type = 'user' THEN COALESCE(\n          CASE\n            WHEN NULLIF(trim(u_target.full_name), '') IS NOT NULL AND NULLIF(trim(u_target.email), '') IS NOT NULL\n              THEN trim(u_target.full_name) || ' <' || trim(u_target.email) || '>'\n            WHEN NULLIF(trim(u_target.email), '') IS NOT NULL\n              THEN trim(u_target.email)\n            WHEN NULLIF(trim(u_target.full_name), '') IS NOT NULL\n              THEN trim(u_target.full_name)\n            ELSE NULL\n          END,\n          COALESCE(b.target_id, 'user:unknown')\n        )\n        WHEN b.target_type = 'business' THEN COALESCE(\n          NULLIF(trim(COALESCE(biz.business_name, biz.name)), ''),\n          CASE\n            WHEN NULLIF(trim(COALESCE(biz.public_id, b.target_id)), '') IS NOT NULL\n              THEN 'business: ' || trim(COALESCE(biz.public_id, b.target_id))\n            ELSE 'business:unknown'\n          END\n        )\n        WHEN b.target_type = 'listing' THEN COALESCE(\n          NULLIF(trim(li.title), ''),\n          CASE\n            WHEN NULLIF(trim(COALESCE(li.public_id, b.target_id)), '') IS NOT NULL\n              THEN 'listing: ' || trim(COALESCE(li.public_id, b.target_id))\n            ELSE 'listing:unknown'\n          END\n        )\n        ELSE COALESCE(\n          NULLIF(trim(COALESCE(b.target_type, '')), '') || ':' || COALESCE(NULLIF(trim(b.target_id), ''), '-'),\n          COALESCE(NULLIF(trim(b.target_id), ''), '-')\n        )\n      END::text AS target_label,\n      b.meta\n    FROM base b\n    LEFT JOIN public.users u_actor\n      ON u_actor.id = b.actor_user_id\n    LEFT JOIN public.users u_target\n      ON b.target_type = 'user'\n      AND b.target_uuid IS NOT NULL\n      AND u_target.id = b.target_uuid\n    LEFT JOIN public.businesses biz\n      ON b.target_type = 'business'\n      AND (\n        (b.target_uuid IS NOT NULL AND biz.id = b.target_uuid)\n        OR lower(COALESCE(biz.public_id, '')) = lower(COALESCE(b.target_id, ''))\n      )\n    LEFT JOIN public.listings li\n      ON b.target_type = 'listing'\n      AND (\n        (b.target_uuid IS NOT NULL AND li.id = b.target_uuid)\n        OR lower(COALESCE(li.public_id, '')) = lower(COALESCE(b.target_id, ''))\n      )\n  )\n  SELECT\n    e.id,\n    e.created_at,\n    e.actor_user_id,\n    e.actor_name,\n    e.actor_email,\n    e.action,\n    e.target_type,\n    e.target_id,\n    e.target_name,\n    e.target_email,\n    e.target_label,\n    e.meta,\n    COUNT(*) OVER()::bigint AS total_count\n  FROM enriched e\n  WHERE\n    v_q IS NULL\n    OR COALESCE(e.action, '') ILIKE '%' || v_q || '%'\n    OR COALESCE(e.actor_name, '') ILIKE '%' || v_q || '%'\n    OR COALESCE(e.actor_email, '') ILIKE '%' || v_q || '%'\n    OR COALESCE(e.target_name, '') ILIKE '%' || v_q || '%'\n    OR COALESCE(e.target_email, '') ILIKE '%' || v_q || '%'\n    OR COALESCE(e.target_label, '') ILIKE '%' || v_q || '%'\n    OR COALESCE(e.target_id, '') ILIKE '%' || v_q || '%'\n  ORDER BY e.created_at DESC, e.id DESC\n  OFFSET v_offset\n  LIMIT v_limit;\nEND;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "admin_update_moderation_flag",
+            "signature": "admin_update_moderation_flag(uuid,text,text,jsonb)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.admin_update_moderation_flag(p_flag_id uuid, p_status text, p_admin_notes text DEFAULT NULL::text, p_meta jsonb DEFAULT '{}'::jsonb)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_actor_id uuid;\n  v_status text;\n  v_prev_status text;\n  v_target_type text;\n  v_target_id uuid;\nBEGIN\n  v_actor_id := auth.uid();\n  IF v_actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.has_admin_role('admin_ops') THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  v_status := lower(trim(COALESCE(p_status, '')));\n  IF v_status NOT IN ('open', 'in_review', 'resolved', 'dismissed') THEN\n    RAISE EXCEPTION 'Invalid status';\n  END IF;\n\n  SELECT\n    mf.status,\n    CASE\n      WHEN mf.target_listing_id IS NOT NULL THEN 'listing'\n      WHEN mf.target_review_id IS NOT NULL THEN 'review'\n      WHEN mf.target_business_id IS NOT NULL THEN 'business'\n      ELSE 'user'\n    END,\n    COALESCE(mf.target_listing_id, mf.target_review_id, mf.target_business_id, mf.target_user_id)\n  INTO v_prev_status, v_target_type, v_target_id\n  FROM public.moderation_flags mf\n  WHERE mf.id = p_flag_id;\n\n  IF v_prev_status IS NULL THEN\n    RAISE EXCEPTION 'Moderation flag not found';\n  END IF;\n\n  UPDATE public.moderation_flags\n  SET\n    status = v_status,\n    admin_notes = CASE\n      WHEN p_admin_notes IS NULL THEN admin_notes\n      ELSE NULLIF(trim(p_admin_notes), '')\n    END,\n    reviewed_by_user_id = v_actor_id,\n    reviewed_at = now()\n  WHERE id = p_flag_id;\n\n  PERFORM public.log_admin_action(\n    p_action => 'moderation_flag_update',\n    p_target_type => 'moderation_flag',\n    p_target_id => p_flag_id::text,\n    p_meta => jsonb_build_object(\n      'flag_id', p_flag_id,\n      'previous_status', v_prev_status,\n      'new_status', v_status,\n      'target_type', v_target_type,\n      'target_id', v_target_id,\n      'admin_notes', NULLIF(trim(COALESCE(p_admin_notes, '')), '')\n    ) || COALESCE(p_meta, '{}'::jsonb),\n    p_actor_user_id => v_actor_id\n  );\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "admin_update_moderation_flag",
+            "signature": "admin_update_moderation_flag(uuid,text,text,jsonb)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.admin_update_moderation_flag(p_flag_id uuid, p_status text, p_admin_notes text DEFAULT NULL::text, p_meta jsonb DEFAULT '{}'::jsonb)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_actor_id uuid;\n  v_status text;\n  v_prev_status text;\n  v_target_type text;\n  v_target_id uuid;\nBEGIN\n  v_actor_id := auth.uid();\n  IF v_actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.has_admin_role('admin_ops') THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  v_status := lower(trim(COALESCE(p_status, '')));\n  IF v_status NOT IN ('open', 'in_review', 'resolved', 'dismissed') THEN\n    RAISE EXCEPTION 'Invalid status';\n  END IF;\n\n  SELECT\n    mf.status,\n    CASE\n      WHEN mf.target_listing_id IS NOT NULL THEN 'listing'\n      WHEN mf.target_review_id IS NOT NULL THEN 'review'\n      WHEN mf.target_business_id IS NOT NULL THEN 'business'\n      ELSE 'user'\n    END,\n    COALESCE(mf.target_listing_id, mf.target_review_id, mf.target_business_id, mf.target_user_id)\n  INTO v_prev_status, v_target_type, v_target_id\n  FROM public.moderation_flags mf\n  WHERE mf.id = p_flag_id;\n\n  IF v_prev_status IS NULL THEN\n    RAISE EXCEPTION 'Moderation flag not found';\n  END IF;\n\n  UPDATE public.moderation_flags\n  SET\n    status = v_status,\n    admin_notes = CASE\n      WHEN p_admin_notes IS NULL THEN admin_notes\n      ELSE NULLIF(trim(p_admin_notes), '')\n    END,\n    reviewed_by_user_id = v_actor_id,\n    reviewed_at = now()\n  WHERE id = p_flag_id;\n\n  PERFORM public.log_admin_action(\n    'moderation_flag_update',\n    'moderation_flag',\n    p_flag_id::text,\n    jsonb_build_object(\n      'flag_id', p_flag_id,\n      'previous_status', v_prev_status,\n      'new_status', v_status,\n      'target_type', v_target_type,\n      'target_id', v_target_id,\n      'admin_notes', NULLIF(trim(COALESCE(p_admin_notes, '')), '')\n    ) || COALESCE(p_meta, '{}'::jsonb),\n    v_actor_id\n  );\nEND;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "admin_update_user_note",
+            "signature": "admin_update_user_note(uuid,text)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.admin_update_user_note(p_note_id uuid, p_note text)\n RETURNS TABLE(id uuid, target_user_id uuid, actor_user_id uuid, note text, created_at timestamp with time zone, updated_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_actor_id uuid;\n  v_note text;\n  v_row public.admin_user_notes%ROWTYPE;\nBEGIN\n  v_actor_id := auth.uid();\n  IF v_actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.is_admin_any_role(v_actor_id, ARRAY['admin_support','admin_ops','admin_super']::text[]) THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  IF p_note_id IS NULL THEN\n    RAISE EXCEPTION 'p_note_id is required';\n  END IF;\n\n  v_note := NULLIF(trim(COALESCE(p_note, '')), '');\n  IF v_note IS NULL THEN\n    RAISE EXCEPTION 'p_note is required';\n  END IF;\n\n  SELECT n.* INTO v_row\n  FROM public.admin_user_notes AS n\n  WHERE n.id = p_note_id;\n\n  IF NOT FOUND THEN\n    RAISE EXCEPTION 'Note not found';\n  END IF;\n\n  IF v_row.actor_user_id <> v_actor_id THEN\n    RAISE EXCEPTION 'Only the author can edit this note';\n  END IF;\n\n  UPDATE public.admin_user_notes AS n\n  SET note = v_note\n  WHERE n.id = p_note_id\n  RETURNING n.* INTO v_row;\n\n  PERFORM public.log_admin_action(\n    p_action => 'user_internal_note_updated',\n    p_target_type => 'user',\n    p_target_id => v_row.target_user_id::text,\n    p_meta => jsonb_build_object(\n      'admin_user_note_id', v_row.id\n    ),\n    p_actor_user_id => v_actor_id\n  );\n\n  RETURN QUERY\n  SELECT v_row.id, v_row.target_user_id, v_row.actor_user_id, v_row.note, v_row.created_at, v_row.updated_at;\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "admin_update_user_note",
+            "signature": "admin_update_user_note(uuid,text)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.admin_update_user_note(p_note_id uuid, p_note text)\n RETURNS TABLE(id uuid, target_user_id uuid, actor_user_id uuid, note text, created_at timestamp with time zone, updated_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_actor_id uuid;\n  v_note text;\n  v_row public.admin_user_notes%ROWTYPE;\nBEGIN\n  v_actor_id := auth.uid();\n  IF v_actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.is_admin_any_role(v_actor_id, ARRAY['admin_support','admin_ops','admin_super']::text[]) THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  IF p_note_id IS NULL THEN\n    RAISE EXCEPTION 'p_note_id is required';\n  END IF;\n\n  v_note := NULLIF(trim(COALESCE(p_note, '')), '');\n  IF v_note IS NULL THEN\n    RAISE EXCEPTION 'p_note is required';\n  END IF;\n\n  SELECT n.* INTO v_row\n  FROM public.admin_user_notes AS n\n  WHERE n.id = p_note_id;\n\n  IF NOT FOUND THEN\n    RAISE EXCEPTION 'Note not found';\n  END IF;\n\n  IF v_row.actor_user_id <> v_actor_id THEN\n    RAISE EXCEPTION 'Only the author can edit this note';\n  END IF;\n\n  UPDATE public.admin_user_notes AS n\n  SET note = v_note\n  WHERE n.id = p_note_id\n  RETURNING n.* INTO v_row;\n\n  PERFORM public.log_admin_action(\n    'user_internal_note_updated',\n    'user',\n    v_row.target_user_id::text,\n    jsonb_build_object(\n      'admin_user_note_id', v_row.id\n    ),\n    v_actor_id\n  );\n\n  RETURN QUERY\n  SELECT v_row.id, v_row.target_user_id, v_row.actor_user_id, v_row.note, v_row.created_at, v_row.updated_at;\nEND;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "create_impersonation_session",
+            "signature": "create_impersonation_session(uuid,integer,text,jsonb)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.create_impersonation_session(target_user_id uuid, minutes integer DEFAULT 30, reason text DEFAULT NULL::text, meta jsonb DEFAULT '{}'::jsonb)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  actor_id uuid;\n  inserted_id uuid;\n  ttl_minutes integer;\n  resolved_target_role text;\nBEGIN\n  actor_id := auth.uid();\n  IF actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.has_any_exact_admin_role(ARRAY['admin_support', 'admin_super']) THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  IF target_user_id IS NULL THEN\n    RAISE EXCEPTION 'target_user_id is required';\n  END IF;\n\n  IF actor_id = target_user_id THEN\n    RAISE EXCEPTION 'Cannot impersonate self';\n  END IF;\n\n  SELECT CASE WHEN u.role = 'business' THEN 'business' ELSE 'customer' END\n  INTO resolved_target_role\n  FROM public.users u\n  WHERE u.id = target_user_id;\n\n  IF resolved_target_role IS NULL THEN\n    RAISE EXCEPTION 'Target user not found';\n  END IF;\n\n  ttl_minutes := GREATEST(COALESCE(minutes, 30), 1);\n\n  INSERT INTO public.admin_impersonation_sessions (\n    actor_user_id,\n    target_user_id,\n    target_role,\n    reason,\n    meta,\n    expires_at,\n    active\n  ) VALUES (\n    actor_id,\n    target_user_id,\n    resolved_target_role,\n    reason,\n    COALESCE(meta, '{}'::jsonb) || jsonb_build_object('target_role', resolved_target_role),\n    now() + make_interval(mins => ttl_minutes),\n    true\n  )\n  RETURNING id INTO inserted_id;\n\n  PERFORM public.log_admin_action(\n    p_action => 'impersonation_start',\n    p_target_type => 'user',\n    p_target_id => target_user_id::text,\n    p_meta => jsonb_build_object(\n      'session_id', inserted_id,\n      'minutes', ttl_minutes,\n      'reason', reason,\n      'target_role', resolved_target_role,\n      'meta', COALESCE(meta, '{}'::jsonb)\n    ),\n    p_actor_user_id => actor_id\n  );\n\n  RETURN inserted_id;\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "create_impersonation_session",
+            "signature": "create_impersonation_session(uuid,integer,text,jsonb)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.create_impersonation_session(target_user_id uuid, minutes integer DEFAULT 30, reason text DEFAULT NULL::text, meta jsonb DEFAULT '{}'::jsonb)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  actor_id uuid;\n  inserted_id uuid;\n  ttl_minutes integer;\nBEGIN\n  actor_id := auth.uid();\n  IF actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT (\n    public.has_admin_role('admin_support')\n    OR public.has_admin_role('admin_ops')\n    OR public.has_admin_role('admin_super')\n  ) THEN\n    RAISE EXCEPTION 'Insufficient permissions';\n  END IF;\n\n  IF target_user_id IS NULL THEN\n    RAISE EXCEPTION 'target_user_id is required';\n  END IF;\n\n  IF actor_id = target_user_id THEN\n    RAISE EXCEPTION 'Cannot impersonate self';\n  END IF;\n\n  ttl_minutes := GREATEST(COALESCE(minutes, 30), 1);\n\n  INSERT INTO public.admin_impersonation_sessions (\n    actor_user_id,\n    target_user_id,\n    reason,\n    meta,\n    expires_at,\n    active\n  ) VALUES (\n    actor_id,\n    target_user_id,\n    reason,\n    COALESCE(meta, '{}'::jsonb),\n    now() + make_interval(mins => ttl_minutes),\n    true\n  )\n  RETURNING id INTO inserted_id;\n\n  PERFORM public.log_admin_action(\n    'impersonation_start',\n    'user',\n    target_user_id::text,\n    jsonb_build_object(\n      'session_id', inserted_id,\n      'minutes', ttl_minutes,\n      'reason', reason,\n      'meta', COALESCE(meta, '{}'::jsonb)\n    )\n  );\n\n  RETURN inserted_id;\nEND;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "generate_short_id",
+            "signature": "generate_short_id()",
+            "owner": "postgres",
+            "security_definer": false,
+            "proconfig": "search_path=extensions, pg_catalog",
+            "definition": "CREATE OR REPLACE FUNCTION public.generate_short_id()\n RETURNS text\n LANGUAGE sql\n SET search_path TO 'extensions', 'pg_catalog'\nAS $function$\n  SELECT substr(encode(gen_random_bytes(6), 'hex'), 1, 12);\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "generate_short_id",
+            "signature": "generate_short_id()",
+            "owner": "postgres",
+            "security_definer": false,
+            "proconfig": "",
+            "definition": "CREATE OR REPLACE FUNCTION public.generate_short_id()\n RETURNS text\n LANGUAGE sql\nAS $function$\n  -- 12 chars from hex (0-9a-f), URL-safe\n  select substr(encode(extensions.gen_random_bytes(5), 'hex'), 1, 12);\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "get_impersonation_session",
+            "signature": "get_impersonation_session(uuid)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.get_impersonation_session(p_session_id uuid)\n RETURNS TABLE(session_id uuid, actor_user_id uuid, target_user_id uuid, target_role text, expires_at timestamp with time zone, is_active boolean)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  current_user_id uuid;\nBEGIN\n  current_user_id := auth.uid();\n  IF current_user_id IS NULL THEN\n    RETURN;\n  END IF;\n\n  IF NOT public.has_any_exact_admin_role(ARRAY['admin_support', 'admin_super']) THEN\n    RETURN;\n  END IF;\n\n  RETURN QUERY\n  SELECT\n    s.id,\n    s.actor_user_id,\n    s.target_user_id,\n    COALESCE(s.target_role, CASE WHEN u.role = 'business' THEN 'business' ELSE 'customer' END) AS target_role,\n    s.expires_at,\n    (s.active = true AND s.ended_at IS NULL AND s.expires_at > now()) AS is_active\n  FROM public.admin_impersonation_sessions s\n  LEFT JOIN public.users u ON u.id = s.target_user_id\n  WHERE s.id = p_session_id\n    AND s.actor_user_id = current_user_id\n    AND s.active = true\n    AND s.ended_at IS NULL\n    AND s.expires_at > now()\n  LIMIT 1;\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "get_impersonation_session",
+            "signature": "get_impersonation_session(uuid)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.get_impersonation_session(p_session_id uuid)\n RETURNS TABLE(session_id uuid, actor_user_id uuid, target_user_id uuid, target_role text, expires_at timestamp with time zone, is_active boolean)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  current_user_id uuid;\nBEGIN\n  current_user_id := auth.uid();\n  IF current_user_id IS NULL THEN\n    RETURN;\n  END IF;\n\n  IF NOT public.has_admin_role('admin_support') THEN\n    RETURN;\n  END IF;\n\n  RETURN QUERY\n  SELECT\n    s.id,\n    s.actor_user_id,\n    s.target_user_id,\n    COALESCE(s.target_role, CASE WHEN u.role = 'business' THEN 'business' ELSE 'customer' END) AS target_role,\n    s.expires_at,\n    (s.active = true AND s.ended_at IS NULL AND s.expires_at > now()) AS is_active\n  FROM public.admin_impersonation_sessions s\n  LEFT JOIN public.users u ON u.id = s.target_user_id\n  WHERE s.id = p_session_id\n    AND s.actor_user_id = current_user_id\n    AND s.active = true\n    AND s.ended_at IS NULL\n    AND s.expires_at > now()\n  LIMIT 1;\nEND;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "get_or_create_conversation",
+            "signature": "get_or_create_conversation(uuid,uuid)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.get_or_create_conversation(p_customer_id uuid, p_business_id uuid)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  convo_id uuid;\n  customer_role text;\n  business_role text;\nBEGIN\n  IF auth.uid() IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF auth.uid() <> p_customer_id THEN\n    RAISE EXCEPTION 'Only the customer can start a conversation';\n  END IF;\n\n  IF p_customer_id = p_business_id THEN\n    RAISE EXCEPTION 'Customer and business must be different users';\n  END IF;\n\n  SELECT role INTO customer_role FROM public.users WHERE id = p_customer_id;\n  SELECT role INTO business_role FROM public.users WHERE id = p_business_id;\n\n  IF customer_role IS NULL OR business_role IS NULL THEN\n    RAISE EXCEPTION 'Invalid participants';\n  END IF;\n\n  IF customer_role <> 'customer' OR business_role <> 'business' THEN\n    RAISE EXCEPTION 'Conversation must be between customer and business';\n  END IF;\n\n  INSERT INTO public.conversations (customer_id, business_id)\n  VALUES (p_customer_id, p_business_id)\n  ON CONFLICT (customer_id, business_id) DO NOTHING\n  RETURNING id INTO convo_id;\n\n  IF convo_id IS NULL THEN\n    SELECT id INTO convo_id\n    FROM public.conversations\n    WHERE customer_id = p_customer_id\n      AND business_id = p_business_id;\n  END IF;\n\n  RETURN convo_id;\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "get_or_create_conversation",
+            "signature": "get_or_create_conversation(uuid,uuid)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.get_or_create_conversation(p_customer_id uuid, p_business_id uuid)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  convo_id uuid;\n  customer_role text;\n  business_role text;\nbegin\n  if auth.uid() is null then\n    raise exception 'Not authenticated';\n  end if;\n\n  if auth.uid() <> p_customer_id then\n    raise exception 'Only the customer can start a conversation';\n  end if;\n\n  if p_customer_id = p_business_id then\n    raise exception 'Customer and business must be different users';\n  end if;\n\n  select u.role into customer_role\n  from public.users u\n  where u.id = p_customer_id;\n\n  select u.role into business_role\n  from public.users u\n  where u.id = p_business_id;\n\n  if customer_role is null or business_role is null then\n    raise exception 'Invalid participants';\n  end if;\n\n  if customer_role <> 'customer' or business_role <> 'business' then\n    raise exception 'Conversation must be between customer and business';\n  end if;\n\n  insert into public.conversations (customer_id, business_id)\n  values (p_customer_id, p_business_id)\n  on conflict (customer_id, business_id) do nothing\n  returning id into convo_id;\n\n  if convo_id is null then\n    select c.id into convo_id\n    from public.conversations c\n    where c.customer_id = p_customer_id\n      and c.business_id = p_business_id;\n  end if;\n\n  return convo_id;\nend;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "handle_auth_user_profile_provisioning",
+            "signature": "handle_auth_user_profile_provisioning()",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public, auth",
+            "definition": "CREATE OR REPLACE FUNCTION public.handle_auth_user_profile_provisioning()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'auth'\nAS $function$\nDECLARE\n  v_role text;\n  v_full_name text;\n  v_avatar_url text;\nBEGIN\n  v_role := lower(coalesce(\n    NEW.raw_user_meta_data ->> 'role',\n    NEW.raw_app_meta_data ->> 'role',\n    'customer'\n  ));\n\n  IF v_role NOT IN ('customer', 'business', 'admin') THEN\n    v_role := 'customer';\n  END IF;\n\n  v_full_name := coalesce(\n    NEW.raw_user_meta_data ->> 'full_name',\n    NEW.raw_user_meta_data ->> 'name',\n    ''\n  );\n\n  v_avatar_url := coalesce(\n    NEW.raw_user_meta_data ->> 'avatar_url',\n    NEW.raw_user_meta_data ->> 'picture',\n    NEW.raw_user_meta_data ->> 'profile_photo_url'\n  );\n\n  INSERT INTO public.users (\n    id,\n    email,\n    role,\n    full_name,\n    profile_photo_url,\n    updated_at\n  )\n  VALUES (\n    NEW.id,\n    lower(NEW.email),\n    v_role,\n    v_full_name,\n    v_avatar_url,\n    now()\n  )\n  ON CONFLICT (id) DO UPDATE\n  SET\n    email = CASE\n      WHEN\n        public.users.email ILIKE 'deleted+%@deleted.local'\n        OR public.users.email ILIKE 'deleted+%@yourbarrio.invalid'\n        OR public.users.full_name = 'Deleted user'\n        OR public.users.business_name = 'Deleted user'\n        OR public.users.account_status = 'deleted'\n        OR public.users.deleted_at IS NOT NULL\n        OR public.users.anonymized_at IS NOT NULL\n      THEN EXCLUDED.email\n      ELSE coalesce(public.users.email, EXCLUDED.email)\n    END,\n    full_name = CASE\n      WHEN\n        public.users.email ILIKE 'deleted+%@deleted.local'\n        OR public.users.email ILIKE 'deleted+%@yourbarrio.invalid'\n        OR public.users.full_name = 'Deleted user'\n        OR public.users.business_name = 'Deleted user'\n        OR public.users.account_status = 'deleted'\n        OR public.users.deleted_at IS NOT NULL\n        OR public.users.anonymized_at IS NOT NULL\n      THEN EXCLUDED.full_name\n      ELSE coalesce(nullif(public.users.full_name, ''), EXCLUDED.full_name)\n    END,\n    profile_photo_url = CASE\n      WHEN\n        public.users.email ILIKE 'deleted+%@deleted.local'\n        OR public.users.email ILIKE 'deleted+%@yourbarrio.invalid'\n        OR public.users.full_name = 'Deleted user'\n        OR public.users.business_name = 'Deleted user'\n        OR public.users.account_status = 'deleted'\n        OR public.users.deleted_at IS NOT NULL\n        OR public.users.anonymized_at IS NOT NULL\n      THEN EXCLUDED.profile_photo_url\n      ELSE coalesce(public.users.profile_photo_url, EXCLUDED.profile_photo_url)\n    END,\n    business_name = CASE\n      WHEN public.users.business_name = 'Deleted user' THEN NULL\n      ELSE public.users.business_name\n    END,\n    account_status = CASE\n      WHEN\n        public.users.email ILIKE 'deleted+%@deleted.local'\n        OR public.users.email ILIKE 'deleted+%@yourbarrio.invalid'\n        OR public.users.full_name = 'Deleted user'\n        OR public.users.business_name = 'Deleted user'\n        OR public.users.account_status = 'deleted'\n        OR public.users.deleted_at IS NOT NULL\n        OR public.users.anonymized_at IS NOT NULL\n      THEN 'active'\n      ELSE public.users.account_status\n    END,\n    deleted_at = CASE\n      WHEN\n        public.users.email ILIKE 'deleted+%@deleted.local'\n        OR public.users.email ILIKE 'deleted+%@yourbarrio.invalid'\n        OR public.users.full_name = 'Deleted user'\n        OR public.users.business_name = 'Deleted user'\n        OR public.users.account_status = 'deleted'\n        OR public.users.deleted_at IS NOT NULL\n        OR public.users.anonymized_at IS NOT NULL\n      THEN NULL\n      ELSE public.users.deleted_at\n    END,\n    anonymized_at = CASE\n      WHEN\n        public.users.email ILIKE 'deleted+%@deleted.local'\n        OR public.users.email ILIKE 'deleted+%@yourbarrio.invalid'\n        OR public.users.full_name = 'Deleted user'\n        OR public.users.business_name = 'Deleted user'\n        OR public.users.account_status = 'deleted'\n        OR public.users.deleted_at IS NOT NULL\n        OR public.users.anonymized_at IS NOT NULL\n      THEN NULL\n      ELSE public.users.anonymized_at\n    END,\n    updated_at = now();\n\n  RETURN NEW;\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "handle_auth_user_profile_provisioning",
+            "signature": "handle_auth_user_profile_provisioning()",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public, auth",
+            "definition": "CREATE OR REPLACE FUNCTION public.handle_auth_user_profile_provisioning()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'auth'\nAS $function$\nDECLARE\n  v_role text;\n  v_full_name text;\n  v_avatar_url text;\nBEGIN\n  v_role := lower(coalesce(\n    NEW.raw_user_meta_data ->> 'role',\n    NEW.raw_app_meta_data ->> 'role',\n    'customer'\n  ));\n\n  IF v_role NOT IN ('customer', 'business', 'admin') THEN\n    v_role := 'customer';\n  END IF;\n\n  v_full_name := coalesce(\n    NEW.raw_user_meta_data ->> 'full_name',\n    NEW.raw_user_meta_data ->> 'name',\n    ''\n  );\n\n  v_avatar_url := coalesce(\n    NEW.raw_user_meta_data ->> 'avatar_url',\n    NEW.raw_user_meta_data ->> 'picture',\n    NEW.raw_user_meta_data ->> 'profile_photo_url'\n  );\n\n  INSERT INTO public.users (\n    id,\n    email,\n    role,\n    full_name,\n    profile_photo_url,\n    updated_at\n  )\n  VALUES (\n    NEW.id,\n    lower(NEW.email),\n    v_role,\n    v_full_name,\n    v_avatar_url,\n    now()\n  )\n  ON CONFLICT (id) DO UPDATE\n  SET\n    email = coalesce(public.users.email, EXCLUDED.email),\n    full_name = coalesce(nullif(public.users.full_name, ''), EXCLUDED.full_name),\n    profile_photo_url = coalesce(public.users.profile_photo_url, EXCLUDED.profile_photo_url),\n    updated_at = now();\n\n  RETURN NEW;\nEND;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "handle_message_insert",
+            "signature": "handle_message_insert()",
+            "owner": "postgres",
+            "security_definer": false,
+            "proconfig": "",
+            "definition": "CREATE OR REPLACE FUNCTION public.handle_message_insert()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  UPDATE public.conversations\n  SET last_message_at = NEW.created_at,\n      last_message_preview = NEW.body,\n      customer_unread_count = CASE\n        WHEN NEW.recipient_id = customer_id THEN customer_unread_count + 1\n        ELSE customer_unread_count\n      END,\n      business_unread_count = CASE\n        WHEN NEW.recipient_id = business_id THEN business_unread_count + 1\n        ELSE business_unread_count\n      END\n  WHERE id = NEW.conversation_id;\n\n  RETURN NEW;\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "handle_message_insert",
+            "signature": "handle_message_insert()",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.handle_message_insert()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  update public.conversations c\n  set last_message_at = new.created_at,\n      last_message_preview = left(new.body, 140),\n      customer_unread_count = case\n        when new.recipient_id = c.customer_id then c.customer_unread_count + 1\n        else c.customer_unread_count\n      end,\n      business_unread_count = case\n        when new.recipient_id = c.business_id then c.business_unread_count + 1\n        else c.business_unread_count\n      end\n  where c.id = new.conversation_id;\n\n  return new;\nend;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "has_admin_role",
+            "signature": "has_admin_role(text)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.has_admin_role(required_role text)\n RETURNS boolean\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  current_user_id uuid;\n  required_rank integer;\nBEGIN\n  current_user_id := auth.uid();\n  IF current_user_id IS NULL THEN\n    RETURN false;\n  END IF;\n\n  required_rank := public.admin_role_rank(required_role);\n  IF required_rank < 0 THEN\n    RETURN false;\n  END IF;\n\n  IF EXISTS (\n    SELECT 1\n    FROM public.admin_role_members arm\n    JOIN public.admin_roles ar ON ar.role_key = arm.role_key\n    WHERE arm.user_id = current_user_id\n      AND ar.role_rank >= required_rank\n  ) THEN\n    RETURN true;\n  END IF;\n\n  IF required_role = 'admin_readonly' AND EXISTS (\n    SELECT 1\n    FROM public.users u\n    WHERE u.id = current_user_id\n      AND (u.role = 'admin' OR COALESCE(u.is_internal, false) = true)\n  ) THEN\n    RETURN true;\n  END IF;\n\n  RETURN false;\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "has_admin_role",
+            "signature": "has_admin_role(text)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.has_admin_role(required_role text)\n RETURNS boolean\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  current_user_id uuid;\n  required_rank integer;\nBEGIN\n  current_user_id := auth.uid();\n  IF current_user_id IS NULL THEN\n    RETURN false;\n  END IF;\n\n  required_rank := public.admin_role_rank(required_role);\n  IF required_rank < 0 THEN\n    RETURN false;\n  END IF;\n\n  IF EXISTS (\n    SELECT 1\n    FROM public.admin_role_members arm\n    JOIN public.admin_roles ar ON ar.role_key = arm.role_key\n    WHERE arm.user_id = current_user_id\n      AND ar.role_rank >= required_rank\n  ) THEN\n    RETURN true;\n  END IF;\n\n  -- fallback: app-level admin markers get readonly\n  IF required_role = 'admin_readonly' AND EXISTS (\n    SELECT 1\n    FROM public.users u\n    WHERE u.id = current_user_id\n      AND (u.role = 'admin' OR COALESCE(u.is_internal, false) = true)\n  ) THEN\n    RETURN true;\n  END IF;\n\n  RETURN false;\nEND;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "log_admin_action",
+            "signature": "log_admin_action(text,text,text,jsonb)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.log_admin_action(p_action text, p_target_type text DEFAULT NULL::text, p_target_id text DEFAULT NULL::text, p_meta jsonb DEFAULT '{}'::jsonb)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  inserted_id uuid;\n  actor_id uuid;\nBEGIN\n  actor_id := auth.uid();\n  IF actor_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  IF NOT public.is_admin() THEN\n    RAISE EXCEPTION 'admin_only';\n  END IF;\n\n  IF p_action IS NULL OR length(trim(p_action)) = 0 THEN\n    RAISE EXCEPTION 'p_action is required';\n  END IF;\n\n  INSERT INTO public.admin_audit_log (\n    actor_user_id,\n    action,\n    target_type,\n    target_id,\n    meta\n  ) VALUES (\n    actor_id,\n    p_action,\n    p_target_type,\n    p_target_id,\n    COALESCE(p_meta, '{}'::jsonb)\n  )\n  RETURNING id INTO inserted_id;\n\n  RETURN inserted_id;\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "log_admin_action",
+            "signature": "log_admin_action(text,text,text,jsonb)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.log_admin_action(p_action text, p_target_type text, p_target_id text, p_meta jsonb)\n RETURNS uuid\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select public.log_admin_action(\n    p_action         => p_action,\n    p_actor_user_id  => auth.uid(),\n    p_target_type    => p_target_type,\n    p_target_id      => p_target_id,\n    p_meta           => coalesce(p_meta, '{}'::jsonb)\n  );\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "mark_conversation_read",
+            "signature": "mark_conversation_read(uuid)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.mark_conversation_read(conversation_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  convo_customer uuid;\n  convo_business uuid;\nBEGIN\n  IF auth.uid() IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  SELECT customer_id, business_id\n  INTO convo_customer, convo_business\n  FROM public.conversations\n  WHERE id = conversation_id;\n\n  IF NOT FOUND THEN\n    RAISE EXCEPTION 'Conversation not found';\n  END IF;\n\n  UPDATE public.messages\n  SET read_at = now()\n  WHERE conversation_id = mark_conversation_read.conversation_id\n    AND recipient_id = auth.uid()\n    AND read_at IS NULL;\n\n  IF auth.uid() = convo_customer THEN\n    UPDATE public.conversations\n    SET customer_unread_count = 0\n    WHERE id = mark_conversation_read.conversation_id;\n  ELSIF auth.uid() = convo_business THEN\n    UPDATE public.conversations\n    SET business_unread_count = 0\n    WHERE id = mark_conversation_read.conversation_id;\n  ELSE\n    RAISE EXCEPTION 'Not a conversation participant';\n  END IF;\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "mark_conversation_read",
+            "signature": "mark_conversation_read(uuid)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.mark_conversation_read(conversation_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  convo_customer uuid;\n  convo_business uuid;\nbegin\n  if auth.uid() is null then\n    raise exception 'Not authenticated';\n  end if;\n\n  select c.customer_id, c.business_id\n  into convo_customer, convo_business\n  from public.conversations c\n  where c.id = conversation_id;\n\n  if not found then\n    raise exception 'Conversation not found';\n  end if;\n\n  -- Validate participant BEFORE mutating any data\n  if auth.uid() <> convo_customer and auth.uid() <> convo_business then\n    raise exception 'Not a conversation participant';\n  end if;\n\n  update public.messages m\n  set read_at = now()\n  where m.conversation_id = mark_conversation_read.conversation_id\n    and m.recipient_id = auth.uid()\n    and m.read_at is null;\n\n  if auth.uid() = convo_customer then\n    update public.conversations c\n    set customer_unread_count = 0\n    where c.id = mark_conversation_read.conversation_id;\n  else\n    update public.conversations c\n    set business_unread_count = 0\n    where c.id = mark_conversation_read.conversation_id;\n  end if;\nend;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "resolve_listing_ref",
+            "signature": "resolve_listing_ref(text)",
+            "owner": "postgres",
+            "security_definer": false,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.resolve_listing_ref(p_ref text)\n RETURNS TABLE(id uuid, public_id text)\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_ref text := lower(trim(COALESCE(p_ref, '')));\n  v_is_uuid boolean;\nBEGIN\n  IF v_ref = '' THEN\n    RETURN;\n  END IF;\n\n  v_is_uuid := v_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';\n\n  RETURN QUERY\n  SELECT l.id, l.public_id\n  FROM public.listings l\n  WHERE\n    (v_is_uuid AND l.id = v_ref::uuid)\n    OR ((NOT v_is_uuid) AND lower(l.public_id) = v_ref)\n  LIMIT 1;\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "resolve_listing_ref",
+            "signature": "resolve_listing_ref(text)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.resolve_listing_ref(p_ref text)\n RETURNS TABLE(id uuid, public_id text)\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_ref text := lower(trim(COALESCE(p_ref, '')));\n  v_is_uuid boolean;\nBEGIN\n  IF v_ref = '' THEN\n    RETURN;\n  END IF;\n\n  v_is_uuid := v_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';\n\n  RETURN QUERY\n  SELECT l.id, l.public_id\n  FROM public.listings l\n  WHERE\n    (v_is_uuid AND l.id = v_ref::uuid)\n    OR ((NOT v_is_uuid) AND lower(l.public_id) = v_ref)\n  LIMIT 1;\nEND;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "sync_listing_category_fields",
+            "signature": "sync_listing_category_fields()",
+            "owner": "postgres",
+            "security_definer": false,
+            "proconfig": "",
+            "definition": "CREATE OR REPLACE FUNCTION public.sync_listing_category_fields()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  resolved_name text;\n  resolved_id uuid;\nBEGIN\n  IF NEW.category_id IS NOT NULL THEN\n    SELECT name INTO resolved_name\n    FROM public.business_categories\n    WHERE id = NEW.category_id;\n    IF resolved_name IS NOT NULL\n      AND (NEW.category IS NULL OR NEW.category = '' OR NEW.category <> resolved_name)\n    THEN\n      NEW.category = resolved_name;\n    END IF;\n  ELSIF NEW.category IS NOT NULL AND NEW.category <> '' THEN\n    SELECT id INTO resolved_id\n    FROM public.business_categories\n    WHERE name = NEW.category;\n    IF resolved_id IS NOT NULL THEN\n      NEW.category_id = resolved_id;\n    END IF;\n  END IF;\n\n  RETURN NEW;\nEND;\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "sync_listing_category_fields",
+            "signature": "sync_listing_category_fields()",
+            "owner": "postgres",
+            "security_definer": false,
+            "proconfig": "",
+            "definition": "CREATE OR REPLACE FUNCTION public.sync_listing_category_fields()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  resolved_name text;\n  resolved_id uuid;\n  normalized_input text;\nBEGIN\n  -- Normalize the incoming category string (if present)\n  IF NEW.category IS NOT NULL THEN\n    normalized_input := lower(trim(NEW.category));\n    IF normalized_input = '' THEN\n      normalized_input := NULL;\n    END IF;\n  ELSE\n    normalized_input := NULL;\n  END IF;\n\n  -- Prefer category_id as the source of truth\n  IF NEW.category_id IS NOT NULL THEN\n    SELECT bc.name INTO resolved_name\n    FROM public.business_categories bc\n    WHERE bc.id = NEW.category_id;\n\n    IF resolved_name IS NOT NULL THEN\n      -- Always set to canonical name (also normalizes whitespace/case drift)\n      IF NEW.category IS DISTINCT FROM resolved_name THEN\n        NEW.category := resolved_name;\n      END IF;\n    END IF;\n\n  -- Otherwise, attempt to resolve category_id from the category string\n  ELSIF normalized_input IS NOT NULL THEN\n    SELECT bc.id, bc.name INTO resolved_id, resolved_name\n    FROM public.business_categories bc\n    WHERE lower(trim(bc.name)) = normalized_input\n    LIMIT 1;\n\n    IF resolved_id IS NOT NULL THEN\n      NEW.category_id := resolved_id;\n      -- Canonicalize stored name too\n      NEW.category := resolved_name;\n    END IF;\n  END IF;\n\n  RETURN NEW;\nEND;\n$function$\n"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "function_name": "unread_total",
+            "signature": "unread_total(text,uuid)",
+            "owner": "postgres",
+            "security_definer": false,
+            "proconfig": "",
+            "definition": "CREATE OR REPLACE FUNCTION public.unread_total(p_role text, p_uid uuid)\n RETURNS bigint\n LANGUAGE sql\n STABLE\nAS $function$\n  select coalesce(\n    sum(\n      case\n        when p_role = 'business' then business_unread_count\n        else customer_unread_count\n      end\n    ),\n    0\n  )::bigint\n  from public.conversations\n  where (p_role = 'business' and business_id = p_uid)\n     or (p_role = 'customer' and customer_id = p_uid);\n$function$\n"
+          },
+          "production": {
+            "schema_name": "public",
+            "function_name": "unread_total",
+            "signature": "unread_total(text,uuid)",
+            "owner": "postgres",
+            "security_definer": true,
+            "proconfig": "search_path=public",
+            "definition": "CREATE OR REPLACE FUNCTION public.unread_total(p_role text, p_uid uuid)\n RETURNS integer\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  -- TEMP safe default; replace with real logic later\n  select 0;\n$function$\n"
+          }
+        }
+      ]
+    },
+    "indexes": {
+      "onlyStaging": [
+        {
+          "schema_name": "public",
+          "table_name": "business_reviews",
+          "object_name": "business_reviews_public_id_key",
+          "definition": "CREATE UNIQUE INDEX business_reviews_public_id_key ON public.business_reviews USING btree (public_id)"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "listings",
+          "object_name": "listings_category_slug_idx",
+          "definition": "CREATE INDEX listings_category_slug_idx ON public.listings USING btree (category)"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "users",
+          "object_name": "idx_users_email_lower",
+          "definition": "CREATE INDEX idx_users_email_lower ON public.users USING btree (lower(email))"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "users",
+          "object_name": "idx_users_public_id",
+          "definition": "CREATE INDEX idx_users_public_id ON public.users USING btree (public_id)"
+        }
+      ],
+      "onlyProd": [
+        {
+          "schema_name": "public",
+          "table_name": "business_reviews",
+          "object_name": "idx_business_reviews_business",
+          "definition": "CREATE INDEX idx_business_reviews_business ON public.business_reviews USING btree (business_id)"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "business_reviews",
+          "object_name": "idx_business_reviews_customer",
+          "definition": "CREATE INDEX idx_business_reviews_customer ON public.business_reviews USING btree (customer_id)"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "listings",
+          "object_name": "listings_public_id_uq",
+          "definition": "CREATE UNIQUE INDEX listings_public_id_uq ON public.listings USING btree (public_id)"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "rls_write_audit",
+          "object_name": "rls_write_audit_pkey",
+          "definition": "CREATE UNIQUE INDEX rls_write_audit_pkey ON public.rls_write_audit USING btree (id)"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "saved_listings",
+          "object_name": "saved_listings_unique",
+          "definition": "CREATE UNIQUE INDEX saved_listings_unique ON public.saved_listings USING btree (user_id, listing_id)"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "user_public_profiles_old",
+          "object_name": "user_public_profiles_business_slug_idx",
+          "definition": "CREATE INDEX user_public_profiles_business_slug_idx ON public.user_public_profiles_old USING btree (business_slug)"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "user_public_profiles_old",
+          "object_name": "user_public_profiles_business_slug_uq",
+          "definition": "CREATE UNIQUE INDEX user_public_profiles_business_slug_uq ON public.user_public_profiles_old USING btree (business_slug) WHERE ((role = 'business'::text) AND (business_slug IS NOT NULL))"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "user_public_profiles_old",
+          "object_name": "user_public_profiles_pkey",
+          "definition": "CREATE UNIQUE INDEX user_public_profiles_pkey ON public.user_public_profiles_old USING btree (id)"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "user_public_profiles_old",
+          "object_name": "user_public_profiles_role_idx",
+          "definition": "CREATE INDEX user_public_profiles_role_idx ON public.user_public_profiles_old USING btree (role)"
+        }
+      ],
+      "different": []
+    },
+    "triggers": {
+      "onlyStaging": [
+        {
+          "schema_name": "public",
+          "table_name": "business_reviews",
+          "object_name": "trg_set_business_reviews_public_id",
+          "action_timing": "BEFORE",
+          "event_manipulation": "INSERT",
+          "action_orientation": "ROW",
+          "action_statement": "EXECUTE FUNCTION set_business_reviews_public_id()"
+        }
+      ],
+      "onlyProd": [
+        {
+          "schema_name": "public",
+          "table_name": "business_reviews",
+          "object_name": "t_audit_business_reviews",
+          "action_timing": "AFTER",
+          "event_manipulation": "DELETE",
+          "action_orientation": "ROW",
+          "action_statement": "EXECUTE FUNCTION audit_write()"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "business_reviews",
+          "object_name": "t_audit_business_reviews",
+          "action_timing": "AFTER",
+          "event_manipulation": "INSERT",
+          "action_orientation": "ROW",
+          "action_statement": "EXECUTE FUNCTION audit_write()"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "business_reviews",
+          "object_name": "t_audit_business_reviews",
+          "action_timing": "AFTER",
+          "event_manipulation": "UPDATE",
+          "action_orientation": "ROW",
+          "action_statement": "EXECUTE FUNCTION audit_write()"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "business_reviews",
+          "object_name": "trg_enforce_business_reviews_update",
+          "action_timing": "BEFORE",
+          "event_manipulation": "UPDATE",
+          "action_orientation": "ROW",
+          "action_statement": "EXECUTE FUNCTION tg_enforce_business_reviews_update()"
+        }
+      ],
+      "different": []
+    },
+    "policies": {
+      "onlyStaging": [
+        {
+          "schema_name": "public",
+          "table_name": "admin_impersonation_sessions",
+          "object_name": "Support and super can create impersonation sessions",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "INSERT",
+          "qual": null,
+          "with_check": "has_any_exact_admin_role(ARRAY['admin_support'::text, 'admin_super'::text])"
+        }
+      ],
+      "onlyProd": [
+        {
+          "schema_name": "public",
+          "table_name": "admin_impersonation_sessions",
+          "object_name": "Support ops super can create impersonation sessions",
+          "permissive": "PERMISSIVE",
+          "roles": "{authenticated}",
+          "cmd": "INSERT",
+          "qual": null,
+          "with_check": "(has_admin_role('admin_support'::text) OR has_admin_role('admin_ops'::text) OR has_admin_role('admin_super'::text))"
+        },
+        {
+          "schema_name": "public",
+          "table_name": "user_public_profiles_old",
+          "object_name": "public_can_read_profiles",
+          "permissive": "PERMISSIVE",
+          "roles": "{public}",
+          "cmd": "SELECT",
+          "qual": "true",
+          "with_check": null
+        }
+      ],
+      "different": [
+        {
+          "staging": {
+            "schema_name": "public",
+            "table_name": "business_reviews",
+            "object_name": "reviews_business_reply_update",
+            "permissive": "PERMISSIVE",
+            "roles": "{public}",
+            "cmd": "UPDATE",
+            "qual": "(auth.uid() = business_id)",
+            "with_check": "(auth.uid() = business_id)"
+          },
+          "production": {
+            "schema_name": "public",
+            "table_name": "business_reviews",
+            "object_name": "reviews_business_reply_update",
+            "permissive": "PERMISSIVE",
+            "roles": "{authenticated}",
+            "cmd": "UPDATE",
+            "qual": "(( SELECT auth.uid() AS uid) = business_id)",
+            "with_check": "(( SELECT auth.uid() AS uid) = business_id)"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "table_name": "business_reviews",
+            "object_name": "reviews_customer_insert",
+            "permissive": "PERMISSIVE",
+            "roles": "{public}",
+            "cmd": "INSERT",
+            "qual": null,
+            "with_check": "((auth.uid() = customer_id) AND (EXISTS ( SELECT 1\n   FROM users u\n  WHERE ((u.id = auth.uid()) AND (u.role = 'customer'::text)))))"
+          },
+          "production": {
+            "schema_name": "public",
+            "table_name": "business_reviews",
+            "object_name": "reviews_customer_insert",
+            "permissive": "PERMISSIVE",
+            "roles": "{authenticated}",
+            "cmd": "INSERT",
+            "qual": null,
+            "with_check": "((( SELECT auth.uid() AS uid) = customer_id) AND (EXISTS ( SELECT 1\n   FROM users u\n  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = 'customer'::text)))))"
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "table_name": "business_reviews",
+            "object_name": "reviews_owner_delete",
+            "permissive": "PERMISSIVE",
+            "roles": "{public}",
+            "cmd": "DELETE",
+            "qual": "((auth.uid() = customer_id) OR (EXISTS ( SELECT 1\n   FROM users u\n  WHERE ((u.id = auth.uid()) AND (u.role = 'admin'::text)))))",
+            "with_check": null
+          },
+          "production": {
+            "schema_name": "public",
+            "table_name": "business_reviews",
+            "object_name": "reviews_owner_delete",
+            "permissive": "PERMISSIVE",
+            "roles": "{authenticated}",
+            "cmd": "DELETE",
+            "qual": "((( SELECT auth.uid() AS uid) = customer_id) OR (EXISTS ( SELECT 1\n   FROM users u\n  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = 'admin'::text)))))",
+            "with_check": null
+          }
+        },
+        {
+          "staging": {
+            "schema_name": "public",
+            "table_name": "business_reviews",
+            "object_name": "reviews_owner_update",
+            "permissive": "PERMISSIVE",
+            "roles": "{public}",
+            "cmd": "UPDATE",
+            "qual": "((auth.uid() = customer_id) OR (EXISTS ( SELECT 1\n   FROM users u\n  WHERE ((u.id = auth.uid()) AND (u.role = 'admin'::text)))))",
+            "with_check": null
+          },
+          "production": {
+            "schema_name": "public",
+            "table_name": "business_reviews",
+            "object_name": "reviews_owner_update",
+            "permissive": "PERMISSIVE",
+            "roles": "{authenticated}",
+            "cmd": "UPDATE",
+            "qual": "((( SELECT auth.uid() AS uid) = customer_id) OR (EXISTS ( SELECT 1\n   FROM users u\n  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = 'admin'::text)))))",
+            "with_check": null
+          }
+        }
+      ]
+    },
+    "tableGrants": {
+      "onlyStaging": [],
+      "onlyProd": [],
+      "different": []
+    },
+    "routineGrants": {
+      "onlyStaging": [],
+      "onlyProd": [],
+      "different": []
+    },
+    "extensions": {
+      "onlyStaging": [],
+      "onlyProd": [],
+      "different": []
+    },
+    "buckets": {
+      "onlyStaging": [],
+      "onlyProd": [],
+      "different": []
+    }
+  },
+  "candidates": [
+    {
+      "kind": "function",
+      "schema_name": "public",
+      "object_name": "admin_take_moderation_case",
+      "signature": "admin_take_moderation_case(uuid)",
+      "qualified_name": "public.admin_take_moderation_case(uuid)",
+      "object_type": "function",
+      "row_count": 0,
+      "runtime_refs": [
+        "app/admin/actions.ts:510:    const { error } = await client.rpc(\"admin_take_moderation_case\", {"
+      ],
+      "historical_refs": [
+        "supabase/migrations/20260211143000_moderation_action_hardening.sql:12:CREATE OR REPLACE FUNCTION public.admin_take_moderation_case(",
+        "supabase/migrations/20260211143000_moderation_action_hardening.sql:310:REVOKE ALL ON FUNCTION public.admin_take_moderation_case(uuid) FROM PUBLIC;",
+        "supabase/migrations/20260211143000_moderation_action_hardening.sql:311:GRANT EXECUTE ON FUNCTION public.admin_take_moderation_case(uuid) TO authenticated;",
+        "docs/security/staging-prod-schema-diff.md:154:### `public.admin_take_moderation_case(uuid)`",
+        "docs/security/staging-prod-schema-diff.md:166:- `app/admin/actions.ts:510:    const { error } = await client.rpc(\"admin_take_moderation_case\", {`",
+        "docs/security/staging-prod-schema-diff.md:168:- `supabase/migrations/20260211143000_moderation_action_hardening.sql:12:CREATE OR REPLACE FUNCTION public.admin_take_moderation_case(`",
+        "docs/security/staging-prod-schema-diff.md:169:- `supabase/migrations/20260211143000_moderation_action_hardening.sql:310:REVOKE ALL ON FUNCTION public.admin_take_moderation_case(uuid) FROM PUBLIC;`",
+        "docs/security/staging-prod-schema-diff.md:170:- `supabase/migrations/20260211143000_moderation_action_hardening.sql:311:GRANT EXECUTE ON FUNCTION public.admin_take_moderation_case(uuid) TO authenticated;`",
+        "docs/security/staging-prod-schema-diff.md:171:- `docs/security/staging-prod-schema-diff.md:106:### `admin_take_moderation_case(uuid)``",
+        "docs/security/staging-prod-schema-diff.md:172:- `docs/security/staging-prod-schema-diff.md:114:- Function mentions: admin_take_moderation_case(uuid)`",
+        "docs/security/staging-prod-schema-diff.md:173:- `docs/security/staging-prod-schema-diff.md:116:- `supabase/migrations/20260211143000_moderation_action_hardening.sql:12:CREATE OR REPLACE FUNCTION public.admin_take_moderation_case(``",
+        "docs/security/staging-prod-schema-diff.md:174:- `docs/security/staging-prod-schema-diff.md:117:- `supabase/migrations/20260211143000_moderation_action_hardening.sql:310:REVOKE ALL ON FUNCTION public.admin_take_moderation_case(uuid) FROM PUBLIC;``",
+        "docs/security/staging-prod-schema-diff.md:175:- `docs/security/staging-prod-schema-diff.md:118:- `supabase/migrations/20260211143000_moderation_action_hardening.sql:311:GRANT EXECUTE ON FUNCTION public.admin_take_moderation_case(uuid) TO authenticated;``",
+        "docs/security/staging-prod-schema-diff.md:382:- function only in staging: `admin_take_moderation_case(uuid)`"
+      ],
+      "fk_dependencies": [],
+      "view_dependencies": [],
+      "trigger_dependencies": [],
+      "function_dependencies": [],
+      "trigger_function_dependencies": [],
+      "suggested_action": "keep temporarily"
+    },
+    {
+      "kind": "function",
+      "schema_name": "public",
+      "object_name": "has_any_exact_admin_role",
+      "signature": "has_any_exact_admin_role(text[])",
+      "qualified_name": "public.has_any_exact_admin_role(text[])",
+      "object_type": "function",
+      "row_count": 0,
+      "runtime_refs": [],
+      "historical_refs": [
+        "docs/security/staging-prod-schema-diff.md:178:### `public.has_any_exact_admin_role(text[])`",
+        "docs/security/staging-prod-schema-diff.md:192:- `docs/security/staging-prod-schema-diff.md:121:### `has_any_exact_admin_role(text[])``",
+        "docs/security/staging-prod-schema-diff.md:193:- `docs/security/staging-prod-schema-diff.md:129:- Function mentions: create_impersonation_session(uuid,integer,text,jsonb), get_impersonation_session(uuid), has_any_exact_admin_role(text[])`",
+        "docs/security/staging-prod-schema-diff.md:194:- `docs/security/staging-prod-schema-diff.md:131:- `supabase/migrations/20260210101500_admin_rbac_cleanup.sql:15:CREATE OR REPLACE FUNCTION public.has_any_exact_admin_role(required_roles text[])``",
+        "docs/security/staging-prod-schema-diff.md:195:- `docs/security/staging-prod-schema-diff.md:132:- `supabase/migrations/20260210101500_admin_rbac_cleanup.sql:65:  IF NOT public.has_any_exact_admin_role(ARRAY['admin_support', 'admin_super']) THEN``",
+        "docs/security/staging-prod-schema-diff.md:196:- `docs/security/staging-prod-schema-diff.md:133:- `supabase/migrations/20260210101500_admin_rbac_cleanup.sql:146:  IF NOT public.has_any_exact_admin_role(ARRAY['admin_support', 'admin_super']) THEN``",
+        "docs/security/staging-prod-schema-diff.md:197:- `docs/security/staging-prod-schema-diff.md:134:- `supabase/migrations/20260210101500_admin_rbac_cleanup.sql:196:        public.has_any_exact_admin_role(ARRAY['admin_support', 'admin_super'])``",
+        "docs/security/staging-prod-schema-diff.md:198:- `docs/security/staging-prod-schema-diff.md:262:- function only in staging: `has_any_exact_admin_role(text[])``",
+        "docs/security/staging-prod-schema-diff.md:199:- `supabase/migrations/20260210101500_admin_rbac_cleanup.sql:15:CREATE OR REPLACE FUNCTION public.has_any_exact_admin_role(required_roles text[])`",
+        "docs/security/staging-prod-schema-diff.md:383:- function only in staging: `has_any_exact_admin_role(text[])`",
+        "supabase/migrations/20260210101500_admin_rbac_cleanup.sql:15:CREATE OR REPLACE FUNCTION public.has_any_exact_admin_role(required_roles text[])",
+        "supabase/migrations/20260210101500_admin_rbac_cleanup.sql:65:  IF NOT public.has_any_exact_admin_role(ARRAY['admin_support', 'admin_super']) THEN",
+        "supabase/migrations/20260210101500_admin_rbac_cleanup.sql:146:  IF NOT public.has_any_exact_admin_role(ARRAY['admin_support', 'admin_super']) THEN",
+        "supabase/migrations/20260210101500_admin_rbac_cleanup.sql:196:        public.has_any_exact_admin_role(ARRAY['admin_support', 'admin_super'])"
+      ],
+      "fk_dependencies": [],
+      "view_dependencies": [],
+      "trigger_dependencies": [],
+      "function_dependencies": [
+        "create_impersonation_session(uuid,integer,text,jsonb)",
+        "get_impersonation_session(uuid)"
+      ],
+      "trigger_function_dependencies": [],
+      "suggested_action": "investigate"
+    },
+    {
+      "kind": "function",
+      "schema_name": "public",
+      "object_name": "log_admin_action",
+      "signature": "log_admin_action(text,text,text,jsonb,uuid)",
+      "qualified_name": "public.log_admin_action(text,text,text,jsonb,uuid)",
+      "object_type": "function",
+      "row_count": 0,
+      "runtime_refs": [
+        "supabase/functions/_shared/finalize-overdue-deletions.ts:264:  const { error: auditError } = await adminClient.rpc(\"log_admin_action\", {",
+        "supabase/functions/_shared/finalize-overdue-deletions.ts:423:    await adminClient.rpc(\"log_admin_action\", {",
+        "lib/admin/audit.ts:66:    const { data, error } = await client.rpc(\"log_admin_action\", payload);",
+        "tests/account-deletion-request.route.unit.test.ts:102:      \"log_admin_action\",",
+        "lib/accountDeletion/requestDeletion.ts:88:  await supabase.rpc(\"log_admin_action\", {",
+        "tests/account-deletion-restore.route.unit.test.ts:85:      \"log_admin_action\",",
+        "app/api/internal/purge-pending-deleted-users/route.ts:63:      await adminClient.rpc(\"log_admin_action\", {",
+        "app/api/internal/purge-pending-deleted-users/route.ts:92:    await adminClient.rpc(\"log_admin_action\", {",
+        "app/api/admin/users/[id]/restore/route.ts:100:  await adminClient.rpc(\"log_admin_action\", {"
+      ],
+      "historical_refs": [
+        "docs/moderation.md:113:- logs audit event via `public.log_admin_action('moderation_flag_update', ...)`",
+        "docs/moderation.md:127:Admin mutations emit `public.log_admin_action` entries with metadata:",
+        "docs/admin-rbac.md:36:- All privileged writes call `public.log_admin_action` via server-side `audit(...)`.",
+        "supabase/migrations/20260208170000_impersonation_target_role_rpc.sql:102:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260210101500_admin_rbac_cleanup.sql:107:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260218153000_fix_admin_user_note_rpc_id_ambiguity.sql:68:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260218153000_fix_admin_user_note_rpc_id_ambiguity.sql:133:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:142:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:207:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260218120000_admin_user_notes.sql:144:  PERFORM public.log_admin_action(",
+        "supabase/migrations/001_admin_platform_core.sql:221:CREATE OR REPLACE FUNCTION public.log_admin_action(",
+        "supabase/migrations/001_admin_platform_core.sql:311:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260207143000_admin_audit_overloads.sql:14:CREATE OR REPLACE FUNCTION public.log_admin_action(",
+        "supabase/migrations/20260207143000_admin_audit_overloads.sql:26:  SELECT public.log_admin_action(",
+        "supabase/migrations/20260207143000_admin_audit_overloads.sql:37:CREATE OR REPLACE FUNCTION public.log_admin_action(",
+        "supabase/migrations/20260207143000_admin_audit_overloads.sql:49:  SELECT public.log_admin_action(",
+        "docs/security/staging-prod-schema-diff.md:202:### `public.log_admin_action(text,text,text,jsonb,uuid)`",
+        "docs/security/staging-prod-schema-diff.md:212:- Function mentions: admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,text,uuid,jsonb), log_admin_action(text,uuid,text,uuid,jsonb), log_admin_action(text,uuid,text,uuid,jsonb)",
+        "docs/security/staging-prod-schema-diff.md:214:- `supabase/functions/_shared/finalize-overdue-deletions.ts:264:  const { error: auditError } = await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:215:- `supabase/functions/_shared/finalize-overdue-deletions.ts:423:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:216:- `tests/account-deletion-request.route.unit.test.ts:102:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:217:- `tests/account-deletion-restore.route.unit.test.ts:85:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:218:- `lib/admin/audit.ts:66:    const { data, error } = await client.rpc(\"log_admin_action\", payload);`",
+        "docs/security/staging-prod-schema-diff.md:219:- `lib/accountDeletion/requestDeletion.ts:88:  await supabase.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:220:- `app/api/internal/purge-pending-deleted-users/route.ts:63:      await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:221:- `app/api/internal/purge-pending-deleted-users/route.ts:92:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:224:- `docs/moderation.md:113:- logs audit event via `public.log_admin_action('moderation_flag_update', ...)``",
+        "docs/security/staging-prod-schema-diff.md:225:- `docs/moderation.md:127:Admin mutations emit `public.log_admin_action` entries with metadata:`",
+        "docs/security/staging-prod-schema-diff.md:226:- `docs/admin-rbac.md:36:- All privileged writes call `public.log_admin_action` via server-side `audit(...)`.`",
+        "docs/security/staging-prod-schema-diff.md:227:- `supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:142:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:228:- `supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:207:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:229:- `supabase/migrations/20260207143000_admin_audit_overloads.sql:14:CREATE OR REPLACE FUNCTION public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:230:- `supabase/migrations/20260207143000_admin_audit_overloads.sql:26:  SELECT public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:231:- `supabase/migrations/20260207143000_admin_audit_overloads.sql:37:CREATE OR REPLACE FUNCTION public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:234:### `public.log_admin_action(text,uuid,jsonb,uuid,text)`",
+        "docs/security/staging-prod-schema-diff.md:244:- Function mentions: admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,uuid,text,uuid,jsonb), log_admin_action(text,uuid,text,uuid,jsonb), log_admin_action(text,uuid,text,uuid,jsonb)",
+        "docs/security/staging-prod-schema-diff.md:246:- `supabase/functions/_shared/finalize-overdue-deletions.ts:264:  const { error: auditError } = await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:247:- `supabase/functions/_shared/finalize-overdue-deletions.ts:423:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:248:- `tests/account-deletion-request.route.unit.test.ts:102:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:249:- `tests/account-deletion-restore.route.unit.test.ts:85:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:250:- `lib/admin/audit.ts:66:    const { data, error } = await client.rpc(\"log_admin_action\", payload);`",
+        "docs/security/staging-prod-schema-diff.md:251:- `lib/accountDeletion/requestDeletion.ts:88:  await supabase.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:252:- `app/api/internal/purge-pending-deleted-users/route.ts:63:      await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:253:- `app/api/internal/purge-pending-deleted-users/route.ts:92:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:256:- `docs/moderation.md:113:- logs audit event via `public.log_admin_action('moderation_flag_update', ...)``",
+        "docs/security/staging-prod-schema-diff.md:257:- `docs/moderation.md:127:Admin mutations emit `public.log_admin_action` entries with metadata:`",
+        "docs/security/staging-prod-schema-diff.md:258:- `docs/admin-rbac.md:36:- All privileged writes call `public.log_admin_action` via server-side `audit(...)`.`",
+        "docs/security/staging-prod-schema-diff.md:259:- `supabase/migrations/001_admin_platform_core.sql:221:CREATE OR REPLACE FUNCTION public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:260:- `supabase/migrations/001_admin_platform_core.sql:311:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:261:- `supabase/migrations/20260218153000_fix_admin_user_note_rpc_id_ambiguity.sql:68:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:262:- `supabase/migrations/20260218153000_fix_admin_user_note_rpc_id_ambiguity.sql:133:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:263:- `supabase/migrations/20260218120000_admin_user_notes.sql:144:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:266:### `public.log_admin_action(text,uuid,text,uuid,jsonb)`",
+        "docs/security/staging-prod-schema-diff.md:276:- Function mentions: admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,jsonb,uuid,text)",
+        "docs/security/staging-prod-schema-diff.md:278:- `supabase/functions/_shared/finalize-overdue-deletions.ts:264:  const { error: auditError } = await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:279:- `supabase/functions/_shared/finalize-overdue-deletions.ts:423:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:280:- `tests/account-deletion-request.route.unit.test.ts:102:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:281:- `tests/account-deletion-restore.route.unit.test.ts:85:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:282:- `lib/admin/audit.ts:66:    const { data, error } = await client.rpc(\"log_admin_action\", payload);`",
+        "docs/security/staging-prod-schema-diff.md:283:- `lib/accountDeletion/requestDeletion.ts:88:  await supabase.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:284:- `app/api/internal/purge-pending-deleted-users/route.ts:63:      await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:285:- `app/api/internal/purge-pending-deleted-users/route.ts:92:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:288:- `docs/moderation.md:113:- logs audit event via `public.log_admin_action('moderation_flag_update', ...)``",
+        "docs/security/staging-prod-schema-diff.md:289:- `docs/moderation.md:127:Admin mutations emit `public.log_admin_action` entries with metadata:`",
+        "docs/security/staging-prod-schema-diff.md:290:- `docs/admin-rbac.md:36:- All privileged writes call `public.log_admin_action` via server-side `audit(...)`.`",
+        "docs/security/staging-prod-schema-diff.md:291:- `supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:142:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:292:- `supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:207:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:293:- `supabase/migrations/20260211143000_moderation_action_hardening.sql:154:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:294:- `supabase/migrations/20260211143000_moderation_action_hardening.sql:295:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:295:- `docs/security/staging-prod-schema-diff.md:136:### `log_admin_action(text,text,text,jsonb,uuid)``",
+        "docs/security/staging-prod-schema-diff.md:356:- function: `log_admin_action(text,uuid,text,text,jsonb)`",
+        "docs/security/staging-prod-schema-diff.md:384:- function only in staging: `log_admin_action(text,text,text,jsonb,uuid)`",
+        "docs/security/staging-prod-schema-diff.md:385:- function only in staging: `log_admin_action(text,uuid,jsonb,uuid,text)`",
+        "docs/security/staging-prod-schema-diff.md:386:- function only in staging: `log_admin_action(text,uuid,text,uuid,jsonb)`",
+        "docs/security/staging-prod-schema-diff.md:395:- function only in production: `log_admin_action(text,uuid,text,text,jsonb)`",
+        "docs/security/staging-prod-schema-diff.md:415:- function differs: `log_admin_action(text,text,text,jsonb)`",
+        "supabase/migrations/20260211110000_moderation_reporting_system.sql:746:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260211110000_moderation_reporting_system.sql:845:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260211110000_moderation_reporting_system.sql:961:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260211143000_moderation_action_hardening.sql:154:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260211143000_moderation_action_hardening.sql:295:  PERFORM public.log_admin_action("
+      ],
+      "fk_dependencies": [],
+      "view_dependencies": [],
+      "trigger_dependencies": [],
+      "function_dependencies": [
+        "admin_add_user_note(uuid,text)",
+        "admin_add_user_note(uuid,text)",
+        "admin_add_user_note(uuid,text)",
+        "admin_delete_user_note(uuid)",
+        "admin_delete_user_note(uuid)",
+        "admin_delete_user_note(uuid)",
+        "admin_hide_listing_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_listing_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_listing_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_review_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_review_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_review_and_resolve_flag(uuid,uuid,text)",
+        "admin_update_moderation_flag(uuid,text,text,jsonb)",
+        "admin_update_moderation_flag(uuid,text,text,jsonb)",
+        "admin_update_moderation_flag(uuid,text,text,jsonb)",
+        "admin_update_user_note(uuid,text)",
+        "admin_update_user_note(uuid,text)",
+        "admin_update_user_note(uuid,text)",
+        "create_impersonation_session(uuid,integer,text,jsonb)",
+        "create_impersonation_session(uuid,integer,text,jsonb)",
+        "create_impersonation_session(uuid,integer,text,jsonb)",
+        "log_admin_action(text,text,text,jsonb)",
+        "log_admin_action(text,text,text,jsonb)",
+        "log_admin_action(text,text,text,jsonb)",
+        "log_admin_action(text,uuid,jsonb,uuid,text)",
+        "log_admin_action(text,uuid,jsonb,uuid,text)",
+        "log_admin_action(text,uuid,jsonb,uuid,text)",
+        "log_admin_action(text,uuid,text,uuid,jsonb)",
+        "log_admin_action(text,uuid,text,uuid,jsonb)",
+        "log_admin_action(text,uuid,text,uuid,jsonb)"
+      ],
+      "trigger_function_dependencies": [],
+      "suggested_action": "keep temporarily"
+    },
+    {
+      "kind": "function",
+      "schema_name": "public",
+      "object_name": "log_admin_action",
+      "signature": "log_admin_action(text,uuid,jsonb,uuid,text)",
+      "qualified_name": "public.log_admin_action(text,uuid,jsonb,uuid,text)",
+      "object_type": "function",
+      "row_count": 0,
+      "runtime_refs": [
+        "supabase/functions/_shared/finalize-overdue-deletions.ts:264:  const { error: auditError } = await adminClient.rpc(\"log_admin_action\", {",
+        "supabase/functions/_shared/finalize-overdue-deletions.ts:423:    await adminClient.rpc(\"log_admin_action\", {",
+        "tests/account-deletion-request.route.unit.test.ts:102:      \"log_admin_action\",",
+        "tests/account-deletion-restore.route.unit.test.ts:85:      \"log_admin_action\",",
+        "lib/admin/audit.ts:66:    const { data, error } = await client.rpc(\"log_admin_action\", payload);",
+        "lib/accountDeletion/requestDeletion.ts:88:  await supabase.rpc(\"log_admin_action\", {",
+        "app/api/admin/users/[id]/restore/route.ts:100:  await adminClient.rpc(\"log_admin_action\", {",
+        "app/api/internal/purge-pending-deleted-users/route.ts:63:      await adminClient.rpc(\"log_admin_action\", {",
+        "app/api/internal/purge-pending-deleted-users/route.ts:92:    await adminClient.rpc(\"log_admin_action\", {"
+      ],
+      "historical_refs": [
+        "docs/moderation.md:113:- logs audit event via `public.log_admin_action('moderation_flag_update', ...)`",
+        "docs/moderation.md:127:Admin mutations emit `public.log_admin_action` entries with metadata:",
+        "docs/admin-rbac.md:36:- All privileged writes call `public.log_admin_action` via server-side `audit(...)`.",
+        "supabase/migrations/20260208170000_impersonation_target_role_rpc.sql:102:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:142:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:207:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260218153000_fix_admin_user_note_rpc_id_ambiguity.sql:68:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260218153000_fix_admin_user_note_rpc_id_ambiguity.sql:133:  PERFORM public.log_admin_action(",
+        "supabase/migrations/001_admin_platform_core.sql:221:CREATE OR REPLACE FUNCTION public.log_admin_action(",
+        "supabase/migrations/001_admin_platform_core.sql:311:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260218120000_admin_user_notes.sql:144:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260207143000_admin_audit_overloads.sql:14:CREATE OR REPLACE FUNCTION public.log_admin_action(",
+        "supabase/migrations/20260207143000_admin_audit_overloads.sql:26:  SELECT public.log_admin_action(",
+        "supabase/migrations/20260207143000_admin_audit_overloads.sql:37:CREATE OR REPLACE FUNCTION public.log_admin_action(",
+        "supabase/migrations/20260207143000_admin_audit_overloads.sql:49:  SELECT public.log_admin_action(",
+        "docs/security/staging-prod-schema-diff.md:202:### `public.log_admin_action(text,text,text,jsonb,uuid)`",
+        "docs/security/staging-prod-schema-diff.md:212:- Function mentions: admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,text,uuid,jsonb), log_admin_action(text,uuid,text,uuid,jsonb), log_admin_action(text,uuid,text,uuid,jsonb)",
+        "docs/security/staging-prod-schema-diff.md:214:- `supabase/functions/_shared/finalize-overdue-deletions.ts:264:  const { error: auditError } = await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:215:- `supabase/functions/_shared/finalize-overdue-deletions.ts:423:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:216:- `tests/account-deletion-request.route.unit.test.ts:102:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:217:- `tests/account-deletion-restore.route.unit.test.ts:85:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:218:- `lib/admin/audit.ts:66:    const { data, error } = await client.rpc(\"log_admin_action\", payload);`",
+        "docs/security/staging-prod-schema-diff.md:219:- `lib/accountDeletion/requestDeletion.ts:88:  await supabase.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:220:- `app/api/internal/purge-pending-deleted-users/route.ts:63:      await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:221:- `app/api/internal/purge-pending-deleted-users/route.ts:92:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:224:- `docs/moderation.md:113:- logs audit event via `public.log_admin_action('moderation_flag_update', ...)``",
+        "docs/security/staging-prod-schema-diff.md:225:- `docs/moderation.md:127:Admin mutations emit `public.log_admin_action` entries with metadata:`",
+        "docs/security/staging-prod-schema-diff.md:226:- `docs/admin-rbac.md:36:- All privileged writes call `public.log_admin_action` via server-side `audit(...)`.`",
+        "docs/security/staging-prod-schema-diff.md:227:- `supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:142:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:228:- `supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:207:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:229:- `supabase/migrations/20260207143000_admin_audit_overloads.sql:14:CREATE OR REPLACE FUNCTION public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:230:- `supabase/migrations/20260207143000_admin_audit_overloads.sql:26:  SELECT public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:231:- `supabase/migrations/20260207143000_admin_audit_overloads.sql:37:CREATE OR REPLACE FUNCTION public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:234:### `public.log_admin_action(text,uuid,jsonb,uuid,text)`",
+        "docs/security/staging-prod-schema-diff.md:244:- Function mentions: admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,uuid,text,uuid,jsonb), log_admin_action(text,uuid,text,uuid,jsonb), log_admin_action(text,uuid,text,uuid,jsonb)",
+        "docs/security/staging-prod-schema-diff.md:246:- `supabase/functions/_shared/finalize-overdue-deletions.ts:264:  const { error: auditError } = await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:247:- `supabase/functions/_shared/finalize-overdue-deletions.ts:423:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:248:- `tests/account-deletion-request.route.unit.test.ts:102:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:249:- `tests/account-deletion-restore.route.unit.test.ts:85:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:250:- `lib/admin/audit.ts:66:    const { data, error } = await client.rpc(\"log_admin_action\", payload);`",
+        "docs/security/staging-prod-schema-diff.md:251:- `lib/accountDeletion/requestDeletion.ts:88:  await supabase.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:252:- `app/api/internal/purge-pending-deleted-users/route.ts:63:      await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:253:- `app/api/internal/purge-pending-deleted-users/route.ts:92:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:256:- `docs/moderation.md:113:- logs audit event via `public.log_admin_action('moderation_flag_update', ...)``",
+        "docs/security/staging-prod-schema-diff.md:257:- `docs/moderation.md:127:Admin mutations emit `public.log_admin_action` entries with metadata:`",
+        "docs/security/staging-prod-schema-diff.md:258:- `docs/admin-rbac.md:36:- All privileged writes call `public.log_admin_action` via server-side `audit(...)`.`",
+        "docs/security/staging-prod-schema-diff.md:259:- `supabase/migrations/001_admin_platform_core.sql:221:CREATE OR REPLACE FUNCTION public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:260:- `supabase/migrations/001_admin_platform_core.sql:311:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:261:- `supabase/migrations/20260218153000_fix_admin_user_note_rpc_id_ambiguity.sql:68:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:262:- `supabase/migrations/20260218153000_fix_admin_user_note_rpc_id_ambiguity.sql:133:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:263:- `supabase/migrations/20260218120000_admin_user_notes.sql:144:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:266:### `public.log_admin_action(text,uuid,text,uuid,jsonb)`",
+        "docs/security/staging-prod-schema-diff.md:276:- Function mentions: admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,jsonb,uuid,text)",
+        "docs/security/staging-prod-schema-diff.md:278:- `supabase/functions/_shared/finalize-overdue-deletions.ts:264:  const { error: auditError } = await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:279:- `supabase/functions/_shared/finalize-overdue-deletions.ts:423:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:280:- `tests/account-deletion-request.route.unit.test.ts:102:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:281:- `tests/account-deletion-restore.route.unit.test.ts:85:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:282:- `lib/admin/audit.ts:66:    const { data, error } = await client.rpc(\"log_admin_action\", payload);`",
+        "docs/security/staging-prod-schema-diff.md:283:- `lib/accountDeletion/requestDeletion.ts:88:  await supabase.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:284:- `app/api/internal/purge-pending-deleted-users/route.ts:63:      await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:285:- `app/api/internal/purge-pending-deleted-users/route.ts:92:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:288:- `docs/moderation.md:113:- logs audit event via `public.log_admin_action('moderation_flag_update', ...)``",
+        "docs/security/staging-prod-schema-diff.md:289:- `docs/moderation.md:127:Admin mutations emit `public.log_admin_action` entries with metadata:`",
+        "docs/security/staging-prod-schema-diff.md:290:- `docs/admin-rbac.md:36:- All privileged writes call `public.log_admin_action` via server-side `audit(...)`.`",
+        "docs/security/staging-prod-schema-diff.md:291:- `supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:142:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:292:- `supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:207:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:293:- `supabase/migrations/20260211143000_moderation_action_hardening.sql:154:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:294:- `supabase/migrations/20260211143000_moderation_action_hardening.sql:295:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:295:- `docs/security/staging-prod-schema-diff.md:136:### `log_admin_action(text,text,text,jsonb,uuid)``",
+        "docs/security/staging-prod-schema-diff.md:356:- function: `log_admin_action(text,uuid,text,text,jsonb)`",
+        "docs/security/staging-prod-schema-diff.md:384:- function only in staging: `log_admin_action(text,text,text,jsonb,uuid)`",
+        "docs/security/staging-prod-schema-diff.md:385:- function only in staging: `log_admin_action(text,uuid,jsonb,uuid,text)`",
+        "docs/security/staging-prod-schema-diff.md:386:- function only in staging: `log_admin_action(text,uuid,text,uuid,jsonb)`",
+        "docs/security/staging-prod-schema-diff.md:395:- function only in production: `log_admin_action(text,uuid,text,text,jsonb)`",
+        "docs/security/staging-prod-schema-diff.md:415:- function differs: `log_admin_action(text,text,text,jsonb)`",
+        "supabase/migrations/20260211143000_moderation_action_hardening.sql:154:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260211143000_moderation_action_hardening.sql:295:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260211110000_moderation_reporting_system.sql:746:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260211110000_moderation_reporting_system.sql:845:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260211110000_moderation_reporting_system.sql:961:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260210101500_admin_rbac_cleanup.sql:107:  PERFORM public.log_admin_action("
+      ],
+      "fk_dependencies": [],
+      "view_dependencies": [],
+      "trigger_dependencies": [],
+      "function_dependencies": [
+        "admin_add_user_note(uuid,text)",
+        "admin_add_user_note(uuid,text)",
+        "admin_add_user_note(uuid,text)",
+        "admin_delete_user_note(uuid)",
+        "admin_delete_user_note(uuid)",
+        "admin_delete_user_note(uuid)",
+        "admin_hide_listing_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_listing_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_listing_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_review_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_review_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_review_and_resolve_flag(uuid,uuid,text)",
+        "admin_update_moderation_flag(uuid,text,text,jsonb)",
+        "admin_update_moderation_flag(uuid,text,text,jsonb)",
+        "admin_update_moderation_flag(uuid,text,text,jsonb)",
+        "admin_update_user_note(uuid,text)",
+        "admin_update_user_note(uuid,text)",
+        "admin_update_user_note(uuid,text)",
+        "create_impersonation_session(uuid,integer,text,jsonb)",
+        "create_impersonation_session(uuid,integer,text,jsonb)",
+        "create_impersonation_session(uuid,integer,text,jsonb)",
+        "log_admin_action(text,text,text,jsonb,uuid)",
+        "log_admin_action(text,text,text,jsonb,uuid)",
+        "log_admin_action(text,text,text,jsonb,uuid)",
+        "log_admin_action(text,text,text,jsonb)",
+        "log_admin_action(text,text,text,jsonb)",
+        "log_admin_action(text,text,text,jsonb)",
+        "log_admin_action(text,uuid,text,uuid,jsonb)",
+        "log_admin_action(text,uuid,text,uuid,jsonb)",
+        "log_admin_action(text,uuid,text,uuid,jsonb)"
+      ],
+      "trigger_function_dependencies": [],
+      "suggested_action": "keep temporarily"
+    },
+    {
+      "kind": "function",
+      "schema_name": "public",
+      "object_name": "log_admin_action",
+      "signature": "log_admin_action(text,uuid,text,uuid,jsonb)",
+      "qualified_name": "public.log_admin_action(text,uuid,text,uuid,jsonb)",
+      "object_type": "function",
+      "row_count": 0,
+      "runtime_refs": [
+        "supabase/functions/_shared/finalize-overdue-deletions.ts:264:  const { error: auditError } = await adminClient.rpc(\"log_admin_action\", {",
+        "supabase/functions/_shared/finalize-overdue-deletions.ts:423:    await adminClient.rpc(\"log_admin_action\", {",
+        "tests/account-deletion-request.route.unit.test.ts:102:      \"log_admin_action\",",
+        "tests/account-deletion-restore.route.unit.test.ts:85:      \"log_admin_action\",",
+        "lib/admin/audit.ts:66:    const { data, error } = await client.rpc(\"log_admin_action\", payload);",
+        "lib/accountDeletion/requestDeletion.ts:88:  await supabase.rpc(\"log_admin_action\", {",
+        "app/api/internal/purge-pending-deleted-users/route.ts:63:      await adminClient.rpc(\"log_admin_action\", {",
+        "app/api/internal/purge-pending-deleted-users/route.ts:92:    await adminClient.rpc(\"log_admin_action\", {",
+        "app/api/admin/users/[id]/restore/route.ts:100:  await adminClient.rpc(\"log_admin_action\", {"
+      ],
+      "historical_refs": [
+        "docs/moderation.md:113:- logs audit event via `public.log_admin_action('moderation_flag_update', ...)`",
+        "docs/moderation.md:127:Admin mutations emit `public.log_admin_action` entries with metadata:",
+        "docs/admin-rbac.md:36:- All privileged writes call `public.log_admin_action` via server-side `audit(...)`.",
+        "supabase/migrations/20260211110000_moderation_reporting_system.sql:746:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260211110000_moderation_reporting_system.sql:845:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260211110000_moderation_reporting_system.sql:961:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:142:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:207:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260218153000_fix_admin_user_note_rpc_id_ambiguity.sql:68:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260218153000_fix_admin_user_note_rpc_id_ambiguity.sql:133:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260210101500_admin_rbac_cleanup.sql:107:  PERFORM public.log_admin_action(",
+        "docs/security/staging-prod-schema-diff.md:202:### `public.log_admin_action(text,text,text,jsonb,uuid)`",
+        "docs/security/staging-prod-schema-diff.md:212:- Function mentions: admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,text,uuid,jsonb), log_admin_action(text,uuid,text,uuid,jsonb), log_admin_action(text,uuid,text,uuid,jsonb)",
+        "docs/security/staging-prod-schema-diff.md:214:- `supabase/functions/_shared/finalize-overdue-deletions.ts:264:  const { error: auditError } = await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:215:- `supabase/functions/_shared/finalize-overdue-deletions.ts:423:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:216:- `tests/account-deletion-request.route.unit.test.ts:102:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:217:- `tests/account-deletion-restore.route.unit.test.ts:85:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:218:- `lib/admin/audit.ts:66:    const { data, error } = await client.rpc(\"log_admin_action\", payload);`",
+        "docs/security/staging-prod-schema-diff.md:219:- `lib/accountDeletion/requestDeletion.ts:88:  await supabase.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:220:- `app/api/internal/purge-pending-deleted-users/route.ts:63:      await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:221:- `app/api/internal/purge-pending-deleted-users/route.ts:92:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:224:- `docs/moderation.md:113:- logs audit event via `public.log_admin_action('moderation_flag_update', ...)``",
+        "docs/security/staging-prod-schema-diff.md:225:- `docs/moderation.md:127:Admin mutations emit `public.log_admin_action` entries with metadata:`",
+        "docs/security/staging-prod-schema-diff.md:226:- `docs/admin-rbac.md:36:- All privileged writes call `public.log_admin_action` via server-side `audit(...)`.`",
+        "docs/security/staging-prod-schema-diff.md:227:- `supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:142:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:228:- `supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:207:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:229:- `supabase/migrations/20260207143000_admin_audit_overloads.sql:14:CREATE OR REPLACE FUNCTION public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:230:- `supabase/migrations/20260207143000_admin_audit_overloads.sql:26:  SELECT public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:231:- `supabase/migrations/20260207143000_admin_audit_overloads.sql:37:CREATE OR REPLACE FUNCTION public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:234:### `public.log_admin_action(text,uuid,jsonb,uuid,text)`",
+        "docs/security/staging-prod-schema-diff.md:244:- Function mentions: admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,uuid,text,uuid,jsonb), log_admin_action(text,uuid,text,uuid,jsonb), log_admin_action(text,uuid,text,uuid,jsonb)",
+        "docs/security/staging-prod-schema-diff.md:246:- `supabase/functions/_shared/finalize-overdue-deletions.ts:264:  const { error: auditError } = await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:247:- `supabase/functions/_shared/finalize-overdue-deletions.ts:423:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:248:- `tests/account-deletion-request.route.unit.test.ts:102:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:249:- `tests/account-deletion-restore.route.unit.test.ts:85:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:250:- `lib/admin/audit.ts:66:    const { data, error } = await client.rpc(\"log_admin_action\", payload);`",
+        "docs/security/staging-prod-schema-diff.md:251:- `lib/accountDeletion/requestDeletion.ts:88:  await supabase.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:252:- `app/api/internal/purge-pending-deleted-users/route.ts:63:      await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:253:- `app/api/internal/purge-pending-deleted-users/route.ts:92:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:256:- `docs/moderation.md:113:- logs audit event via `public.log_admin_action('moderation_flag_update', ...)``",
+        "docs/security/staging-prod-schema-diff.md:257:- `docs/moderation.md:127:Admin mutations emit `public.log_admin_action` entries with metadata:`",
+        "docs/security/staging-prod-schema-diff.md:258:- `docs/admin-rbac.md:36:- All privileged writes call `public.log_admin_action` via server-side `audit(...)`.`",
+        "docs/security/staging-prod-schema-diff.md:259:- `supabase/migrations/001_admin_platform_core.sql:221:CREATE OR REPLACE FUNCTION public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:260:- `supabase/migrations/001_admin_platform_core.sql:311:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:261:- `supabase/migrations/20260218153000_fix_admin_user_note_rpc_id_ambiguity.sql:68:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:262:- `supabase/migrations/20260218153000_fix_admin_user_note_rpc_id_ambiguity.sql:133:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:263:- `supabase/migrations/20260218120000_admin_user_notes.sql:144:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:266:### `public.log_admin_action(text,uuid,text,uuid,jsonb)`",
+        "docs/security/staging-prod-schema-diff.md:276:- Function mentions: admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_add_user_note(uuid,text), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_delete_user_note(uuid), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_listing_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_hide_review_and_resolve_flag(uuid,uuid,text), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_moderation_flag(uuid,text,text,jsonb), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), admin_update_user_note(uuid,text), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), create_impersonation_session(uuid,integer,text,jsonb), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb,uuid), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,text,text,jsonb), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,jsonb,uuid,text), log_admin_action(text,uuid,jsonb,uuid,text)",
+        "docs/security/staging-prod-schema-diff.md:278:- `supabase/functions/_shared/finalize-overdue-deletions.ts:264:  const { error: auditError } = await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:279:- `supabase/functions/_shared/finalize-overdue-deletions.ts:423:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:280:- `tests/account-deletion-request.route.unit.test.ts:102:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:281:- `tests/account-deletion-restore.route.unit.test.ts:85:      \"log_admin_action\",`",
+        "docs/security/staging-prod-schema-diff.md:282:- `lib/admin/audit.ts:66:    const { data, error } = await client.rpc(\"log_admin_action\", payload);`",
+        "docs/security/staging-prod-schema-diff.md:283:- `lib/accountDeletion/requestDeletion.ts:88:  await supabase.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:284:- `app/api/internal/purge-pending-deleted-users/route.ts:63:      await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:285:- `app/api/internal/purge-pending-deleted-users/route.ts:92:    await adminClient.rpc(\"log_admin_action\", {`",
+        "docs/security/staging-prod-schema-diff.md:288:- `docs/moderation.md:113:- logs audit event via `public.log_admin_action('moderation_flag_update', ...)``",
+        "docs/security/staging-prod-schema-diff.md:289:- `docs/moderation.md:127:Admin mutations emit `public.log_admin_action` entries with metadata:`",
+        "docs/security/staging-prod-schema-diff.md:290:- `docs/admin-rbac.md:36:- All privileged writes call `public.log_admin_action` via server-side `audit(...)`.`",
+        "docs/security/staging-prod-schema-diff.md:291:- `supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:142:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:292:- `supabase/migrations/20260218150000_admin_user_notes_edit_delete.sql:207:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:293:- `supabase/migrations/20260211143000_moderation_action_hardening.sql:154:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:294:- `supabase/migrations/20260211143000_moderation_action_hardening.sql:295:  PERFORM public.log_admin_action(`",
+        "docs/security/staging-prod-schema-diff.md:295:- `docs/security/staging-prod-schema-diff.md:136:### `log_admin_action(text,text,text,jsonb,uuid)``",
+        "docs/security/staging-prod-schema-diff.md:356:- function: `log_admin_action(text,uuid,text,text,jsonb)`",
+        "docs/security/staging-prod-schema-diff.md:384:- function only in staging: `log_admin_action(text,text,text,jsonb,uuid)`",
+        "docs/security/staging-prod-schema-diff.md:385:- function only in staging: `log_admin_action(text,uuid,jsonb,uuid,text)`",
+        "docs/security/staging-prod-schema-diff.md:386:- function only in staging: `log_admin_action(text,uuid,text,uuid,jsonb)`",
+        "docs/security/staging-prod-schema-diff.md:395:- function only in production: `log_admin_action(text,uuid,text,text,jsonb)`",
+        "docs/security/staging-prod-schema-diff.md:415:- function differs: `log_admin_action(text,text,text,jsonb)`",
+        "supabase/migrations/20260207143000_admin_audit_overloads.sql:14:CREATE OR REPLACE FUNCTION public.log_admin_action(",
+        "supabase/migrations/20260207143000_admin_audit_overloads.sql:26:  SELECT public.log_admin_action(",
+        "supabase/migrations/20260207143000_admin_audit_overloads.sql:37:CREATE OR REPLACE FUNCTION public.log_admin_action(",
+        "supabase/migrations/20260207143000_admin_audit_overloads.sql:49:  SELECT public.log_admin_action(",
+        "supabase/migrations/20260218120000_admin_user_notes.sql:144:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260211143000_moderation_action_hardening.sql:154:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260211143000_moderation_action_hardening.sql:295:  PERFORM public.log_admin_action(",
+        "supabase/migrations/001_admin_platform_core.sql:221:CREATE OR REPLACE FUNCTION public.log_admin_action(",
+        "supabase/migrations/001_admin_platform_core.sql:311:  PERFORM public.log_admin_action(",
+        "supabase/migrations/20260208170000_impersonation_target_role_rpc.sql:102:  PERFORM public.log_admin_action("
+      ],
+      "fk_dependencies": [],
+      "view_dependencies": [],
+      "trigger_dependencies": [],
+      "function_dependencies": [
+        "admin_add_user_note(uuid,text)",
+        "admin_add_user_note(uuid,text)",
+        "admin_add_user_note(uuid,text)",
+        "admin_delete_user_note(uuid)",
+        "admin_delete_user_note(uuid)",
+        "admin_delete_user_note(uuid)",
+        "admin_hide_listing_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_listing_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_listing_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_review_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_review_and_resolve_flag(uuid,uuid,text)",
+        "admin_hide_review_and_resolve_flag(uuid,uuid,text)",
+        "admin_update_moderation_flag(uuid,text,text,jsonb)",
+        "admin_update_moderation_flag(uuid,text,text,jsonb)",
+        "admin_update_moderation_flag(uuid,text,text,jsonb)",
+        "admin_update_user_note(uuid,text)",
+        "admin_update_user_note(uuid,text)",
+        "admin_update_user_note(uuid,text)",
+        "create_impersonation_session(uuid,integer,text,jsonb)",
+        "create_impersonation_session(uuid,integer,text,jsonb)",
+        "create_impersonation_session(uuid,integer,text,jsonb)",
+        "log_admin_action(text,text,text,jsonb,uuid)",
+        "log_admin_action(text,text,text,jsonb,uuid)",
+        "log_admin_action(text,text,text,jsonb,uuid)",
+        "log_admin_action(text,text,text,jsonb)",
+        "log_admin_action(text,text,text,jsonb)",
+        "log_admin_action(text,text,text,jsonb)",
+        "log_admin_action(text,uuid,jsonb,uuid,text)",
+        "log_admin_action(text,uuid,jsonb,uuid,text)",
+        "log_admin_action(text,uuid,jsonb,uuid,text)"
+      ],
+      "trigger_function_dependencies": [],
+      "suggested_action": "keep temporarily"
+    },
+    {
+      "kind": "function",
+      "schema_name": "public",
+      "object_name": "set_business_reviews_public_id",
+      "signature": "set_business_reviews_public_id()",
+      "qualified_name": "public.set_business_reviews_public_id()",
+      "object_type": "function",
+      "row_count": 0,
+      "runtime_refs": [],
+      "historical_refs": [
+        "docs/security/staging-prod-schema-diff.md:298:### `public.set_business_reviews_public_id()`",
+        "docs/security/staging-prod-schema-diff.md:307:- Function used by triggers: business_reviews.trg_set_business_reviews_public_id",
+        "docs/security/staging-prod-schema-diff.md:312:- `docs/security/staging-prod-schema-diff.md:196:### `set_business_reviews_public_id()``",
+        "docs/security/staging-prod-schema-diff.md:313:- `docs/security/staging-prod-schema-diff.md:204:- Function mentions: set_business_reviews_public_id()`",
+        "docs/security/staging-prod-schema-diff.md:314:- `docs/security/staging-prod-schema-diff.md:206:- `supabase/migrations/20260211123000_public_ids_and_refs.sql:94:CREATE OR REPLACE FUNCTION public.set_business_reviews_public_id()``",
+        "docs/security/staging-prod-schema-diff.md:315:- `docs/security/staging-prod-schema-diff.md:207:- `supabase/migrations/20260211123000_public_ids_and_refs.sql:109:    EXECUTE 'DROP TRIGGER IF EXISTS trg_set_business_reviews_public_id ON public.business_reviews';``",
+        "docs/security/staging-prod-schema-diff.md:316:- `docs/security/staging-prod-schema-diff.md:208:- `supabase/migrations/20260211123000_public_ids_and_refs.sql:110:    EXECUTE 'CREATE TRIGGER trg_set_business_reviews_public_id BEFORE INSERT ON public.business_reviews FOR EACH ROW EXECUTE FUNCTION public.set_business_reviews_public_id()';``",
+        "docs/security/staging-prod-schema-diff.md:317:- `docs/security/staging-prod-schema-diff.md:266:- function only in staging: `set_business_reviews_public_id()``",
+        "docs/security/staging-prod-schema-diff.md:318:- `supabase/migrations/20260211123000_public_ids_and_refs.sql:94:CREATE OR REPLACE FUNCTION public.set_business_reviews_public_id()`",
+        "docs/security/staging-prod-schema-diff.md:319:- `supabase/migrations/20260211123000_public_ids_and_refs.sql:109:    EXECUTE 'DROP TRIGGER IF EXISTS trg_set_business_reviews_public_id ON public.business_reviews';`",
+        "docs/security/staging-prod-schema-diff.md:387:- function only in staging: `set_business_reviews_public_id()`",
+        "supabase/migrations/20260211123000_public_ids_and_refs.sql:94:CREATE OR REPLACE FUNCTION public.set_business_reviews_public_id()",
+        "supabase/migrations/20260211123000_public_ids_and_refs.sql:109:    EXECUTE 'DROP TRIGGER IF EXISTS trg_set_business_reviews_public_id ON public.business_reviews';",
+        "supabase/migrations/20260211123000_public_ids_and_refs.sql:110:    EXECUTE 'CREATE TRIGGER trg_set_business_reviews_public_id BEFORE INSERT ON public.business_reviews FOR EACH ROW EXECUTE FUNCTION public.set_business_reviews_public_id()';"
+      ],
+      "fk_dependencies": [],
+      "view_dependencies": [],
+      "trigger_dependencies": [],
+      "function_dependencies": [],
+      "trigger_function_dependencies": [
+        "business_reviews.trg_set_business_reviews_public_id"
+      ],
+      "suggested_action": "investigate"
+    },
+    {
+      "kind": "function",
+      "schema_name": "public",
+      "object_name": "set_users_public_id",
+      "signature": "set_users_public_id()",
+      "qualified_name": "public.set_users_public_id()",
+      "object_type": "function",
+      "row_count": 0,
+      "runtime_refs": [],
+      "historical_refs": [
+        "supabase/migrations/20260211123000_public_ids_and_refs.sql:35:CREATE OR REPLACE FUNCTION public.set_users_public_id()",
+        "supabase/migrations/20260211123000_public_ids_and_refs.sql:47:DROP TRIGGER IF EXISTS trg_set_users_public_id ON public.users;",
+        "supabase/migrations/20260211123000_public_ids_and_refs.sql:48:CREATE TRIGGER trg_set_users_public_id",
+        "supabase/migrations/20260211123000_public_ids_and_refs.sql:51:EXECUTE FUNCTION public.set_users_public_id();",
+        "docs/security/staging-prod-schema-diff.md:322:### `public.set_users_public_id()`",
+        "docs/security/staging-prod-schema-diff.md:331:- Function used by triggers: users.trg_set_users_public_id",
+        "docs/security/staging-prod-schema-diff.md:336:- `docs/security/staging-prod-schema-diff.md:210:### `set_users_public_id()``",
+        "docs/security/staging-prod-schema-diff.md:337:- `docs/security/staging-prod-schema-diff.md:218:- Function mentions: set_users_public_id()`",
+        "docs/security/staging-prod-schema-diff.md:338:- `docs/security/staging-prod-schema-diff.md:220:- `supabase/migrations/20260211123000_public_ids_and_refs.sql:35:CREATE OR REPLACE FUNCTION public.set_users_public_id()``",
+        "docs/security/staging-prod-schema-diff.md:339:- `docs/security/staging-prod-schema-diff.md:221:- `supabase/migrations/20260211123000_public_ids_and_refs.sql:47:DROP TRIGGER IF EXISTS trg_set_users_public_id ON public.users;``",
+        "docs/security/staging-prod-schema-diff.md:340:- `docs/security/staging-prod-schema-diff.md:222:- `supabase/migrations/20260211123000_public_ids_and_refs.sql:48:CREATE TRIGGER trg_set_users_public_id``",
+        "docs/security/staging-prod-schema-diff.md:341:- `docs/security/staging-prod-schema-diff.md:223:- `supabase/migrations/20260211123000_public_ids_and_refs.sql:51:EXECUTE FUNCTION public.set_users_public_id();``",
+        "docs/security/staging-prod-schema-diff.md:342:- `docs/security/staging-prod-schema-diff.md:267:- function only in staging: `set_users_public_id()``",
+        "docs/security/staging-prod-schema-diff.md:343:- `supabase/migrations/20260211123000_public_ids_and_refs.sql:35:CREATE OR REPLACE FUNCTION public.set_users_public_id()`",
+        "docs/security/staging-prod-schema-diff.md:388:- function only in staging: `set_users_public_id()`"
+      ],
+      "fk_dependencies": [],
+      "view_dependencies": [],
+      "trigger_dependencies": [],
+      "function_dependencies": [],
+      "trigger_function_dependencies": [
+        "users.trg_set_users_public_id"
+      ],
+      "suggested_action": "investigate"
+    }
+  ],
+  "dropCandidates": []
+}

@@ -40,12 +40,12 @@ describe("PurchaseHistoryList", () => {
     );
 
     const link = screen.getByRole("link", {
-      name: /View receipt for order YB-123456 from Barrio Bakery/i,
+      name: /View receipt for order YB-ORD-123456 from Barrio Bakery/i,
     });
 
     expect(link).toHaveAttribute("href", "/orders/YB-123456");
     expect(within(link).getByText("Barrio Bakery")).toHaveClass("text-base", "font-semibold");
-    expect(within(link).getByText(/Order YB-123456 · 10:09 AM/)).toHaveClass("text-xs");
+    expect(within(link).getByText(/Order YB-ORD-123456 · 10:09 AM/)).toHaveClass("text-xs");
     expect(within(link).getByText("$42.50")).toHaveClass("text-base", "font-semibold");
     expect(within(link).queryByText("Fulfilled")).not.toBeInTheDocument();
 

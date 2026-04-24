@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/auth/server";
+import { getEntityIdSearchVariants } from "@/lib/entityIds";
 import { formatOrderPurchaseDateTime } from "@/lib/orders";
 import { reconcilePendingStripeOrders } from "@/lib/orders/persistence";
 import { getSupabaseServerClient as getServiceClient } from "@/lib/supabase/server";
@@ -6,6 +7,12 @@ import OrderReceiptClient from "./OrderReceiptClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+function buildOrderLookupClause(orderRef) {
+  return getEntityIdSearchVariants("order", orderRef)
+    .map((variant) => `order_number.ilike.${variant}`)
+    .join(",");
+}
 
 export default async function OrderPage({ params, searchParams }) {
   const resolvedParams =
@@ -52,7 +59,7 @@ export default async function OrderPage({ params, searchParams }) {
   let { data: order } = await supabase
     .from("orders")
     .select("*, order_items(*, listing:listings!order_items_listing_id_fkey(id))")
-    .ilike("order_number", orderNumber)
+    .or(buildOrderLookupClause(orderNumber))
     .eq("user_id", userId)
     .maybeSingle();
 
