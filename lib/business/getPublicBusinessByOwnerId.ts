@@ -31,7 +31,10 @@ export async function getPublicBusinessByOwnerId(
     options
   );
 
-  const { data, error } = await query.maybeSingle<PublicBusinessRow>();
+  const { data, error } = (await query.maybeSingle()) as {
+    data: PublicBusinessRow | null;
+    error: { code?: string | null; message?: string | null } | null;
+  };
 
   if (error) {
     console.warn("[public-business] businesses lookup failed", {

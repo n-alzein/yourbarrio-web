@@ -1,0 +1,82 @@
+{
+  "generatedAt": "2026-04-24T05:59:30.763Z",
+  "staging": {
+    "ref": "crskbfbleiubpkvyvvlf",
+    "projectName": "yourbarrio-staging",
+    "latestMigration": "20260423110000"
+  },
+  "production": {
+    "ref": "nbzqnjanqkzuwyxnkjtr",
+    "projectName": "n-alzein's Project",
+    "latestMigration": "20260423110000"
+  },
+  "comparisons": [
+    {
+      "objectName": "admin_account_deletions",
+      "exists": "Different",
+      "objectType": "Different",
+      "owner": "Different",
+      "rls": "Different",
+      "definition": "Same",
+      "grants": "Same",
+      "policies": "Same",
+      "reloptions": "Same"
+    },
+    {
+      "objectName": "public_listings_v",
+      "exists": "Same",
+      "objectType": "Same",
+      "owner": "Same",
+      "rls": "Same",
+      "definition": "Different",
+      "grants": "Same",
+      "policies": "Same",
+      "reloptions": "Same"
+    },
+    {
+      "objectName": "user_public_profiles",
+      "exists": "Same",
+      "objectType": "Same",
+      "owner": "Same",
+      "rls": "Same",
+      "definition": "Same",
+      "grants": "Same",
+      "policies": "Same",
+      "reloptions": "Same"
+    },
+    {
+      "objectName": "users",
+      "exists": "Same",
+      "objectType": "Same",
+      "owner": "Same",
+      "rls": "Same",
+      "definition": "Same",
+      "grants": "Same",
+      "policies": "Same",
+      "reloptions": "Same"
+    },
+    {
+      "objectName": "listings",
+      "exists": "Same",
+      "objectType": "Same",
+      "owner": "Same",
+      "rls": "Same",
+      "definition": "Same",
+      "grants": "Same",
+      "policies": "Same",
+      "reloptions": "Same"
+    },
+    {
+      "objectName": "businesses",
+      "exists": "Same",
+      "objectType": "Same",
+      "owner": "Same",
+      "rls": "Same",
+      "definition": "Same",
+      "grants": "Same",
+      "policies": "Same",
+      "reloptions": "Same"
+    }
+  ],
+  "driftCount": 2
+}
