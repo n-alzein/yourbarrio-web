@@ -37,11 +37,15 @@ import {
   saveListingVariants,
 } from "@/lib/listingOptions";
 import {
+  buildListingDraftData,
   buildListingPublicationState,
   formatListingPriceInput,
+  getManualInventoryState,
   getListingPublishDisabledReason,
   getListingDraftTitle,
   getListingSaveErrorMessage,
+  syncInventoryFormFromQuantity,
+  syncInventoryFormFromStatus,
   validateListingForPublish,
 } from "@/lib/listingEditor";
 import {
@@ -119,6 +123,7 @@ export default function EditListingPage() {
   const [submitSuccess, setSubmitSuccess] = useState("");
   const [internalListingId, setInternalListingId] = useState(null);
   const [listingStatus, setListingStatus] = useState("draft");
+  const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(false);
   const [listingOptions, setListingOptions] = useState(createEmptyVariantPayload());
   const [listingOptionsErrors, setListingOptionsErrors] = useState(null);
   const variantsEnabled = Boolean(listingOptions?.hasOptions);
@@ -219,6 +224,7 @@ export default function EditListingPage() {
             ? "published"
             : "draft"
         );
+        setHasUnpublishedChanges(data.has_unpublished_changes === true);
 
         setForm({
           title: data.title || "",
@@ -612,16 +618,12 @@ export default function EditListingPage() {
       });
       const inventoryStatus = publishValidation.listingOptionsValidation.normalized.hasOptions
         ? derivedVariantInventory.inventoryStatus
-        : form.inventoryStatus;
+        : getManualInventoryState(form).inventoryStatus;
       const inventoryQuantity = publishValidation.listingOptionsValidation.normalized.hasOptions
         ? derivedVariantInventory.inventoryQuantity
-        : form.inventoryStatus === "out_of_stock"
-          ? 0
-          : form.inventoryQuantity === ""
-            ? null
-            : Number(form.inventoryQuantity);
+        : getManualInventoryState(form).inventoryQuantity;
       const publicationState = buildListingPublicationState(targetStatus);
-      const payload = {
+      const basePayload = {
         title: isPublish ? (form.title || "").trim() : getListingDraftTitle(form.title),
         description: form.description || "",
         price: form.price === "" ? null : form.price,
@@ -649,6 +651,34 @@ export default function EditListingPage() {
             ? publishValidation.listingDeliveryFeeCents
             : null,
       };
+      const isPublishedListing = listingStatus === "published";
+      const draftData = buildListingDraftData({
+        form,
+        taxonomy,
+        resolvedCoverImageId,
+        inventoryStatus,
+        inventoryQuantity,
+        lowStockThreshold:
+          (inventoryStatus === "in_stock" || inventoryStatus === "low_stock") &&
+          form.lowStockThreshold !== ""
+            ? Number(form.lowStockThreshold)
+            : null,
+        photoUrls,
+        photoVariants,
+        listingDeliveryFeeCents: publishValidation.listingDeliveryFeeCents,
+        listingOptions: publishValidation.listingOptionsValidation.normalized,
+      });
+      const payload =
+        !isPublish && isPublishedListing
+          ? {
+              draft_data: draftData,
+              has_unpublished_changes: true,
+            }
+          : {
+              ...basePayload,
+              draft_data: null,
+              has_unpublished_changes: false,
+            };
 
       const { data, error } = await retry(
         async () => {
@@ -675,21 +705,26 @@ export default function EditListingPage() {
         throw new Error("Save did not complete. Please retry.");
       }
 
-      await saveListingVariants(
-        data.id,
-        publishValidation.listingOptionsValidation.normalized,
-        client,
-        { businessId: accountId }
-      );
+      if (isPublish || listingStatus !== "published") {
+        await saveListingVariants(
+          data.id,
+          publishValidation.listingOptionsValidation.normalized,
+          client,
+          { businessId: accountId }
+        );
+      }
 
       setPhotos(orderedSavedPhotos);
       setCoverImageId(resolvedCoverImageId);
-      setListingStatus(targetStatus);
+      setListingStatus(isPublish ? publicationState.status : listingStatus);
+      setHasUnpublishedChanges(!isPublish && isPublishedListing);
       if (isPublish) {
-        setSubmitSuccess("Listing published! Redirecting...");
+        setSubmitSuccess(
+          listingStatus === "published" ? "Changes published! Redirecting..." : "Listing published! Redirecting..."
+        );
         router.push("/business/listings");
       } else {
-        setSubmitSuccess("Saved");
+        setSubmitSuccess(isPublishedListing ? "Draft saved" : "Saved");
       }
       return { ok: true };
     } catch (err) {
@@ -734,16 +769,13 @@ export default function EditListingPage() {
 
   const previewCategoryLabel =
     CATEGORY_OPTIONS.find((category) => category.slug === form.category)?.label || "";
+  const previewManualInventory = getManualInventoryState(form);
   const previewInventoryStatus = variantsEnabled
     ? derivedVariantInventory.inventoryStatus
-    : form.inventoryStatus;
+    : previewManualInventory.inventoryStatus;
   const previewInventoryQuantity = variantsEnabled
     ? derivedVariantInventory.inventoryQuantity
-    : form.inventoryStatus === "out_of_stock"
-      ? 0
-      : form.inventoryQuantity === ""
-        ? null
-        : Number(form.inventoryQuantity);
+    : previewManualInventory.inventoryQuantity;
   const previewImageUrl = getDraftDisplayUrl(getCoverPhotoDraft(photos, coverImageId));
 
   // -------------------------------------------------------------------------
@@ -753,7 +785,7 @@ export default function EditListingPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-        <div className="mb-8 space-y-2">
+          <div className="mb-8 space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-violet-700">
             Business listings
           </p>
@@ -764,6 +796,11 @@ export default function EditListingPage() {
             {listingStatus === "draft" ? (
               <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
                 Draft
+              </span>
+            ) : null}
+            {listingStatus === "published" && hasUnpublishedChanges ? (
+              <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
+                Changes not published
               </span>
             ) : null}
           </div>
@@ -932,15 +969,7 @@ export default function EditListingPage() {
                         className={selectBase}
                         value={form.inventoryStatus}
                         onChange={(e) => {
-                          const nextStatus = e.target.value;
-                          setForm((prev) => ({
-                            ...prev,
-                            inventoryStatus: nextStatus,
-                            inventoryQuantity:
-                              nextStatus === "out_of_stock" ? "0" : prev.inventoryQuantity,
-                            lowStockThreshold:
-                              nextStatus === "in_stock" ? prev.lowStockThreshold : "",
-                          }));
+                          setForm((prev) => syncInventoryFormFromStatus(prev, e.target.value));
                         }}
                       >
                         <option value="always_available" className="text-black">
@@ -983,7 +1012,7 @@ export default function EditListingPage() {
                           placeholder="Ex: 20"
                           value={form.inventoryQuantity}
                           onChange={(e) =>
-                            setForm({ ...form, inventoryQuantity: e.target.value })
+                            setForm((prev) => syncInventoryFormFromQuantity(prev, e.target.value))
                           }
                         />
                       </>
@@ -1151,6 +1180,13 @@ export default function EditListingPage() {
                   {!submitError && !saving && submitSuccess ? (
                     <p className="text-emerald-600">{submitSuccess}</p>
                   ) : null}
+                  {!submitError &&
+                  !saving &&
+                  !submitSuccess &&
+                  listingStatus === "published" &&
+                  hasUnpublishedChanges ? (
+                    <p className="text-violet-600">Saved changes are not public until you publish them.</p>
+                  ) : null}
                   {!submitError && !saving && !submitSuccess && !publishValidation.ok ? (
                     <p className="text-slate-500">{publishDisabledReason}</p>
                   ) : null}
@@ -1170,7 +1206,11 @@ export default function EditListingPage() {
                     disabled={saving || !publishValidation.ok}
                     className="yb-primary-button rounded-full px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {saving && saveAction === "published" ? "Publishing..." : "Publish listing"}
+                    {saving && saveAction === "published"
+                      ? "Publishing..."
+                      : listingStatus === "published"
+                        ? "Publish changes"
+                        : "Publish listing"}
                   </button>
                 </div>
               </div>

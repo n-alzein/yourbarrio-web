@@ -145,5 +145,6 @@ describe("customer listing visibility", () => {
     expect(response.status).toBe(200);
     expect(payload.listing.id).toBe("listing-1");
     expect(payload.listing.status).toBe("published");
+    expect(payload.listing.title).toBe("Published listing");
   });
 });

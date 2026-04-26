@@ -36,10 +36,13 @@ import {
 import {
   buildListingPublicationState,
   buildListingSaveSignature,
+  getManualInventoryState,
   getListingPublishDisabledReason,
   getListingSaveErrorMessage,
   getListingDraftTitle,
   hasMeaningfulDraftContent,
+  syncInventoryFormFromQuantity,
+  syncInventoryFormFromStatus,
   validateListingForPublish,
 } from "@/lib/listingEditor";
 import { buildListingTaxonomyPayload } from "@/lib/taxonomy/compat";
@@ -472,16 +475,13 @@ export default function NewListingPage() {
       const taxonomy = buildListingTaxonomyPayload({
         listing_category: form.category,
       });
+      const manualInventory = getManualInventoryState(form);
       const inventoryStatus = validation.listingOptionsValidation.normalized.hasOptions
         ? derivedVariantInventory.inventoryStatus
-        : form.inventoryStatus;
+        : manualInventory.inventoryStatus;
       const inventoryQuantity = validation.listingOptionsValidation.normalized.hasOptions
         ? derivedVariantInventory.inventoryQuantity
-        : form.inventoryStatus === "out_of_stock"
-          ? 0
-          : form.inventoryQuantity === ""
-            ? null
-            : Number(form.inventoryQuantity);
+        : manualInventory.inventoryQuantity;
       const publicationState = buildListingPublicationState(targetStatus);
       const listingPayload = {
         business_id: accountId,
@@ -794,16 +794,13 @@ export default function NewListingPage() {
 
   const previewCategoryLabel =
     CATEGORY_OPTIONS.find((category) => category.slug === form.category)?.label || "";
+  const previewManualInventory = getManualInventoryState(form);
   const previewInventoryStatus = variantsEnabled
     ? derivedVariantInventory.inventoryStatus
-    : form.inventoryStatus;
+    : previewManualInventory.inventoryStatus;
   const previewInventoryQuantity = variantsEnabled
     ? derivedVariantInventory.inventoryQuantity
-    : form.inventoryStatus === "out_of_stock"
-      ? 0
-      : form.inventoryQuantity === ""
-        ? null
-        : Number(form.inventoryQuantity);
+    : previewManualInventory.inventoryQuantity;
   const previewImageUrl = getDraftDisplayUrl(getCoverPhotoDraft(photos, coverImageId));
 
   return (
@@ -1001,15 +998,7 @@ export default function NewListingPage() {
                         className={selectBase}
                         value={form.inventoryStatus}
                         onChange={(e) => {
-                          const nextStatus = e.target.value;
-                          updateForm((prev) => ({
-                            ...prev,
-                            inventoryStatus: nextStatus,
-                            inventoryQuantity:
-                              nextStatus === "out_of_stock" ? "0" : prev.inventoryQuantity,
-                            lowStockThreshold:
-                              nextStatus === "in_stock" ? prev.lowStockThreshold : "",
-                          }));
+                          updateForm((prev) => syncInventoryFormFromStatus(prev, e.target.value));
                         }}
                       >
                         <option value="always_available" className="text-black">
@@ -1052,10 +1041,7 @@ export default function NewListingPage() {
                           placeholder="Ex: 20"
                           value={form.inventoryQuantity}
                           onChange={(e) =>
-                            updateForm((prev) => ({
-                              ...prev,
-                              inventoryQuantity: e.target.value,
-                            }))
+                            updateForm((prev) => syncInventoryFormFromQuantity(prev, e.target.value))
                           }
                         />
                       </>

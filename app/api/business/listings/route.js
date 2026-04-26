@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getBusinessDataClientForRequest } from "@/lib/business/getBusinessDataClientForRequest";
 import { isUuid } from "@/lib/ids/isUuid";
 import { getListingVariants } from "@/lib/listingOptions";
+import { applyListingDraftDataToListing } from "@/lib/listingEditor";
 
 export async function GET(request) {
   const access = await getBusinessDataClientForRequest();
@@ -34,8 +35,19 @@ export async function GET(request) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const listingOptions = await getListingVariants(supabase, data.id);
-    const response = NextResponse.json({ listing: data, listingOptions }, { status: 200 });
+    const baseListingOptions = await getListingVariants(supabase, data.id);
+    const draftOverlay =
+      String(data.status || "").trim().toLowerCase() === "published" &&
+      data.has_unpublished_changes === true
+        ? applyListingDraftDataToListing(data, data.draft_data)
+        : { listing: data, listingOptions: null };
+    const response = NextResponse.json(
+      {
+        listing: draftOverlay.listing,
+        listingOptions: draftOverlay.listingOptions || baseListingOptions,
+      },
+      { status: 200 }
+    );
     response.headers.set("Cache-Control", "no-store");
     return response;
   }

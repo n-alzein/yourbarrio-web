@@ -73,4 +73,48 @@ describe("business listing drafts", () => {
       is_published: false,
     });
   });
+
+  it("overlays saved unpublished changes for published listings in edit reads", async () => {
+    getBusinessDataClientForRequestMock.mockResolvedValue({
+      ok: true,
+      client: createListingsClient([
+        {
+          id: "listing-2",
+          business_id: "business-1",
+          title: "Live listing",
+          status: "published",
+          has_unpublished_changes: true,
+          draft_data: {
+            title: "Draft title",
+            cover_image_id: "photo-2",
+            listingOptions: {
+              hasOptions: false,
+              attributes: [],
+              variants: [],
+            },
+          },
+        },
+      ]),
+      effectiveUserId: "business-1",
+    });
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/business/listings?id=listing-2")
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.listing).toMatchObject({
+      id: "listing-2",
+      status: "published",
+      title: "Draft title",
+      has_unpublished_changes: true,
+      cover_image_id: "photo-2",
+    });
+    expect(payload.listingOptions).toMatchObject({
+      hasOptions: false,
+      attributes: [],
+      variants: [],
+    });
+  });
 });

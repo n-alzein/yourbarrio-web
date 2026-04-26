@@ -12,6 +12,25 @@ import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { getListingPublicRef } from "@/lib/ids/publicRefs";
 import { getListingCategoryLabel } from "@/lib/taxonomy/compat";
 import { getListingCategoryPlaceholder } from "@/lib/taxonomy/placeholders";
+import { calculateListingPricing } from "@/lib/pricing";
+
+function formatCurrency(value) {
+  const normalized = Number(value);
+  if (!Number.isFinite(normalized) || normalized <= 0) return null;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(normalized);
+}
+
+function formatPriceCents(value) {
+  const normalized = Number(value);
+  if (!Number.isFinite(normalized) || normalized <= 0) return null;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(normalized / 100);
+}
 
 export default function BusinessListingsPage() {
   const { supabase, user, loadingUser } = useAuth();
@@ -311,8 +330,15 @@ export default function BusinessListingsPage() {
             {listings.map((listing) => {
               const inventory = normalizeInventory(listing);
               const isDraft = String(listing.status || "").trim().toLowerCase() === "draft";
+              const hasUnpublishedChanges = listing.has_unpublished_changes === true;
               const isOutOfStock =
                 inventory.availability === "out" || Number(listing.inventory_quantity) === 0;
+              const pricing = calculateListingPricing(listing.price);
+              const sellerPriceLabel = formatCurrency(listing.price);
+              const customerFacingPriceLabel =
+                pricing.finalPriceCents > pricing.basePriceCents
+                  ? formatPriceCents(listing.finalPriceCents ?? pricing.finalPriceCents)
+                  : null;
               const editHref = `/business/listings/${encodeURIComponent(
                 getListingPublicRef(listing) || listing.id
               )}/edit`;
@@ -374,6 +400,12 @@ export default function BusinessListingsPage() {
                                   color: "#c2410c",
                                   border: "1px solid #fdba74",
                                 }
+                              : hasUnpublishedChanges
+                              ? {
+                                  backgroundColor: "#f5f3ff",
+                                  color: "#6d28d9",
+                                  border: "1px solid #ddd6fe",
+                                }
                               : {
                                   backgroundColor: "#f0fdf4",
                                   color: "#166534",
@@ -381,7 +413,13 @@ export default function BusinessListingsPage() {
                                 }
                           }
                         >
-                          {isOutOfStock ? "Out of stock" : isDraft ? "Draft" : "Live"}
+                          {isOutOfStock
+                            ? "Out of stock"
+                            : isDraft
+                              ? "Draft"
+                              : hasUnpublishedChanges
+                                ? "Changes not published"
+                                : "Live"}
                         </span>
                       </div>
                     </div>
@@ -414,19 +452,26 @@ export default function BusinessListingsPage() {
                     </h3>
 
                     {/* Price */}
-                    <div className="mb-2">
+                    <div className="mb-2 space-y-1.5">
+                      <p
+                        className={`text-[11px] font-medium uppercase tracking-[0.08em] ${
+                          isLight ? "text-slate-500" : "text-slate-400"
+                        }`}
+                      >
+                        Seller price
+                      </p>
                       <span
                         className={`text-2xl font-bold ${
                           isLight ? "text-slate-900" : "text-slate-100"
                         }`}
                       >
-                        {listing.price
-                          ? new Intl.NumberFormat("en-US", {
-                              style: "currency",
-                              currency: "USD",
-                            }).format(Number(listing.price))
-                          : "Price TBD"}
+                        {sellerPriceLabel ?? "Price TBD"}
                       </span>
+                      {customerFacingPriceLabel ? (
+                        <p className={`text-xs ${isLight ? "text-slate-500" : "text-slate-400"}`}>
+                          Customer-facing price: {customerFacingPriceLabel} incl. marketplace fee
+                        </p>
+                      ) : null}
                     </div>
 
                     {/* Stock Info */}

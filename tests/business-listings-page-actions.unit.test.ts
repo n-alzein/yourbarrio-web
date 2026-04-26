@@ -9,7 +9,8 @@ const source = readFileSync(
 
 describe("business listings page card hierarchy", () => {
   it("uses a single status badge with out-of-stock precedence", () => {
-    expect(source).toContain('{isOutOfStock ? "Out of stock" : isDraft ? "Draft" : "Live"}');
+    expect(source).toContain('const hasUnpublishedChanges = listing.has_unpublished_changes === true;');
+    expect(source).toContain('"Changes not published"');
     expect(source).toContain('backgroundColor: "#ffffff"');
     expect(source).toContain('color: "#111827"');
     expect(source).toContain('border: "1px solid #e5e7eb"');
@@ -40,5 +41,13 @@ describe("business listings page card hierarchy", () => {
     expect(source).toContain("in stock");
     expect(source).toContain('<span className="font-semibold">Out of stock</span>');
     expect(source).not.toContain("<span>Stock:</span>");
+  });
+
+  it("labels seller pricing and shows customer-facing pricing only when fee-inclusive pricing exists", () => {
+    expect(source).toContain("Seller price");
+    expect(source).toContain("Customer-facing price:");
+    expect(source).toContain("incl. marketplace fee");
+    expect(source).toContain("pricing.finalPriceCents > pricing.basePriceCents");
+    expect(source).not.toContain('>Price TBD<');
   });
 });

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import NewListingPage from "@/app/(business)/business/listings/new/page";
 
 let pushMock = vi.fn();
@@ -18,6 +20,11 @@ const describeImageFileMock = vi.fn((file) => ({
   type: file?.type || null,
   size: file?.size || null,
 }));
+
+const newListingSource = readFileSync(
+  path.join(process.cwd(), "app/(business)/business/listings/new/page.jsx"),
+  "utf8"
+);
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -134,6 +141,9 @@ async function fillRequiredFields() {
   fireEvent.change(screen.getByLabelText("Price"), {
     target: { value: "12" },
   });
+  fireEvent.change(screen.getByLabelText("Quantity on hand"), {
+    target: { value: "4" },
+  });
 }
 
 async function addPhoto(container) {
@@ -185,6 +195,12 @@ beforeEach(() => {
 });
 
 describe("NewListingPage", () => {
+  it("keeps inventory quantity and status handlers synchronized", () => {
+    expect(newListingSource).toContain("syncInventoryFormFromStatus");
+    expect(newListingSource).toContain("syncInventoryFormFromQuantity");
+    expect(newListingSource).toContain("getManualInventoryState");
+  });
+
   it("defaults new listings to pickup on and delivery off", async () => {
     mockSupabase = makeSupabaseMock();
     mockAuth = {
