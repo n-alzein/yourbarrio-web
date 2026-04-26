@@ -16,7 +16,7 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import useBusinessProfileAccessGate from "@/components/auth/useBusinessProfileAccessGate";
 import { useCurrentAccountContext } from "@/lib/auth/useCurrentAccountContext";
-import { extractPhotoUrls, resolveListingCoverImageUrl } from "@/lib/listingPhotos";
+import { resolveListingMedia } from "@/lib/resolveListingMedia";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getAuthedContext } from "@/lib/auth/getAuthedContext";
 import { useParams, usePathname, useRouter } from "next/navigation";
@@ -73,10 +73,21 @@ function writePendingAuthAction(intent) {
   } catch {}
 }
 
+function getInitialHeroSrc(listing) {
+  const resolvedMedia = resolveListingMedia(listing);
+  return resolvedMedia.coverImageUrl || getListingCategoryPlaceholder(listing);
+}
+
 export default function ListingDetailsClient({
   params,
   backHref = "/",
+  backLabel = "Back to discovery",
   renderedAt = null,
+  initialListing = null,
+  initialBusiness = null,
+  initialListingOptions = null,
+  initialIsSaved = false,
+  previewBanner = null,
 }) {
   const { supabase, user } = useAuth();
   const accountContext = useCurrentAccountContext();
@@ -103,9 +114,9 @@ export default function ListingDetailsClient({
     };
   }, [params]);
 
-  const [listing, setListing] = useState(null);
-  const [business, setBusiness] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [listing, setListing] = useState(initialListing);
+  const [business, setBusiness] = useState(initialBusiness);
+  const [loading, setLoading] = useState(!initialListing);
   const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [fulfillmentType, setFulfillmentType] = useState("pickup");
@@ -113,15 +124,16 @@ export default function ListingDetailsClient({
   const [cartActionLoading, setCartActionLoading] = useState(false);
   const [messageStatus, setMessageStatus] = useState("");
   const [messageLoading, setMessageLoading] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+  const [isSaved, setIsSaved] = useState(Boolean(initialIsSaved));
   const [saveLoading, setSaveLoading] = useState(false);
-  const [heroSrc, setHeroSrc] = useState("/listing-placeholder.png");
+  const [heroSrc, setHeroSrc] = useState(() => getInitialHeroSrc(initialListing));
   const [cartToast, setCartToast] = useState(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportToast, setReportToast] = useState(null);
   const [listingMenuOpen, setListingMenuOpen] = useState(false);
-  const [listingOptions, setListingOptions] = useState(null);
+  const [listingOptions, setListingOptions] = useState(initialListingOptions);
   const [selectedVariantOptions, setSelectedVariantOptions] = useState({});
+  const [previewCloseHelp, setPreviewCloseHelp] = useState("");
   const toastTimerRef = useRef(null);
   const listingMenuRef = useRef(null);
   const getCurrentPath = useCallback(() => {
@@ -159,6 +171,10 @@ export default function ListingDetailsClient({
     const shouldUseServer = Boolean(accountId);
 
     async function load() {
+      if (initialListing) {
+        setLoading(false);
+        return;
+      }
       if (!listingRef) return;
       setLoading(true);
       setError(null);
@@ -183,10 +199,6 @@ export default function ListingDetailsClient({
           setBusiness(payload?.business ?? null);
           setIsSaved(Boolean(payload?.isSaved));
           setListingOptions(payload?.listingOptions || null);
-          setHeroSrc(
-            resolveListingCoverImageUrl(payload?.listing) ||
-              getListingCategoryPlaceholder(payload?.listing)
-          );
           return;
         }
 
@@ -209,9 +221,6 @@ export default function ListingDetailsClient({
         if (!isMounted) return;
         setListing(item);
         setListingOptions(await getListingVariants(client, item.id));
-        setHeroSrc(
-          resolveListingCoverImageUrl(item) || getListingCategoryPlaceholder(item)
-        );
 
         const { data: biz } = await client
           .from("businesses")
@@ -245,7 +254,7 @@ export default function ListingDetailsClient({
     return () => {
       isMounted = false;
     };
-  }, [supabase, listingRef, user?.id]);
+  }, [initialListing, supabase, listingRef, user?.id]);
 
   useEffect(() => {
     let active = true;
@@ -271,6 +280,30 @@ export default function ListingDetailsClient({
       active = false;
     };
   }, [accountContext.isBusiness, accountContext.rolePending, supabase, user?.id, listing?.id]);
+
+  const resolvedMedia = useMemo(() => resolveListingMedia(listing), [listing]);
+
+  useEffect(() => {
+    const nextHero = resolvedMedia.coverImageUrl || getListingCategoryPlaceholder(listing);
+    if (!nextHero) return;
+    setHeroSrc((current) => {
+      if (resolvedMedia.images.some((image) => image?.url === current)) {
+        return current;
+      }
+      return nextHero;
+    });
+  }, [listing, resolvedMedia]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    if (!previewBanner) return;
+    console.info("[LISTING_PREVIEW_MEDIA_DEBUG]", {
+      stage: "client_before_render",
+      listingId: listing?.id || null,
+      resolvedImagesLength: resolvedMedia.images.length,
+      resolvedFirstImageUrl: resolvedMedia.images[0]?.url || null,
+    });
+  }, [listing?.id, previewBanner, resolvedMedia]);
 
   const handleToggleSave = async () => {
     if (!listing?.id) return;
@@ -671,7 +704,7 @@ export default function ListingDetailsClient({
             href={backHref}
             className="inline-flex items-center gap-2 text-sm opacity-80 hover:opacity-100"
           >
-            <ArrowLeft className="h-4 w-4" /> Back to results
+            <ArrowLeft className="h-4 w-4" /> {backLabel}
           </Link>
           <div
             className="mt-6 rounded-2xl p-6 shadow-sm"
@@ -698,7 +731,7 @@ export default function ListingDetailsClient({
   const showSaveControls = !accountContext.isBusiness && !accountContext.rolePending;
   const purchaseRestricted = accountContext.purchaseRestricted;
   const purchaseEligibilityPending = accountContext.rolePending;
-  const galleryPhotos = extractPhotoUrls(listing.photo_url);
+  const galleryPhotos = resolvedMedia.images.map((image) => image.url).filter(Boolean);
   const mobileGalleryPhotos = galleryPhotos.slice(0, 5);
   const mobileGalleryOverflowCount = Math.max(
     galleryPhotos.length - mobileGalleryPhotos.length,
@@ -745,6 +778,20 @@ export default function ListingDetailsClient({
     isOutOfStock ||
     cartActionLoading ||
     (hasVariantOptions && !selectedVariant?.id);
+  const handleClosePreview = useCallback(() => {
+    if (!previewBanner?.editorHref) return;
+    if (previewBanner?.isFromEditorPreview) {
+      setPreviewCloseHelp("");
+      window.close();
+      window.setTimeout(() => {
+        setPreviewCloseHelp("You can close this preview tab and return to the editor.");
+      }, 250);
+      return;
+    }
+    if (typeof window !== "undefined") {
+      window.location.href = previewBanner.editorHref;
+    }
+  }, [previewBanner?.editorHref, previewBanner?.isFromEditorPreview]);
 
   return (
     <>
@@ -757,16 +804,43 @@ export default function ListingDetailsClient({
         }}
       >
         <div className="max-w-6xl mx-auto space-y-4">
-        <div
-          className="mb-2 mt-2 flex flex-wrap items-center justify-between gap-3 opacity-80"
-        >
-          <Link
-            href={backHref}
-            className="inline-flex items-center gap-2 text-sm hover:opacity-100"
+        {previewBanner ? (
+          <div
+            className="flex flex-col gap-3 rounded-2xl border border-violet-200 bg-violet-50/90 px-4 py-3 text-sm text-violet-900 md:flex-row md:items-center md:justify-between"
+            data-testid="listing-preview-banner"
           >
-            <ArrowLeft className="h-4 w-4" /> Back to discovery
-          </Link>
-        </div>
+            <p className="font-medium">
+              Preview mode — this is how customers will see your listing after publishing.
+            </p>
+            {previewBanner.editorHref ? (
+              <div className="flex flex-col items-start gap-1 md:items-end">
+                <button
+                  type="button"
+                  onClick={handleClosePreview}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-violet-700 underline-offset-4 transition hover:text-violet-900 hover:underline"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  {previewBanner?.isFromEditorPreview ? "Close preview" : "Back to editor"}
+                </button>
+                {previewCloseHelp ? (
+                  <p className="text-xs text-violet-700">{previewCloseHelp}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {!previewBanner ? (
+          <div
+            className="mb-2 mt-2 flex flex-wrap items-center justify-between gap-3 opacity-80"
+          >
+            <Link
+              href={backHref}
+              className="inline-flex items-center gap-2 text-sm hover:opacity-100"
+            >
+              <ArrowLeft className="h-4 w-4" /> {backLabel}
+            </Link>
+          </div>
+        ) : null}
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">

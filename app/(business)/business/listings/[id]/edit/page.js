@@ -37,13 +37,16 @@ import {
   saveListingVariants,
 } from "@/lib/listingOptions";
 import {
+  applyFulfillmentModeToForm,
   buildListingDraftData,
   buildListingPublicationState,
   formatListingPriceInput,
+  getFulfillmentModeFromBooleans,
   getManualInventoryState,
   getListingPublishDisabledReason,
   getListingDraftTitle,
   getListingSaveErrorMessage,
+  LISTING_FULFILLMENT_MODES,
   syncInventoryFormFromQuantity,
   syncInventoryFormFromStatus,
   validateListingForPublish,
@@ -55,6 +58,11 @@ import {
 import { getListingCategoryOptions } from "@/lib/taxonomy/listingCategories";
 
 const CATEGORY_OPTIONS = getListingCategoryOptions();
+const FULFILLMENT_SEGMENTS = [
+  { value: LISTING_FULFILLMENT_MODES.PICKUP, label: "Pickup" },
+  { value: LISTING_FULFILLMENT_MODES.DELIVERY, label: "Delivery" },
+  { value: LISTING_FULFILLMENT_MODES.BOTH, label: "Both" },
+];
 
 function logListingPhotoDebug(event, details) {
   if (process.env.NODE_ENV === "production") return;
@@ -80,6 +88,9 @@ export default function EditListingPage() {
 
   const { supabase, user, profile, loadingUser } = useAuth();
   const accountId = user?.id || profile?.id || null;
+  const previewHref = listingRef
+    ? `/business/listings/${encodeURIComponent(listingRef)}/preview?fromEditor=1`
+    : null;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -144,6 +155,20 @@ export default function EditListingPage() {
     [form, photos, businessFulfillmentDefaults, listingOptions]
   );
   const publishDisabledReason = getListingPublishDisabledReason(publishValidation);
+  const fulfillmentMode = useMemo(
+    () => getFulfillmentModeFromBooleans(form.pickupEnabled, form.localDeliveryEnabled),
+    [form.localDeliveryEnabled, form.pickupEnabled]
+  );
+  const fulfillmentHelperText =
+    fulfillmentMode === LISTING_FULFILLMENT_MODES.DELIVERY
+      ? businessFulfillmentDefaults.local_delivery_enabled_default
+        ? "Customers can order with local delivery only."
+        : "Business delivery is off in settings, so customers will only see pickup for now."
+      : fulfillmentMode === LISTING_FULFILLMENT_MODES.BOTH
+        ? businessFulfillmentDefaults.local_delivery_enabled_default
+          ? "Customers can choose pickup or local delivery."
+          : "Delivery stays unavailable to customers until business delivery is enabled."
+        : "Customers can collect this order directly from your business.";
 
   useEffect(() => {
     photosRef.current = photos;
@@ -785,28 +810,39 @@ export default function EditListingPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-          <div className="mb-8 space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-violet-700">
-            Business listings
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-              Edit listing
-            </h1>
-            {listingStatus === "draft" ? (
-              <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-                Draft
-              </span>
-            ) : null}
-            {listingStatus === "published" && hasUnpublishedChanges ? (
-              <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
-                Changes not published
-              </span>
-            ) : null}
+        <div className="mb-8">
+          <button
+            type="button"
+            onClick={() => router.push("/business/listings")}
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 underline-offset-4 transition hover:text-slate-900 hover:underline"
+            disabled={saving}
+            data-testid="listing-editor-exit"
+          >
+            ← Back to listings
+          </button>
+          <div className="mt-6 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-violet-700">
+              Business listings
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+                Edit listing
+              </h1>
+              {listingStatus === "draft" ? (
+                <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                  Draft
+                </span>
+              ) : null}
+              {listingStatus === "published" && hasUnpublishedChanges ? (
+                <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
+                  Changes not published
+                </span>
+              ) : null}
+            </div>
+            <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+              Refine the listing on the left and manage photos on the right.
+            </p>
           </div>
-          <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-            Refine the listing on the left and manage photos on the right.
-          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -1049,49 +1085,31 @@ export default function EditListingPage() {
                   <h2 className="text-lg font-semibold text-slate-900">Fulfillment</h2>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                    <span className="flex items-center gap-3 font-medium text-slate-900">
-                      <input
-                        type="checkbox"
-                        checked={form.pickupEnabled}
-                        onChange={(e) =>
-                          setForm((prev) => ({
-                            ...prev,
-                            pickupEnabled: e.target.checked,
-                          }))
-                        }
-                      />
-                      Pickup available
-                    </span>
-                    <span className={`block ${helperBase}`}>
-                      Customers can collect this order directly from your business.
-                    </span>
-                  </label>
-
-                  <label className="rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                    <span className="flex items-center gap-3 font-medium text-slate-900">
-                      <input
-                        type="checkbox"
-                        checked={form.localDeliveryEnabled}
-                        onChange={(e) =>
-                          setForm((prev) => ({
-                            ...prev,
-                            localDeliveryEnabled: e.target.checked,
-                            useBusinessDeliveryDefaults: e.target.checked
-                              ? prev.useBusinessDeliveryDefaults
-                              : true,
-                          }))
-                        }
-                      />
-                      Local delivery available
-                    </span>
-                    <span className={`block ${helperBase}`}>
-                      {businessFulfillmentDefaults.local_delivery_enabled_default
-                        ? "Customers only see delivery when this listing and your business both support it."
-                        : "Business delivery is off in settings, so customers will only see pickup for now."}
-                    </span>
-                  </label>
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-2">
+                  <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Fulfillment method">
+                    {FULFILLMENT_SEGMENTS.map((segment) => {
+                      const selected = fulfillmentMode === segment.value;
+                      return (
+                        <button
+                          key={segment.value}
+                          type="button"
+                          role="tab"
+                          aria-selected={selected}
+                          onClick={() =>
+                            setForm((prev) => applyFulfillmentModeToForm(prev, segment.value))
+                          }
+                          className={`h-11 rounded-2xl border text-sm font-semibold transition ${
+                            selected
+                              ? "border-violet-200 bg-violet-50 text-violet-700"
+                              : "border-slate-200 bg-white text-slate-700 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
+                          }`}
+                        >
+                          {segment.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className={helperBase}>{fulfillmentHelperText}</p>
                 </div>
 
                 {form.localDeliveryEnabled ? (
@@ -1152,19 +1170,7 @@ export default function EditListingPage() {
           </div>
 
           <div className="border-t border-slate-200 pt-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <button
-                  type="button"
-                  onClick={() => router.push("/business/listings")}
-                  className="text-sm font-medium text-slate-500 underline-offset-4 transition hover:text-slate-900 hover:underline"
-                  disabled={saving}
-                  data-testid="listing-editor-exit"
-                >
-                  Exit
-                </button>
-              </div>
-              <div className="flex flex-col items-stretch gap-3 sm:items-end">
+            <div className="flex flex-col gap-4 sm:items-end">
                 <div
                   className="min-h-[1.25rem] text-sm text-right"
                   data-testid="listing-editor-action-status"
@@ -1187,11 +1193,24 @@ export default function EditListingPage() {
                   hasUnpublishedChanges ? (
                     <p className="text-violet-600">Saved changes are not public until you publish them.</p>
                   ) : null}
+                  {!submitError && !saving && !submitSuccess && previewHref ? (
+                    <p className="text-slate-500">Preview shows your latest saved changes.</p>
+                  ) : null}
                   {!submitError && !saving && !submitSuccess && !publishValidation.ok ? (
                     <p className="text-slate-500">{publishDisabledReason}</p>
                   ) : null}
                 </div>
                 <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                  {previewHref ? (
+                    <a
+                      href={previewHref}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-100"
+                    >
+                      Preview listing
+                    </a>
+                  ) : null}
                   <button
                     type="button"
                     onClick={handleSaveDraft}
@@ -1213,7 +1232,6 @@ export default function EditListingPage() {
                         : "Publish listing"}
                   </button>
                 </div>
-              </div>
             </div>
           </div>
         </form>

@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBusinessDataClientForRequest } from "@/lib/business/getBusinessDataClientForRequest";
-import { isUuid } from "@/lib/ids/isUuid";
-import { getListingVariants } from "@/lib/listingOptions";
-import { applyListingDraftDataToListing } from "@/lib/listingEditor";
+import { getOwnedListingEditorData } from "@/lib/business/getOwnedListingEditorData";
 
 export async function GET(request) {
   const access = await getBusinessDataClientForRequest();
@@ -16,35 +14,18 @@ export async function GET(request) {
   const listingRef = (searchParams.get("id") || "").trim();
 
   if (listingRef) {
-    const field = isUuid(listingRef) ? "id" : "public_id";
-    const { data, error } = await supabase
-      .from("listings")
-      .select("*")
-      .eq(field, listingRef)
-      .eq("business_id", effectiveUserId)
-      .maybeSingle();
-
-    if (error) {
-      return NextResponse.json(
-        { error: error.message || "Failed to load listing" },
-        { status: 500 }
-      );
+    const result = await getOwnedListingEditorData({
+      supabase,
+      effectiveUserId,
+      listingRef,
+    });
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
-
-    if (!data) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    const baseListingOptions = await getListingVariants(supabase, data.id);
-    const draftOverlay =
-      String(data.status || "").trim().toLowerCase() === "published" &&
-      data.has_unpublished_changes === true
-        ? applyListingDraftDataToListing(data, data.draft_data)
-        : { listing: data, listingOptions: null };
     const response = NextResponse.json(
       {
-        listing: draftOverlay.listing,
-        listingOptions: draftOverlay.listingOptions || baseListingOptions,
+        listing: result.listing,
+        listingOptions: result.listingOptions,
       },
       { status: 200 }
     );

@@ -2,11 +2,14 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  applyFulfillmentModeToForm,
   applyListingDraftDataToListing,
   buildListingDraftData,
   formatListingPriceInput,
+  getFulfillmentModeFromBooleans,
   getManualInventoryState,
   getListingPublishDisabledReason,
+  LISTING_FULFILLMENT_MODES,
   syncInventoryFormFromQuantity,
   syncInventoryFormFromStatus,
   validateListingForPublish,
@@ -75,8 +78,16 @@ describe("Edit listing save flow", () => {
     expect(editListingSource).toContain('await persistListing("draft")');
     expect(editListingSource).toContain('await persistListing("published")');
     expect(editListingSource).toContain("Save draft");
+    expect(editListingSource).toContain("Preview listing");
+    expect(editListingSource).toContain('target="_blank"');
+    expect(editListingSource).toContain('/preview?fromEditor=1');
+    expect(editListingSource).toContain("Preview shows your latest saved changes.");
     expect(editListingSource).toContain('"Publish changes"');
     expect(editListingSource).toContain('"Publish listing"');
+    expect(editListingSource).toContain('role="tablist"');
+    expect(editListingSource).toContain('aria-label="Fulfillment method"');
+    expect(editListingSource).toContain("applyFulfillmentModeToForm");
+    expect(editListingSource).toContain("getFulfillmentModeFromBooleans");
     expect(editListingSource).toContain('router.push("/business/listings")');
   });
 
@@ -179,6 +190,61 @@ describe("Edit listing save flow", () => {
     ).toEqual({
       inventoryStatus: "out_of_stock",
       inventoryQuantity: 6,
+    });
+  });
+
+  it("maps fulfillment mode selections to existing delivery booleans", () => {
+    expect(
+      getFulfillmentModeFromBooleans(true, false)
+    ).toBe(LISTING_FULFILLMENT_MODES.PICKUP);
+    expect(
+      getFulfillmentModeFromBooleans(false, true)
+    ).toBe(LISTING_FULFILLMENT_MODES.DELIVERY);
+    expect(
+      getFulfillmentModeFromBooleans(true, true)
+    ).toBe(LISTING_FULFILLMENT_MODES.BOTH);
+
+    expect(
+      applyFulfillmentModeToForm(
+        {
+          pickupEnabled: false,
+          localDeliveryEnabled: true,
+          useBusinessDeliveryDefaults: false,
+        },
+        LISTING_FULFILLMENT_MODES.PICKUP
+      )
+    ).toMatchObject({
+      pickupEnabled: true,
+      localDeliveryEnabled: false,
+      useBusinessDeliveryDefaults: true,
+    });
+
+    expect(
+      applyFulfillmentModeToForm(
+        {
+          pickupEnabled: true,
+          localDeliveryEnabled: false,
+          useBusinessDeliveryDefaults: true,
+        },
+        LISTING_FULFILLMENT_MODES.DELIVERY
+      )
+    ).toMatchObject({
+      pickupEnabled: false,
+      localDeliveryEnabled: true,
+    });
+
+    expect(
+      applyFulfillmentModeToForm(
+        {
+          pickupEnabled: true,
+          localDeliveryEnabled: false,
+          useBusinessDeliveryDefaults: true,
+        },
+        LISTING_FULFILLMENT_MODES.BOTH
+      )
+    ).toMatchObject({
+      pickupEnabled: true,
+      localDeliveryEnabled: true,
     });
   });
 

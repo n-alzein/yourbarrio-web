@@ -201,6 +201,14 @@ describe("NewListingPage", () => {
     expect(newListingSource).toContain("getManualInventoryState");
   });
 
+  it("keeps preview disabled until a saved draft exists", () => {
+    expect(newListingSource).toContain("Preview listing");
+    expect(newListingSource).toContain("Save draft first to preview latest changes.");
+    expect(newListingSource).toContain('title="Save draft first to preview latest changes."');
+    expect(newListingSource).toContain('target="_blank"');
+    expect(newListingSource).toContain('/preview?fromEditor=1');
+  });
+
   it("defaults new listings to pickup on and delivery off", async () => {
     mockSupabase = makeSupabaseMock();
     mockAuth = {
@@ -212,12 +220,18 @@ describe("NewListingPage", () => {
 
     render(<NewListingPage />);
 
-    expect(
-      await screen.findByRole("checkbox", { name: /pickup available/i })
-    ).toBeChecked();
-    expect(
-      screen.getByRole("checkbox", { name: /local delivery available/i })
-    ).not.toBeChecked();
+    expect(await screen.findByRole("tab", { name: "Pickup" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+    expect(screen.getByRole("tab", { name: "Delivery" })).toHaveAttribute(
+      "aria-selected",
+      "false"
+    );
+    expect(screen.getByRole("tab", { name: "Both" })).toHaveAttribute(
+      "aria-selected",
+      "false"
+    );
   });
 
   it("does not auto-run enhancement on upload", async () => {

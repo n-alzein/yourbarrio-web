@@ -58,14 +58,19 @@ export default function ListingPreviewCard({
   return (
     <section>
       <div className="overflow-hidden rounded-[18px] bg-white ring-1 ring-slate-200/50">
-        <div className="aspect-[16/11] bg-slate-100">
+        <div
+          className="aspect-[16/11] p-3"
+          style={{ backgroundColor: "#F9FAFB", borderBottom: "1px solid #F1F5F9" }}
+        >
+          <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-2xl bg-white">
           {imageUrl ? (
-            <img src={imageUrl} alt={titleLabel} className="h-full w-full object-contain" />
+            <img src={imageUrl} alt={titleLabel} className="h-full w-full bg-white object-contain" />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-slate-400">
               Cover photo preview
             </div>
           )}
+          </div>
         </div>
 
         <div className="space-y-3 p-5">

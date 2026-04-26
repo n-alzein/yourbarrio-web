@@ -8,22 +8,21 @@ import {
 } from "@/lib/listingPhotoDrafts";
 
 function PhotoSurface({ src, alt, className = "" }) {
-  if (!src) {
-    return (
-      <div
-        className={`flex items-center justify-center rounded-2xl bg-slate-100 text-sm text-slate-400 ${className}`}
-      >
-        No preview
-      </div>
-    );
-  }
-
   return (
-    <img
-      src={src}
-      alt={alt}
-      className={`h-full w-full rounded-2xl object-contain ${className}`}
-    />
+    <div
+      className={`rounded-2xl border border-slate-100 bg-slate-50 p-3 ${className}`}
+      style={{ backgroundColor: "#F9FAFB", borderColor: "#F1F5F9" }}
+    >
+      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[18px] bg-white">
+        {src ? (
+          <img src={src} alt={alt} className="h-full w-full bg-white object-contain" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-white text-sm text-slate-400">
+            No preview
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -116,7 +115,10 @@ export default function ListingPhotoManager({
 
       {selectedPhoto ? (
           <div className="space-y-6">
-          <div className="mb-6 overflow-hidden rounded-[18px] bg-slate-100 ring-1 ring-slate-200">
+          <div
+            className="mb-6 overflow-hidden rounded-[18px] ring-1"
+            style={{ backgroundColor: "#F9FAFB", boxShadow: "inset 0 0 0 1px #F1F5F9" }}
+          >
             <div className="relative">
               {resolvedCoverImageId === selectedPhoto.id ? (
                 <div className="absolute left-3 top-3 z-10 rounded-md border border-violet-200 bg-white/95 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-violet-700 shadow-sm">
@@ -250,7 +252,10 @@ export default function ListingPhotoManager({
                           : "hover:scale-[1.01]"
                       }`}
                     >
-                      <div className="relative overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
+                      <div
+                        className="relative overflow-hidden rounded-xl ring-1"
+                        style={{ backgroundColor: "#F9FAFB", boxShadow: "inset 0 0 0 1px #F1F5F9" }}
+                      >
                         {isCover ? (
                           <div className="absolute left-2 top-2 z-10 rounded-md border border-violet-200 bg-white/95 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-violet-700 shadow-sm">
                             COVER
