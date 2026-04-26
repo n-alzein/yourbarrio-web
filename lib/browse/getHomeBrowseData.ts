@@ -31,6 +31,8 @@ export type ListingSummary = {
   inventory_quantity?: number | null;
   low_stock_threshold?: number | null;
   inventory_last_updated_at?: string | null;
+  is_seeded?: boolean;
+  business_is_seeded?: boolean;
 };
 
 export type CategorySummary = HomepageCategory;
@@ -70,6 +72,8 @@ const PUBLIC_LISTING_SELECT = [
   "inventory_quantity",
   "low_stock_threshold",
   "inventory_last_updated_at",
+  "is_seeded",
+  "business_is_seeded",
 ].join(",");
 
 function getHomeBrowseSupabaseClient() {

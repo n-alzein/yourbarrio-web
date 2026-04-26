@@ -15,7 +15,9 @@ import {
 type PopularNearYouSectionProps = {
   mode?: "public" | "customer";
   title?: string;
+  sparseTitle?: string;
   sectionId?: string;
+  sectionClassName?: string;
   subtitle?: string;
   distanceThresholdMiles?: number;
   limit?: number;
@@ -144,7 +146,9 @@ function PopularNearYouSkeleton() {
 export default function PopularNearYouSection({
   mode = "public",
   title,
+  sparseTitle,
   sectionId,
+  sectionClassName,
   subtitle,
   distanceThresholdMiles,
   limit = 8,
@@ -233,13 +237,14 @@ export default function PopularNearYouSection({
     return nextBusinesses.slice(0, limit);
   }, [businesses, distanceThresholdMiles, limit]);
   const resolvedTitle = useMemo(() => {
+    if (visibleBusinesses.length < 3 && sparseTitle) return sparseTitle;
     if (title) return title;
     if (typeof distanceThresholdMiles === "number" && Number.isFinite(distanceThresholdMiles)) {
       if (normalizedLocation.city) return `Near ${normalizedLocation.city}`;
       return `Within ${distanceThresholdMiles} miles`;
     }
     return "Trending near you";
-  }, [distanceThresholdMiles, normalizedLocation.city, title]);
+  }, [distanceThresholdMiles, normalizedLocation.city, sparseTitle, title, visibleBusinesses.length]);
   const resolvedSubtitle = useMemo(() => {
     if (subtitle) return subtitle;
     if (typeof distanceThresholdMiles === "number" && Number.isFinite(distanceThresholdMiles)) {
@@ -256,7 +261,10 @@ export default function PopularNearYouSection({
   if (!visibleBusinesses.length) return null;
 
   return (
-    <section id={sectionId} className="mt-16 md:mt-20 lg:mt-12">
+    <section
+      id={sectionId}
+      className={sectionClassName || "mt-16 md:mt-20 lg:mt-12"}
+    >
       <HomeSectionContainer>
         <div className="mb-7 flex flex-wrap items-start justify-between gap-x-4 gap-y-2 md:mb-8">
           <div className="min-w-0">

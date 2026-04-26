@@ -49,7 +49,7 @@ async function attachBusinessNames(client, listings) {
 }
 
 const LISTING_SELECT =
-  "id,public_id,title,price,category,category_id,city,photo_url,photo_variants,cover_image_id,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at";
+  "id,public_id,title,price,category,category_id,city,photo_url,photo_variants,cover_image_id,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at,is_seeded,business_is_seeded";
 
 function buildBaseHomeListingsQuery(client, { limit, searchQuery, businessIds }) {
   if (!Array.isArray(businessIds) || businessIds.length === 0) {

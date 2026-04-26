@@ -128,4 +128,19 @@ describe("guest cart utility", () => {
     expect(getGuestCartCount()).toBe(0);
     expect(window.localStorage.getItem(GUEST_CART_STORAGE_KEY)).toBeNull();
   });
+
+  it("rejects seeded listings for guest cart adds", () => {
+    const result = addToGuestCart({
+      listingId: listing.id,
+      quantity: 1,
+      listing: { ...listing, is_seeded: true },
+      business,
+    });
+
+    expect(result).toMatchObject({
+      error: "This preview item is not available for purchase yet.",
+      code: "SEEDED_LISTING_NOT_PURCHASABLE",
+    });
+    expect(getGuestCartCount()).toBe(0);
+  });
 });

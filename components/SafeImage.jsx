@@ -31,6 +31,13 @@ export default function SafeImage({
       return;
     }
     markImageFailed(currentSrc);
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[SafeImage] Falling back after image load failure", {
+        src: currentSrc,
+        fallbackSrc: resolvedFallback,
+        alt,
+      });
+    }
     if (typeof onError === "function") {
       onError(event);
     }

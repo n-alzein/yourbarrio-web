@@ -29,7 +29,7 @@ export default function HeroBanner({
 
   return (
     <article className="relative isolate overflow-hidden bg-[#05010d]">
-      <div className="relative min-h-[220px] overflow-hidden sm:min-h-[250px] md:min-h-[44vh] lg:min-h-[48vh] xl:min-h-[52vh]">
+      <div className="relative min-h-[220px] overflow-hidden sm:min-h-[244px] md:min-h-[38vh] lg:min-h-[40vh] xl:min-h-[43vh]">
         {imageSrc ? (
           <Image
             src={imageSrc}
@@ -52,8 +52,8 @@ export default function HeroBanner({
           aria-hidden="true"
           className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,214,170,0.07)_0%,rgba(255,255,255,0.03)_45%,rgba(168,85,247,0.05)_100%)]"
         />
-        <div className="relative z-10 flex min-h-[220px] items-center sm:min-h-[250px] md:min-h-[44vh] lg:min-h-[48vh] xl:min-h-[52vh]">
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-center px-6 pb-5 pt-7 sm:pb-6 sm:pt-8 md:px-8 md:pb-7 md:pt-8 lg:pb-8 lg:pt-8">
+        <div className="relative z-10 flex min-h-[220px] items-center sm:min-h-[244px] md:min-h-[38vh] lg:min-h-[40vh] xl:min-h-[43vh]">
+          <div className="mx-auto flex w-full max-w-6xl items-center justify-center px-6 pb-5 pt-7 sm:pb-6 sm:pt-8 md:px-8 md:pb-6 md:pt-7 lg:pb-6 lg:pt-7">
             <div className="yb-fade-up mx-auto flex max-w-[40rem] flex-col items-center text-center [animation-delay:120ms] motion-reduce:[animation-delay:0ms]">
               <h1 className="max-w-[14ch] text-[2rem] font-bold tracking-[-0.04em] text-[#ffffff] [text-shadow:0_2px_8px_rgba(0,0,0,0.22)] sm:max-w-[15ch] sm:text-[2.45rem] sm:leading-[1.05] lg:max-w-[15.5ch] lg:text-[3.15rem] lg:leading-[1.02]">
                 {title}

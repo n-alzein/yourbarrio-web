@@ -78,7 +78,7 @@ async function searchListings(supabase, term, category, { businessIds }) {
   let query = supabase
     .from("public_listings_v")
     .select(
-      "id,public_id,title,description,price,category,category_id,city,photo_url,photo_variants,cover_image_id,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
+      "id,public_id,title,description,price,category,category_id,city,photo_url,photo_variants,cover_image_id,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at,is_seeded,business_is_seeded"
     )
     .in("business_id", businessIds)
     .or(`title.ilike.%${safe}%,description.ilike.%${safe}%,category.ilike.%${safe}%`);
@@ -90,7 +90,7 @@ async function searchListings(supabase, term, category, { businessIds }) {
         ? supabase
             .from("public_listings_v")
             .select(
-              "id,public_id,title,description,price,category,category_id,city,photo_url,photo_variants,cover_image_id,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
+              "id,public_id,title,description,price,category,category_id,city,photo_url,photo_variants,cover_image_id,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at,is_seeded,business_is_seeded"
             )
             .in("business_id", businessIds)
             .or(`title.ilike.%${safe}%,description.ilike.%${safe}%,category.ilike.%${safe}%`)
@@ -102,7 +102,7 @@ async function searchListings(supabase, term, category, { businessIds }) {
         ? supabase
             .from("public_listings_v")
             .select(
-              "id,public_id,title,description,price,category,category_id,city,photo_url,photo_variants,cover_image_id,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
+              "id,public_id,title,description,price,category,category_id,city,photo_url,photo_variants,cover_image_id,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at,is_seeded,business_is_seeded"
             )
             .in("business_id", businessIds)
             .or(`title.ilike.%${safe}%,description.ilike.%${safe}%,category.ilike.%${safe}%`)
@@ -144,6 +144,8 @@ async function searchListings(supabase, term, category, { businessIds }) {
         inventory_quantity: row.inventory_quantity,
         low_stock_threshold: row.low_stock_threshold,
         inventory_last_updated_at: row.inventory_last_updated_at,
+        is_seeded: row.is_seeded === true,
+        business_is_seeded: row.business_is_seeded === true,
         source: "supabase_listing",
       }));
   }
@@ -175,6 +177,8 @@ async function searchListings(supabase, term, category, { businessIds }) {
     inventory_quantity: row.inventory_quantity,
     low_stock_threshold: row.low_stock_threshold,
     inventory_last_updated_at: row.inventory_last_updated_at,
+    is_seeded: row.is_seeded === true,
+    business_is_seeded: row.business_is_seeded === true,
     source: "supabase_listing",
   }));
 }

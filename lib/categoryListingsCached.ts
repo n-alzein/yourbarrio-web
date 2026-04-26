@@ -33,6 +33,8 @@ export type SupabaseListing = {
   photo_variants?: unknown;
   cover_image_id?: string | null;
   created_at?: string | null;
+  is_seeded?: boolean;
+  business_is_seeded?: boolean;
 };
 
 export type ListingsResult = {
@@ -43,7 +45,8 @@ export type ListingsResult = {
 };
 
 const DEFAULT_LIMIT = 40;
-const LISTINGS_COLUMNS = "id,public_id,title,price,photo_url,photo_variants,cover_image_id,created_at";
+const LISTINGS_COLUMNS =
+  "id,public_id,title,price,photo_url,photo_variants,cover_image_id,created_at,is_seeded,business_is_seeded";
 
 export async function getCategoryRowCached(slug: string): Promise<CategoryRow> {
   const normalized = typeof slug === "string" ? slug.trim() : "";

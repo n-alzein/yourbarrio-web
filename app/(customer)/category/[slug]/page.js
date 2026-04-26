@@ -14,6 +14,7 @@ import { getLocationFromCookies } from "@/lib/location/getLocationFromCookies";
 import { findBusinessOwnerIdsForLocation } from "@/lib/location/businessLocationSearch";
 import { hasUsableLocationFilter } from "@/lib/location/filter";
 import { withListingPricing } from "@/lib/pricing";
+import { getSeededListingBadgeLabel, isSeededListing } from "@/lib/seededListings";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -42,7 +43,7 @@ export default async function CategoryListingsPage({ params }) {
       supabase
         .from("public_listings_v")
         .select(
-          "id,public_id,title,description,price,category,category_id,city,photo_url,photo_variants,cover_image_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at"
+          "id,public_id,title,description,price,category,category_id,city,photo_url,photo_variants,cover_image_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at,is_seeded,business_is_seeded"
         )
         .order("created_at", { ascending: false })
         .limit(80)
@@ -112,6 +113,11 @@ export default async function CategoryListingsPage({ params }) {
                   className="group rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition overflow-hidden"
                 >
                   <div className="relative h-40 bg-slate-100 flex items-center justify-center">
+                    {isSeededListing(item) ? (
+                      <span className="absolute left-3 top-3 z-10 inline-flex items-center rounded-full border border-slate-300 bg-white/92 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                        {getSeededListingBadgeLabel(item)}
+                      </span>
+                    ) : null}
                     {cover ? (
                       <img
                         src={cover}

@@ -18,6 +18,7 @@ import {
 import { getSupabaseServerClient as getSupabaseServiceClient } from "@/lib/supabase/server";
 import { MAX_ORDER_QUANTITY, validateOrderQuantity } from "@/lib/inventory";
 import { getVariantInventoryListing } from "@/lib/listingOptions";
+import { assertListingPurchasable } from "@/lib/seededListings";
 
 function jsonError(message, status = 400, extra = {}) {
   return NextResponse.json({ error: message, ...extra }, { status });
@@ -167,7 +168,7 @@ export async function POST(request) {
   const listingIds = items.map((item) => item?.listing_id).filter(Boolean);
   const { data: listingRows, error: listingRowsError } = await serviceClient
     .from("listings")
-    .select(`id,business_id,inventory_status,inventory_quantity,low_stock_threshold,${LISTING_FULFILLMENT_SELECT}`)
+    .select(`id,business_id,inventory_status,inventory_quantity,low_stock_threshold,is_seeded,${LISTING_FULFILLMENT_SELECT}`)
     .in("id", listingIds);
 
   if (listingRowsError) {
@@ -210,6 +211,15 @@ export async function POST(request) {
     const variant = item.variant_id ? variantsById.get(item.variant_id) : null;
     if (item.variant_id && (!variant || variant.is_active === false)) {
       return jsonError("A selected product option is no longer available.", 409);
+    }
+    try {
+      assertListingPurchasable(
+        variant ? getVariantInventoryListing(listing, variant) : listing
+      );
+    } catch (error) {
+      return jsonError(error?.message || "This preview item is not available for purchase yet.", 400, {
+        code: error?.code || "SEEDED_LISTING_NOT_PURCHASABLE",
+      });
     }
     const validation = validateOrderQuantity(
       item.quantity,

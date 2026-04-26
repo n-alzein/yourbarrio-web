@@ -29,10 +29,8 @@ import { appendCrashLog } from "@/lib/crashlog";
 import { dumpStallRecorder } from "@/lib/stallRecorder";
 import { BUSINESS_CATEGORIES, normalizeCategoryName } from "@/lib/businessCategories";
 import { logDataDiag } from "@/lib/dataDiagnostics";
-import CategoryTilesGrid from "@/components/customer/CategoryTilesGrid";
 import PopularNearYouSection from "@/components/home/PopularNearYouSection";
 import TrendingListingsSection from "@/components/home/TrendingListingsSection";
-import HomeSectionContainer from "@/components/home/HomeSectionContainer";
 import {
   SellerCTASection,
 } from "@/components/home/HomeDiscoverySections";
@@ -131,8 +129,6 @@ class CustomerHomeErrorBoundary extends React.Component {
 
 function CustomerHomePageInner({
   mode,
-  featuredCategories,
-  featuredCategoriesError,
   initialListings = [],
   initialCity = null,
 }) {
@@ -155,14 +151,8 @@ function CustomerHomePageInner({
     }),
     [isLight]
   );
-  const businessHeading = useMemo(() => {
-    return activeCity ? `Top businesses in ${activeCity}` : "Top businesses near you";
-  }, [activeCity]);
-  const businessSubtitle = useMemo(() => {
-    return activeCity
-      ? `Verified local shops and storefronts around ${activeCity}`
-      : "Verified local shops and storefronts nearby";
-  }, [activeCity]);
+  const businessHeading = "Local shops in Long Beach";
+  const businessSubtitle = "Verified local shops and storefronts around Long Beach";
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const showLocationEmpty = locationHydrated && !hasLocation;
@@ -175,11 +165,6 @@ function CustomerHomePageInner({
     safeNav: process.env.NEXT_PUBLIC_HOME_BISECT_SAFE_NAV === "1",
     tileDiag: process.env.NEXT_PUBLIC_HOME_BISECT_TILE_DIAG !== "0",
   };
-  const featuredCategoryList = useMemo(
-    () => (Array.isArray(featuredCategories) ? featuredCategories : []),
-    [featuredCategories]
-  );
-  const featuredCategoriesLoading = featuredCategories == null;
   const [homeListings, setHomeListings] = useState(() =>
     Array.isArray(initialListings) ? initialListings : []
   );
@@ -191,14 +176,6 @@ function CustomerHomePageInner({
   const hybridRequestIdRef = useRef(0);
   const isPublicMode = mode === "public";
   const authReady = isPublicMode ? true : !loadingUser || !!user;
-  const tileDragState = useRef({
-    pointerId: null,
-    pointerType: null,
-    startX: 0,
-    startY: 0,
-    dragging: false,
-    lastDragAt: 0,
-  });
   const [, setIsVisible] = useState(() =>
     typeof document === "undefined" ? true : !document.hidden
   );
@@ -366,54 +343,6 @@ function CustomerHomePageInner({
         });
       };
   const coverFor = (listing) => resolveListingCoverImageUrl(listing) || null;
-  const DRAG_DISTANCE_PX = 10;
-  const DRAG_CANCEL_WINDOW_MS = 300;
-  const handleTilePointerDown = useCallback((event) => {
-    if (event.pointerType !== "touch") return;
-    const state = tileDragState.current;
-    state.pointerId = event.pointerId;
-    state.pointerType = event.pointerType;
-    state.startX = event.clientX;
-    state.startY = event.clientY;
-    state.dragging = false;
-    state.lastDragAt = 0;
-  }, []);
-  const handleTilePointerMove = useCallback((event) => {
-    const state = tileDragState.current;
-    if (state.pointerType !== "touch" || state.pointerId !== event.pointerId) return;
-    const dx = Math.abs(event.clientX - state.startX);
-    const dy = Math.abs(event.clientY - state.startY);
-    if (!state.dragging && (dx > DRAG_DISTANCE_PX || dy > DRAG_DISTANCE_PX)) {
-      state.dragging = true;
-    }
-  }, []);
-  const handleTilePointerUp = useCallback((event) => {
-    const state = tileDragState.current;
-    if (state.pointerType !== "touch" || state.pointerId !== event.pointerId) return;
-    if (state.dragging) {
-      state.lastDragAt = Date.now();
-    }
-    state.pointerId = null;
-    state.pointerType = null;
-    state.dragging = false;
-  }, []);
-  const handleTilePointerCancel = useCallback((event) => {
-    const state = tileDragState.current;
-    if (state.pointerType !== "touch" || state.pointerId !== event.pointerId) return;
-    if (state.dragging) {
-      state.lastDragAt = Date.now();
-    }
-    state.pointerId = null;
-    state.pointerType = null;
-    state.dragging = false;
-  }, []);
-  const handleTileClickCapture = useCallback((event) => {
-    const { lastDragAt } = tileDragState.current;
-    if (lastDragAt && Date.now() - lastDragAt < DRAG_CANCEL_WINDOW_MS) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-  }, []);
 
   useEffect(() => {
     const urlQuery = (searchParams?.get("q") || "").trim();
@@ -450,7 +379,7 @@ function CustomerHomePageInner({
       setHomeListingsLoading(true);
       try {
         const params = new URLSearchParams();
-        params.set("limit", "8");
+        params.set("limit", "20");
         if (location?.city) params.set("city", location.city);
         if (location?.region) params.set("state", location.region);
         if (location?.lat != null) params.set("lat", String(location.lat));
@@ -777,30 +706,13 @@ function CustomerHomePageInner({
             city={activeCity || null}
             limit={8}
           />
-          <div className="w-full bg-[#fcfcfd] pb-16 pt-2 md:pb-20 md:pt-3">
-            <HomeSectionContainer>
-              <div id="browse-categories" className="relative z-10" data-home-tiles="1">
-                <CategoryTilesGrid
-                  categories={featuredCategoryList}
-                  isLoading={featuredCategoriesLoading}
-                  error={featuredCategoriesError}
-                  title="Browse by category"
-                  viewAllHref="/listings"
-                  clickDiagEnabled={clickDiagEnabled}
-                  onTilePointerDown={handleTilePointerDown}
-                  onTilePointerMove={handleTilePointerMove}
-                  onTilePointerUp={handleTilePointerUp}
-                  onTilePointerCancel={handleTilePointerCancel}
-                  onTileClickCapture={handleTileClickCapture}
-                  diagTileClick={diagTileClick}
-                />
-              </div>
-            </HomeSectionContainer>
+          <div className="w-full bg-[#fcfcfd] pb-16 pt-0 md:pb-20">
             <PopularNearYouSection
               mode={mode}
               title={businessHeading}
               subtitle={businessSubtitle}
               sectionId="top-businesses-near-you"
+              sectionClassName="mt-8 md:mt-10 lg:mt-8"
               limit={6}
               badgeMode="trending"
             />
@@ -815,8 +727,8 @@ function CustomerHomePageInner({
 
 export default function CustomerHomeClient({
   mode = "customer",
-  featuredCategories,
-  featuredCategoriesError,
+  featuredCategories: _featuredCategories,
+  featuredCategoriesError: _featuredCategoriesError,
   initialListings = [],
   initialCity = null,
 }) {
@@ -829,8 +741,6 @@ export default function CustomerHomeClient({
       <GuaranteedNavCapture />
       <CustomerHomePageInner
         mode={mode}
-        featuredCategories={featuredCategories}
-        featuredCategoriesError={featuredCategoriesError}
         initialListings={initialListings}
         initialCity={initialCity}
       />

@@ -39,6 +39,7 @@ export type AdminListingRow = {
   low_stock_threshold: number | null;
   inventory_last_updated_at: string | null;
   is_internal: boolean;
+  is_seeded: boolean;
   is_published: boolean | null;
   is_active: boolean | null;
   related_order_count: number;
@@ -213,6 +214,7 @@ function mapListingRow(row: Record<string, any>, businessById: Map<string, Admin
     low_stock_threshold: toNullableNumber(row?.low_stock_threshold),
     inventory_last_updated_at: toNullableString(row?.inventory_last_updated_at),
     is_internal: row?.is_internal === true,
+    is_seeded: row?.is_seeded === true,
     is_published: toNullableBoolean(row?.is_published),
     is_active: toNullableBoolean(row?.is_active),
     related_order_count: orderMeta?.count || 0,

@@ -63,6 +63,11 @@ import {
   getBusinessTypePlaceholder,
   getListingCategoryPlaceholder,
 } from "@/lib/taxonomy/placeholders";
+import {
+  getSeededListingBadgeLabel,
+  isSeededListing,
+  SEEDED_LISTING_PREVIEW_MESSAGE,
+} from "@/lib/seededListings";
 
 const PENDING_AUTH_ACTION_STORAGE_KEY = "yb:pendingAuthAction";
 
@@ -545,6 +550,10 @@ export default function ListingDetailsClient({
   const executeAddToCart = useCallback(
     async ({ listingId, selectedQuantity, selectedFulfillmentType, businessId }) => {
       if (!listingId) return;
+      if (isSeededListing(purchasableListing, { business })) {
+        setStatusMessage(SEEDED_LISTING_PREVIEW_MESSAGE);
+        return;
+      }
       setCartActionLoading(true);
       setStatusMessage("");
       try {
@@ -738,8 +747,9 @@ export default function ListingDetailsClient({
   const storeName = business?.business_name || business?.full_name || "Local business";
   const displayListingId =
     formatEntityId("listing", listing?.public_id) || null;
+  const seededListing = isSeededListing(listing, { business });
   const city = business?.city || "Your area";
-  const address = business?.address || null;
+  const address = seededListing ? null : business?.address || null;
   const listingCategory = getListingCategoryLabel(listing, "Local listing");
   const businessType = getBusinessTypeLabel(business, "Local business");
   const showMessage = !accountContext.isBusiness;
@@ -757,16 +767,25 @@ export default function ListingDetailsClient({
   const isOutOfStock =
     (hasVariantOptions ? selectedInventory.availability === "out" : inventory.availability === "out") ||
     maxPurchasableQuantity <= 0;
-  const availabilityText =
-    hasVariantOptions && !selectedVariant
+  const availabilityText = seededListing
+    ? getSeededListingBadgeLabel(listing)
+    : hasVariantOptions && !selectedVariant
       ? "Select options"
       : (hasVariantOptions ? selectedInventory.availability : inventory.availability) === "out"
       ? "Out of stock"
       : fulfillmentSummary.pickupAvailable
         ? "Available today"
         : "In stock";
-  const availabilityTextClassName = isOutOfStock ? "text-slate-500" : "text-emerald-700";
-  const availabilityDotClassName = isOutOfStock ? "bg-slate-400" : "bg-emerald-600";
+  const availabilityTextClassName = seededListing
+    ? "text-slate-600"
+    : isOutOfStock
+      ? "text-slate-500"
+      : "text-emerald-700";
+  const availabilityDotClassName = seededListing
+    ? "bg-slate-400"
+    : isOutOfStock
+      ? "bg-slate-400"
+      : "bg-emerald-600";
   const businessProfileHref = business?.id ? getCustomerBusinessUrl(business) : null;
   const isBusinessVerified = ["auto_verified", "manually_verified"].includes(
     String(business?.verification_status || "").trim().toLowerCase()
@@ -782,6 +801,7 @@ export default function ListingDetailsClient({
       ? `$${formatCents(fulfillmentSummary.deliveryFeeCents)} delivery`
       : "Delivery available";
   const quantityControlsDisabled =
+    seededListing ||
     isOutOfStock ||
     purchaseRestricted ||
     purchaseEligibilityPending ||
@@ -790,6 +810,7 @@ export default function ListingDetailsClient({
   const canIncreaseQuantity =
     quantity < Math.max(1, maxPurchasableQuantity) && !quantityControlsDisabled;
   const addToCartDisabled =
+    seededListing ||
     isOutOfStock ||
     cartActionLoading ||
     (hasVariantOptions && !selectedVariant?.id);
@@ -991,6 +1012,11 @@ export default function ListingDetailsClient({
                   </div>
                   <div className="pt-1 text-xs text-slate-500">
                     <span>{listingCategory}</span>
+                    {seededListing ? (
+                      <span className="ml-2 inline-flex items-center rounded-full border border-slate-300 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                        {getSeededListingBadgeLabel(listing)}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 <div className="mt-5 border-t pt-4" style={{ borderColor: "rgba(15,23,42,0.08)" }}>
@@ -1204,7 +1230,20 @@ export default function ListingDetailsClient({
 
               <div className="mt-4 border-t pt-4" style={{ borderColor: "rgba(15,23,42,0.04)" }}>
                 <div>
-                  {pickupOnly ? (
+                  {seededListing ? (
+                    <div
+                      className="rounded-2xl px-4 py-3 text-left"
+                      style={{
+                        background: "rgba(15,23,42,0.025)",
+                        border: "1px solid rgba(15,23,42,0.08)",
+                        color: "var(--text)",
+                      }}
+                    >
+                      <div className="text-sm font-semibold text-slate-700">
+                        {SEEDED_LISTING_PREVIEW_MESSAGE}
+                      </div>
+                    </div>
+                  ) : pickupOnly ? (
                     <div
                       className="rounded-2xl px-4 py-3 text-left"
                       style={{
@@ -1340,52 +1379,54 @@ export default function ListingDetailsClient({
                     />
                   ) : null}
 
-                  <div className="mt-7">
-                    <label className="block text-xs font-medium tracking-[0.04em] opacity-70">
-                      Quantity
-                    </label>
-                    <div className="mt-3">
-                    <div
-                      className="flex items-center overflow-hidden rounded-2xl"
-                      style={{
-                        background: "#ffffff",
-                        border: "1px solid rgba(209,213,219,1)",
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setQuantity((current) => Math.max(1, current - 1))}
-                        disabled={!canDecreaseQuantity}
-                        className="flex h-11 w-11 items-center justify-center text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-label="Decrease quantity"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
+                  {!seededListing ? (
+                    <div className="mt-7">
+                      <label className="block text-xs font-medium tracking-[0.04em] opacity-70">
+                        Quantity
+                      </label>
+                      <div className="mt-3">
                       <div
-                        className="flex h-11 min-w-0 flex-1 items-center justify-center border-x text-sm font-medium"
+                        className="flex items-center overflow-hidden rounded-2xl"
                         style={{
-                          borderColor: "rgba(209,213,219,1)",
-                          color: "var(--text)",
+                          background: "#ffffff",
+                          border: "1px solid rgba(209,213,219,1)",
                         }}
                       >
-                        {quantity}
+                        <button
+                          type="button"
+                          onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                          disabled={!canDecreaseQuantity}
+                          className="flex h-11 w-11 items-center justify-center text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                          aria-label="Decrease quantity"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <div
+                          className="flex h-11 min-w-0 flex-1 items-center justify-center border-x text-sm font-medium"
+                          style={{
+                            borderColor: "rgba(209,213,219,1)",
+                            color: "var(--text)",
+                          }}
+                        >
+                          {quantity}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setQuantity((current) =>
+                              Math.min(Math.max(1, maxPurchasableQuantity), current + 1)
+                            )
+                          }
+                          disabled={!canIncreaseQuantity}
+                          className="flex h-11 w-11 items-center justify-center text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                          aria-label="Increase quantity"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setQuantity((current) =>
-                            Math.min(Math.max(1, maxPurchasableQuantity), current + 1)
-                          )
-                        }
-                        disabled={!canIncreaseQuantity}
-                        className="flex h-11 w-11 items-center justify-center text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-label="Increase quantity"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
+                      </div>
                     </div>
-                    </div>
-                  </div>
+                  ) : null}
 
                   {purchaseEligibilityPending ? (
                     <div className="mt-3 space-y-2">
@@ -1434,12 +1475,16 @@ export default function ListingDetailsClient({
                             : "0 12px 24px -20px rgba(110,52,255,0.38)",
                         }}
                       >
-                        {cartActionLoading ? "Adding..." : "Add to cart"}
+                        {seededListing ? "Coming soon" : cartActionLoading ? "Adding..." : "Add to cart"}
                       </button>
                     </div>
                   )}
 
-                  {isOutOfStock ? (
+                  {seededListing ? (
+                    <div className="text-xs leading-5 opacity-75">
+                      {SEEDED_LISTING_PREVIEW_MESSAGE}
+                    </div>
+                  ) : isOutOfStock ? (
                     <div className="text-xs leading-5 opacity-75">
                       {hasVariantOptions && !selectedVariant?.id
                         ? "Select each option to see availability."
@@ -1460,7 +1505,7 @@ export default function ListingDetailsClient({
                 </div>
               </div>
 
-              {fulfillmentSummary.deliveryAvailable || fulfillmentSummary.pickupAvailable ? (
+              {!seededListing && (fulfillmentSummary.deliveryAvailable || fulfillmentSummary.pickupAvailable) ? (
                 <div className="mt-10 border-t pt-7" style={{ borderColor: "rgba(15,23,42,0.08)" }}>
                   <div className="text-sm font-semibold">
                     <span className="opacity-80">What to expect</span>

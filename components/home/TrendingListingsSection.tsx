@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { ArrowRight } from "lucide-react";
 import type { BrowseMode, ListingSummary } from "@/lib/browse/getHomeBrowseData";
 import { resolveListingCoverImageUrl } from "@/lib/listingPhotos";
 import { getListingCategoryPlaceholder } from "@/lib/taxonomy/placeholders";
@@ -10,6 +11,7 @@ import { getCustomerListingUrl, getListingUrl } from "@/lib/ids/publicRefs";
 import { sortListingsByAvailability } from "@/lib/inventory";
 import HomeSectionContainer from "@/components/home/HomeSectionContainer";
 import { calculateListingPricing } from "@/lib/pricing";
+import { getSeededListingBadgeLabel, isSeededListing } from "@/lib/seededListings";
 
 type TrendingListingsSectionProps = {
   mode?: BrowseMode;
@@ -41,63 +43,42 @@ function formatPriceCents(value: number) {
 export default function TrendingListingsSection({
   mode = "public",
   listings = [],
-  city,
-  title = "Trending near you",
+  title,
   subtitle,
   limit = 8,
 }: TrendingListingsSectionProps) {
-  const carouselRef = useRef<HTMLDivElement | null>(null);
-  const [showLeftFade, setShowLeftFade] = useState(false);
-  const [showRightFade, setShowRightFade] = useState(false);
-
   const visibleListings = useMemo(
     () => sortListingsByAvailability(Array.isArray(listings) ? listings : []).slice(0, limit),
     [limit, listings]
   );
 
+  const resolvedTitle = useMemo(() => {
+    if (title) return title;
+    if (listings.length < 6) {
+      return "Recently added in Long Beach";
+    }
+    return "Popular in Long Beach";
+  }, [listings.length, title]);
+
   const resolvedSubtitle = useMemo(() => {
     if (subtitle) return subtitle;
-    const safeCity = String(city || "").trim();
-    return safeCity
-      ? `What people are browsing in ${safeCity}`
-      : "What people are browsing nearby";
-  }, [city, subtitle]);
+    return "Local items available near you";
+  }, [subtitle]);
 
-  void mode;
   const viewAllHref = "/listings";
-
-  useEffect(() => {
-    const node = carouselRef.current;
-    if (!node) return undefined;
-
-    const updateFades = () => {
-      const maxScrollLeft = node.scrollWidth - node.clientWidth;
-      setShowLeftFade(node.scrollLeft > 8);
-      setShowRightFade(maxScrollLeft - node.scrollLeft > 8);
-    };
-
-    updateFades();
-    node.addEventListener("scroll", updateFades, { passive: true });
-    window.addEventListener("resize", updateFades);
-
-    return () => {
-      node.removeEventListener("scroll", updateFades);
-      window.removeEventListener("resize", updateFades);
-    };
-  }, [visibleListings.length]);
 
   if (!visibleListings.length) return null;
 
   return (
-    <section className="relative z-20 -mt-2 w-full bg-[#fcfcfd] pb-6 pt-7 md:-mt-3 md:pb-8 md:pt-9">
+    <section className="relative z-20 -mt-4 w-full bg-[#fcfcfd] pb-5 pt-5 md:-mt-5 md:pb-6 md:pt-7">
       <HomeSectionContainer className="px-4 sm:px-6 md:px-8">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 md:mb-4">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           <div className="min-w-0">
             <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-[rgba(88,28,135,0.8)]">
-              Shop local
+              Discover
             </p>
             <h2 className="mt-1 text-[1.55rem] font-semibold tracking-[-0.04em] text-slate-900 sm:text-[1.7rem]">
-              {title}
+              {resolvedTitle}
             </h2>
             <p className="mt-1 text-sm text-slate-500">{resolvedSubtitle}</p>
           </div>
@@ -105,72 +86,67 @@ export default function TrendingListingsSection({
           <Link
             href={viewAllHref}
             prefetch={false}
-            className="inline-flex h-9 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition-colors duration-200 hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6a4c9340] focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf6f0]"
+            className="inline-flex h-9 items-center justify-center gap-1 rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 shadow-sm transition-colors duration-200 hover:border-slate-300 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6a4c9340] focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf6f0]"
           >
             View all listings
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
         </div>
 
-        <div className="relative">
-          {showLeftFade ? (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-6 bg-gradient-to-r from-white/70 via-white/20 to-transparent md:block"
-            />
-          ) : null}
-          {showRightFade ? (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-8 bg-gradient-to-l from-white/60 via-white/15 to-transparent md:block"
-            />
-          ) : null}
-          <div
-            ref={carouselRef}
-            className="flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-4 sm:pr-6 xl:gap-4"
-          >
-            {visibleListings.map((listing, index) => {
-              const href =
-                mode === "customer" ? getCustomerListingUrl(listing) : getListingUrl(listing);
-              const imageSrc =
-                resolveListingCoverImageUrl(listing) || getListingCategoryPlaceholder(listing);
-              const businessName =
-                String(listing?.business_name || "").trim() || "Local business";
-              const displayPriceCents = getDisplayPriceCents(listing);
+        <div
+          data-testid="homepage-listings-grid"
+          className="grid grid-cols-1 gap-x-3 gap-y-4 min-[480px]:grid-cols-2 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-5 lg:grid-cols-3 xl:grid-cols-4"
+        >
+          {visibleListings.map((listing, index) => {
+            const href =
+              mode === "customer" ? getCustomerListingUrl(listing) : getListingUrl(listing);
+            const imageSrc =
+              resolveListingCoverImageUrl(listing) || getListingCategoryPlaceholder(listing);
+            const businessName =
+              String(listing?.business_name || "").trim() || "Local business";
+            const displayPriceCents = getDisplayPriceCents(listing);
+            const seeded = isSeededListing(listing);
 
-              return (
-                <Link
-                  key={listing.public_id || listing.id || `${listing.title}-${index}`}
-                  href={href}
-                  prefetch={false}
-                  className="group flex h-full w-[calc((100%-0.75rem)/2)] min-w-[calc((100%-0.75rem)/2)] flex-[0_0_auto] snap-start flex-col overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-sm transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8c73bb59] focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf6f0] sm:w-[21rem] sm:min-w-[21rem] md:w-[17.25rem] md:min-w-[17.25rem] xl:w-[16rem] xl:min-w-[16rem]"
-                >
-                  <div className="relative aspect-[4/5] w-full overflow-hidden bg-white sm:aspect-[3/4]">
-                    <Image
-                      src={imageSrc}
-                      alt={listing.title || "Listing"}
-                      fill
-                      sizes="(max-width: 639px) calc((100vw - 2rem - 0.75rem) / 2), (max-width: 767px) 21rem, (max-width: 1279px) 17.25rem, 16rem"
-                      className="object-contain object-center transition-transform duration-500 ease-out"
-                    />
-                  </div>
+            return (
+              <Link
+                key={listing.public_id || listing.id || `${listing.title}-${index}`}
+                href={href}
+                prefetch={false}
+                className="group flex h-full min-w-0 flex-col overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8c73bb59] focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf6f0]"
+              >
+                <div className="relative flex h-40 w-full items-center justify-center overflow-hidden border-b border-black/[0.04] bg-white sm:h-44 lg:h-40 xl:h-44">
+                  {seeded ? (
+                    <span className="absolute left-3 top-3 z-10 inline-flex items-center rounded-full border border-slate-300 bg-white/92 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                      {getSeededListingBadgeLabel(listing)}
+                    </span>
+                  ) : null}
+                  <Image
+                    src={imageSrc}
+                    alt={listing.title || "Listing"}
+                    fill
+                    sizes="(max-width: 479px) calc(100vw - 2rem), (max-width: 1023px) calc((100vw - 4rem - 1rem) / 2), (max-width: 1279px) calc((100vw - 5rem - 2rem) / 3), calc((100vw - 5rem - 3rem) / 4)"
+                    className="object-contain object-center p-2 transition-transform duration-200 ease-out group-hover:scale-[1.02]"
+                  />
+                </div>
 
-                  <div className="flex min-h-[88px] flex-1 flex-col justify-between px-3 pb-3 pt-3 sm:min-h-[104px] sm:px-4 sm:pb-4 sm:pt-3.5">
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <h3 className="line-clamp-2 min-h-[2.35rem] text-sm font-semibold leading-[1.35] tracking-[-0.02em] text-slate-900 sm:min-h-[2.75rem] sm:text-[15px]">
-                        {listing.title || "Untitled listing"}
-                      </h3>
-                      <p className="line-clamp-1 text-xs text-slate-500 sm:text-[13px]">
-                        {businessName}
-                      </p>
-                    </div>
-                    <p className="whitespace-nowrap text-sm font-semibold tracking-[-0.03em] text-slate-950 sm:text-[1.04rem]">
-                      {displayPriceCents > 0 ? formatPriceCents(displayPriceCents) : formatPrice(listing.price)}
+                <div className="flex min-h-[78px] flex-1 flex-col justify-between px-3 pb-3 pt-2 sm:min-h-[84px] sm:px-3.5 sm:pb-3.5 sm:pt-2.5">
+                  <div className="space-y-0.5">
+                    <h3 className="line-clamp-2 min-h-[2.2rem] text-[0.95rem] font-semibold leading-[1.28] tracking-[-0.02em] text-slate-900 sm:min-h-[2.4rem] sm:text-[0.98rem]">
+                      {listing.title || "Untitled listing"}
+                    </h3>
+                    <p className="whitespace-nowrap text-[0.92rem] font-semibold tracking-[-0.02em] text-slate-950 sm:text-[0.96rem]">
+                      {displayPriceCents > 0
+                        ? formatPriceCents(displayPriceCents)
+                        : formatPrice(listing.price)}
+                    </p>
+                    <p className="line-clamp-1 text-[12px] text-slate-500 sm:text-[12.5px]">
+                      {businessName}
                     </p>
                   </div>
-                </Link>
-              );
-            })}
-          </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </HomeSectionContainer>
     </section>

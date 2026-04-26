@@ -27,6 +27,7 @@ type AdminListingRow = {
   low_stock_threshold: number | null;
   inventory_last_updated_at: string | null;
   is_internal: boolean;
+  is_seeded: boolean;
   related_order_count: number;
   recent_orders: Array<{
     id: string;
@@ -291,13 +292,20 @@ export default function AdminListingsClient({
                         <td className="px-4 py-3 font-mono text-xs text-neutral-400">{skuId}</td>
                         <td className="px-4 py-3 text-neutral-300">{row.business?.business_name || "-"}</td>
                         <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClass(
-                              row.status
-                            )}`}
-                          >
-                            {row.status}
-                          </span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClass(
+                                row.status
+                              )}`}
+                            >
+                              {row.status}
+                            </span>
+                            {row.is_seeded ? (
+                              <span className="inline-flex rounded-md border border-neutral-700 px-2 py-0.5 text-[11px] font-medium text-neutral-300">
+                                Seeded
+                              </span>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-neutral-300">{inventoryLabel(row)}</td>
                         <td className="px-4 py-3 text-neutral-400">{formatDate(row.created_at)}</td>
@@ -327,6 +335,11 @@ export default function AdminListingsClient({
                   >
                     {selectedRow.status}
                   </span>
+                  {selectedRow.is_seeded ? (
+                    <span className="inline-flex rounded-md border border-neutral-700 px-2 py-0.5 text-[11px] font-medium text-neutral-300">
+                      Seeded
+                    </span>
+                  ) : null}
                   <span className="font-mono text-xs text-neutral-400">
                     {formatEntityId("listing", selectedRow.public_id) || selectedRow.public_id || "-"}
                   </span>
@@ -432,6 +445,7 @@ export default function AdminListingsClient({
                   }
                 />
                 <InspectorRow label="Reason" value={selectedRow.status_reason || "-"} />
+                <InspectorRow label="Seeded" value={selectedRow.is_seeded ? "Yes" : "No"} />
                 <InspectorRow label="Quantity" value={selectedRow.inventory_quantity ?? "-"} />
                 <InspectorRow
                   label="Type"

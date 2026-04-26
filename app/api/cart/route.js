@@ -17,6 +17,7 @@ import {
   validateOrderQuantity,
 } from "@/lib/inventory";
 import { getVariantInventoryListing } from "@/lib/listingOptions";
+import { assertListingPurchasable, isSeededListing } from "@/lib/seededListings";
 
 async function getActiveCarts(supabase, userId) {
   const { data, error } = await supabase
@@ -70,7 +71,7 @@ async function getListingFulfillmentById(supabase, listingIds) {
   const { data, error } = await supabase
     .from("listings")
     .select(
-      `id,business_id,inventory_status,inventory_quantity,low_stock_threshold,${LISTING_FULFILLMENT_SELECT}`
+      `id,business_id,inventory_status,inventory_quantity,low_stock_threshold,is_seeded,${LISTING_FULFILLMENT_SELECT}`
     )
     .in("id", listingIds);
 
@@ -116,7 +117,9 @@ function enrichCartsWithFulfillment(carts, businessByVendorId, listingById, vari
             inventory_quantity: purchasable?.inventory_quantity ?? null,
             max_order_quantity: maxQuantity,
             stock_error:
-              maxQuantity <= 0
+              isSeededListing(purchasable)
+                ? "This preview item is not available for purchase yet."
+                : maxQuantity <= 0
                 ? "This item is currently out of stock."
                 : Number(item?.quantity || 0) > maxQuantity
                   ? `Only ${maxQuantity} available right now.`
@@ -267,7 +270,7 @@ export async function POST(request) {
   const { data: listing, error: listingError } = await supabase
     .from("listings")
     .select(
-      `id,business_id,title,price,photo_url,photo_variants,cover_image_id,category,listing_category,category_id,inventory_status,inventory_quantity,low_stock_threshold,${LISTING_FULFILLMENT_SELECT}`
+      `id,business_id,title,price,photo_url,photo_variants,cover_image_id,category,listing_category,category_id,inventory_status,inventory_quantity,low_stock_threshold,is_seeded,${LISTING_FULFILLMENT_SELECT}`
     )
     .eq("id", listingId)
     .maybeSingle();
@@ -312,6 +315,13 @@ export async function POST(request) {
   const purchasableListing = activeVariant
     ? getVariantInventoryListing(listing, activeVariant)
     : listing;
+  try {
+    assertListingPurchasable(purchasableListing);
+  } catch (error) {
+    return jsonError(error?.message || "This preview item is not available for purchase yet.", 400, {
+      code: error?.code || "SEEDED_LISTING_NOT_PURCHASABLE",
+    });
+  }
   const selectedUnitPrice =
     activeVariant?.price !== null && activeVariant?.price !== undefined
       ? Number(activeVariant.price)
@@ -553,7 +563,7 @@ export async function PATCH(request) {
 
       const { data: listing, error: listingError } = await supabase
         .from("listings")
-        .select("id,inventory_status,inventory_quantity,low_stock_threshold")
+        .select("id,inventory_status,inventory_quantity,low_stock_threshold,is_seeded")
         .eq("id", cartItem.listing_id)
         .maybeSingle();
 
@@ -576,6 +586,13 @@ export async function PATCH(request) {
           return jsonError("This option is no longer available.", 409);
         }
         purchasableListing = getVariantInventoryListing(listing, variant);
+      }
+      try {
+        assertListingPurchasable(purchasableListing);
+      } catch (error) {
+        return jsonError(error?.message || "This preview item is not available for purchase yet.", 400, {
+          code: error?.code || "SEEDED_LISTING_NOT_PURCHASABLE",
+        });
       }
 
       const quantityValidation = validateOrderQuantity(quantity, purchasableListing);

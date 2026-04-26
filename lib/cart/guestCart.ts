@@ -1,6 +1,7 @@
 import { DELIVERY_FULFILLMENT_TYPE, PICKUP_FULFILLMENT_TYPE } from "@/lib/fulfillment";
 import { getMaxPurchasableQuantity, MAX_ORDER_QUANTITY } from "@/lib/inventory";
 import { resolveListingCoverImageUrl } from "@/lib/listingPhotos";
+import { assertListingPurchasable } from "@/lib/seededListings";
 
 export const GUEST_CART_STORAGE_KEY = "yb:guestCart:v1";
 export const GUEST_CART_UPDATED_EVENT = "yb:guest-cart-updated";
@@ -205,6 +206,14 @@ export function addToGuestCart({
   const vendorId = String(listing?.business_id || business?.id || "").trim();
   if (!resolvedListingId || !vendorId) {
     return { error: "This listing is not available for guest cart." };
+  }
+  try {
+    assertListingPurchasable(listing);
+  } catch (error: any) {
+    return {
+      error: error?.message || "This preview item is not available for purchase yet.",
+      code: error?.code || "SEEDED_LISTING_NOT_PURCHASABLE",
+    };
   }
 
   const cart = getGuestCart();

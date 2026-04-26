@@ -4,6 +4,7 @@ import SafeAvatar from "@/components/SafeAvatar";
 import { getAvatarInitials } from "@/lib/avatarInitials";
 import { getValidAvatarUrl, getValidAvatarUrls, mergeAvatarState } from "@/lib/avatarUrl";
 import { normalizeAuthUser } from "@/lib/auth/normalizeAuthUser";
+import { markImageFailed } from "@/lib/safeImage";
 
 describe("getAvatarInitials", () => {
   it("uses first and last word initials for full names", () => {
@@ -255,5 +256,14 @@ describe("SafeAvatar", () => {
     const avatar = screen.getByRole("img", { name: "Business avatar" });
     expect(screen.getByText("TB")).toBeInTheDocument();
     expect(avatar).toHaveStyle({ borderRadius: "1rem" });
+  });
+
+  it("keeps the first render stable even when the avatar src is already marked failed", () => {
+    const src = "https://cdn.example.com/already-failed.jpg";
+    markImageFailed(src);
+
+    render(<SafeAvatar src={src} fullName="Test Account" alt="Profile avatar" />);
+
+    expect(screen.getByAltText("Profile avatar")).toHaveAttribute("src", src);
   });
 });

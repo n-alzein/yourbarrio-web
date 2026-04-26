@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocation } from "@/components/location/LocationProvider";
 import { sortListingsByAvailability } from "@/lib/inventory";
 import { calculateListingPricing } from "@/lib/pricing";
+import { isSeededListing } from "@/lib/seededListings";
 import {
   getListingsBrowseCategoryOptions,
   normalizeListingsBrowseCategory,
@@ -279,6 +280,7 @@ export default function ListingsClient() {
 
     const openFiltered = openNow
       ? withDistanceOrder.filter((listing) => {
+          if (isSeededListing(listing)) return false;
           const status = normalizeText(listing?.inventory_status);
           if (!status) return true;
           return !["out of stock", "out_of_stock", "unavailable", "sold out"].includes(status);

@@ -147,4 +147,32 @@ describe("customer listing visibility", () => {
     expect(payload.listing.status).toBe("published");
     expect(payload.listing.title).toBe("Published listing");
   });
+
+  it("includes seeded flags in the public listing payload", async () => {
+    getSupabaseServerClientMock.mockResolvedValue(
+      createSupabaseMock({
+        listing: {
+          id: "listing-1",
+          business_id: "business-1",
+          title: "Preview listing",
+          status: "published",
+          is_published: true,
+          is_seeded: true,
+          business_is_seeded: true,
+        },
+      })
+    );
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/customer/listings?id=listing-1")
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.listing).toMatchObject({
+      id: "listing-1",
+      is_seeded: true,
+      business_is_seeded: true,
+    });
+  });
 });

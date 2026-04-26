@@ -25,6 +25,7 @@ import { getSupabaseServerClient, getUserCached } from "@/lib/supabaseServer";
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
 import { calculateCheckoutPricing } from "@/lib/pricing";
 import { getVariantInventoryListing } from "@/lib/listingOptions";
+import { assertListingPurchasable } from "@/lib/seededListings";
 
 function jsonError(message: string, status = 400, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ error: message, ...extra }, { status });
@@ -276,6 +277,13 @@ export async function POST(request: Request) {
     const purchasableListing = activeVariant
       ? getVariantInventoryListing(listing, activeVariant)
       : listing;
+    try {
+      assertListingPurchasable(purchasableListing);
+    } catch (error: any) {
+      return jsonError(error?.message || "This preview item is not available for purchase yet.", 400, {
+        code: error?.code || "SEEDED_LISTING_NOT_PURCHASABLE",
+      });
+    }
 
     if (String(purchasableListing.inventory_status || "").trim() === "out_of_stock") {
       return jsonError("This item is currently out of stock", 400);
@@ -411,7 +419,7 @@ export async function POST(request: Request) {
     if (listingIds.length > 0) {
       const { data: listingRows, error: listingRowsError } = await serviceClient
         .from("listings")
-        .select(`id,business_id,title,price,inventory_status,inventory_quantity,${LISTING_FULFILLMENT_SELECT}`)
+        .select(`id,business_id,title,price,inventory_status,inventory_quantity,is_seeded,${LISTING_FULFILLMENT_SELECT}`)
         .in("id", listingIds);
 
       if (listingRowsError) {
@@ -460,6 +468,17 @@ export async function POST(request: Request) {
         const purchasableListing = currentVariant
           ? getVariantInventoryListing(currentListing, currentVariant)
           : currentListing;
+        try {
+          assertListingPurchasable(purchasableListing);
+        } catch (error: any) {
+          removedItems.push({
+            listing_id: item.listing_id,
+            variant_id: item.variant_id || null,
+            title: item.title,
+            reason: error?.message || "This preview item is not available for purchase yet.",
+          });
+          continue;
+        }
         const quantityValidation = validateOrderQuantity(item.quantity, purchasableListing);
 
         if (quantityValidation.code === "OUT_OF_STOCK") {

@@ -8,10 +8,10 @@ import { useCart } from "@/components/cart/CartProvider";
 import { resolveListingCoverImageUrl } from "@/lib/listingPhotos";
 import { getListingUrl } from "@/lib/ids/publicRefs";
 import {
-  getAvailabilityBadgeStyle,
   normalizeInventory,
 } from "@/lib/inventory";
 import { calculateListingPricing } from "@/lib/pricing";
+import { getSeededListingBadgeLabel, isSeededListing } from "@/lib/seededListings";
 import type { ListingItem } from "../types";
 
 type ListingMediaMode = "product" | "lifestyle";
@@ -59,7 +59,7 @@ export default function ListingMarketplaceCard({
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const inventory = normalizeInventory(listing);
-  const availability = getAvailabilityBadgeStyle(inventory);
+  const seeded = isSeededListing(listing);
   const isOutOfStock = inventory.availability === "out";
   const businessName =
     String(listing?.business_name || "").trim() || "Local business";
@@ -72,7 +72,7 @@ export default function ListingMarketplaceCard({
   const displayPriceCents = getDisplayPriceCents(listing);
 
   const handleAddToCart = async () => {
-    if (!listing?.id || isOutOfStock || adding) return;
+    if (!listing?.id || isOutOfStock || seeded || adding) return;
     setAdding(true);
     setAdded(false);
     const result = await addItem({
@@ -106,9 +106,9 @@ export default function ListingMarketplaceCard({
             onError={() => {}}
             onLoad={() => {}}
           />
-          {availability ? (
-            <span className={`${availability.className} absolute left-2.5 top-2.5`}>
-              {availability.label}
+          {seeded ? (
+            <span className="absolute left-2.5 top-2.5 inline-flex items-center rounded-full border border-slate-300 bg-white/92 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+              {getSeededListingBadgeLabel(listing)}
             </span>
           ) : null}
         </div>
@@ -129,11 +129,11 @@ export default function ListingMarketplaceCard({
         <button
           type="button"
           onClick={handleAddToCart}
-          disabled={isOutOfStock || adding}
+          disabled={seeded || isOutOfStock || adding}
           className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#d8d0f3] bg-[#f3f0ff] px-3 text-xs font-semibold text-slate-900 transition hover:border-[#c7bdec] hover:bg-[#ebe6fb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cff]/25 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
         >
           <ShoppingCart className="h-4 w-4 text-current" />
-          {adding ? "Adding..." : added ? "Added" : "Add to cart"}
+          {seeded ? "Coming soon" : adding ? "Adding..." : added ? "Added" : "Add to cart"}
         </button>
       </div>
     </div>

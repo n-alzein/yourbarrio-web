@@ -20,4 +20,6 @@ export type ListingItem = {
   low_stock_threshold?: number | null;
   inventory_last_updated_at?: string | null;
   distance_miles?: number | null;
+  is_seeded?: boolean;
+  business_is_seeded?: boolean;
 };

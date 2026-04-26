@@ -67,7 +67,9 @@ export default function SafeAvatar({
   const availableAvatarUrls = useMemo(
     () =>
       realAvatarUrls.filter((candidate) => {
-        const resolvedCandidate = resolveImageSrc(candidate, resolvedFallback);
+        const resolvedCandidate = resolveImageSrc(candidate, resolvedFallback, {
+          respectFailures: false,
+        });
         return (
           resolvedCandidate !== resolvedFallback &&
           !failedAvatarSources.has(candidate) &&
@@ -82,8 +84,11 @@ export default function SafeAvatar({
       ? lastValidAvatarUrl
       : null);
   const resolvedSrc = useMemo(
-    () => resolveImageSrc(stableAvatarUrl, resolvedFallback),
-    [stableAvatarUrl, resolvedFallback]
+    () =>
+      resolveImageSrc(stableAvatarUrl, resolvedFallback, {
+        respectFailures: false,
+      }),
+    [resolvedFallback, stableAvatarUrl]
   );
   const initialFallback = !stableAvatarUrl || resolvedSrc === resolvedFallback;
   const label = fullName || displayName || name || businessName || email || "";
