@@ -2,100 +2,125 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerClient, getUserCached } from "@/lib/supabaseServer";
 import { isUuid } from "@/lib/ids/isUuid";
 import { getPublicBusinessByOwnerId } from "@/lib/business/getPublicBusinessByOwnerId";
-import {
-  canViewerAccessPublicTarget,
-  getCurrentViewerVisibilityGate,
-} from "@/lib/publicVisibility";
 import { withListingPricing } from "@/lib/pricing";
 import { getListingVariants } from "@/lib/listingOptions";
 
 export async function GET(request) {
-  const supabase = await getSupabaseServerClient();
-  const { user, error: userError } = await getUserCached(supabase);
+  try {
+    const supabase = await getSupabaseServerClient();
+    const { user } = await getUserCached(supabase);
+    const { searchParams } = new URL(request.url);
+    const listingRef = (searchParams.get("id") || "").trim();
 
-  if (userError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    if (!listingRef) {
+      return NextResponse.json({ error: "Missing listing id" }, { status: 400 });
+    }
 
-  const { searchParams } = new URL(request.url);
-  const listingRef = (searchParams.get("id") || "").trim();
+    const { data: resolvedRows, error: resolveError } = await supabase.rpc("resolve_listing_ref", {
+      p_ref: listingRef,
+    });
+    const resolvedRow = Array.isArray(resolvedRows) ? resolvedRows[0] : null;
+    const resolvedListingId = resolvedRow?.id || (isUuid(listingRef) ? listingRef : null);
 
-  if (!listingRef) {
-    return NextResponse.json({ error: "Missing listing id" }, { status: 400 });
-  }
+    if (resolveError) {
+      console.error("[public listings error]", resolveError);
+      console.log("[public listings]", { count: 0 });
+      const response = NextResponse.json(
+        { listing: null, business: null, isSaved: false, listingOptions: null },
+        { status: 200 }
+      );
+      response.headers.set("Cache-Control", "no-store");
+      return response;
+    }
 
-  const { data: resolvedRows, error: resolveError } = await supabase.rpc("resolve_listing_ref", {
-    p_ref: listingRef,
-  });
-  const resolvedRow = Array.isArray(resolvedRows) ? resolvedRows[0] : null;
-  const resolvedListingId =
-    resolvedRow?.id || (isUuid(listingRef) ? listingRef : null);
+    if (!resolvedListingId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-  if (resolveError || !resolvedListingId) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+    const { data: listing, error: listingError } = await supabase
+      .from("public_listings_v")
+      .select("*")
+      .eq("id", resolvedListingId)
+      .maybeSingle();
 
-  const { data: listing, error: listingError } = await supabase
-    .from("public_listings_v")
-    .select("*")
-    .eq("id", resolvedListingId)
-    .maybeSingle();
+    if (listingError) {
+      console.error("[public listings error]", listingError);
+      console.log("[public listings]", { count: 0 });
+      const response = NextResponse.json(
+        { listing: null, business: null, isSaved: false, listingOptions: null },
+        { status: 200 }
+      );
+      response.headers.set("Cache-Control", "no-store");
+      return response;
+    }
 
-  if (listingError) {
-    return NextResponse.json(
-      { error: listingError.message || "Failed to load listing" },
-      { status: 500 }
-    );
-  }
+    if (!listing) {
+      console.log("[public listings]", { count: 0 });
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-  if (!listing) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+    const business = await getPublicBusinessByOwnerId(listing.business_id);
+    if (!business) {
+      console.log("[public listings]", { count: 1 });
+      const response = NextResponse.json(
+        {
+          listing: withListingPricing(listing),
+          business: null,
+          isSaved: false,
+          listingOptions: null,
+        },
+        { status: 200 }
+      );
+      response.headers.set("Cache-Control", "no-store");
+      return response;
+    }
 
-  const gate = await getCurrentViewerVisibilityGate(supabase);
-  const business = await getPublicBusinessByOwnerId(listing.business_id, {
-    client: supabase,
-    viewerCanSeeInternalContent: gate.viewerCanSeeInternalContent,
-  });
-  if (!business) {
-    return NextResponse.json({ error: "Business not found" }, { status: 404 });
-  }
-  if (
-    !canViewerAccessPublicTarget(
-      {
-        businessIsInternal: business?.is_internal,
-        listingIsInternal: listing?.is_internal === true,
-      },
-      gate
-    )
-  ) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  const isBusiness = String(profile?.role || "").trim().toLowerCase() === "business";
-  const { data: saved } = isBusiness
-    ? { data: null }
-    : await supabase
-        .from("saved_listings")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("listing_id", resolvedListingId)
+    let isSaved = false;
+    if (user?.id) {
+      const { data: profile } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", user.id)
         .maybeSingle();
+      const isBusiness = String(profile?.role || "").trim().toLowerCase() === "business";
+      if (!isBusiness) {
+        const { data: saved } = await supabase
+          .from("saved_listings")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("listing_id", resolvedListingId)
+          .maybeSingle();
+        isSaved = Boolean(saved);
+      }
+    }
 
-  const response = NextResponse.json(
-    {
-      listing: withListingPricing(listing),
-      business,
-      isSaved: Boolean(saved),
-      listingOptions: await getListingVariants(supabase, resolvedListingId),
-    },
-    { status: 200 }
-  );
-  response.headers.set("Cache-Control", "no-store");
-  return response;
+    let listingOptions = null;
+    try {
+      listingOptions = await getListingVariants(supabase, resolvedListingId);
+    } catch (error) {
+      console.error("[public listings error]", error);
+    }
+
+    console.log("[public listings]", { count: 1 });
+    const response = NextResponse.json(
+      {
+        listing: withListingPricing(listing),
+        business,
+        isSaved,
+        listingOptions,
+      },
+      { status: 200 }
+    );
+    response.headers.set("Cache-Control", "no-store");
+    return response;
+  } catch (e) {
+    console.error("[public listings fatal]", e);
+    console.log("[public listings]", { count: 0 });
+    const response = NextResponse.json(
+      { listing: null, business: null, isSaved: false, listingOptions: null },
+      { status: 200 }
+    );
+    response.headers.set("Cache-Control", "no-store");
+    return response;
+  }
 }

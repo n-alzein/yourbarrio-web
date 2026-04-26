@@ -3,20 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAuth } from "./AuthProvider";
 
 export default function Footer({ className = "" }) {
   const pathname = usePathname();
-  const { user, profile, role } = useAuth();
   const isAdminRoute = pathname?.startsWith("/admin");
-
-  const resolvedRole = role || user?.app_metadata?.role || profile?.role;
-  const aboutHref =
-    resolvedRole === "business"
-      ? "/about"
-      : user || profile
-        ? "/customer/about"
-        : "/about";
+  const aboutHref = pathname?.startsWith("/customer/") ? "/customer/about" : "/about";
   const footerLinkClass =
     "inline-flex w-fit text-[0.95rem] text-slate-300/88 transition-colors duration-200 ease-out hover:text-[#cbb6ff] focus-visible:text-[#cbb6ff] focus-visible:outline-none";
   const footerHeadingClass =

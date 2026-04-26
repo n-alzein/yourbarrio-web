@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabaseServerClient } from "@/lib/supabaseServer";
+import { getPublicSupabaseServerClient } from "@/lib/supabasePublicServer";
 import { resolveListingCoverImageUrl } from "@/lib/listingPhotos";
 import {
   getListingsBrowseFilterCategoryNames,
@@ -18,7 +18,6 @@ import {
   getNormalizedLocation,
   hasUsableLocationFilter,
 } from "@/lib/location/filter";
-import { getCurrentViewerVisibilityGate } from "@/lib/publicVisibility";
 import { withListingPricing } from "@/lib/pricing";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -115,7 +114,8 @@ async function searchListings(supabase, term, category, { businessIds }) {
 
     const error = results.find((result) => result?.error)?.error || null;
     if (error) {
-      console.warn("searchListings failed", error);
+      console.error("[public listings error]", error);
+      console.log("[public listings]", { count: 0 });
       return [];
     }
 
@@ -126,9 +126,10 @@ async function searchListings(supabase, term, category, { businessIds }) {
       }
     }
 
-    return Array.from(deduped.values())
-      .slice(0, 8)
-      .map((row) => withListingPricing({
+    const rows = Array.from(deduped.values()).slice(0, 8);
+    console.log("[public listings]", { count: rows.length });
+
+    return rows.map((row) => withListingPricing({
         id: row.id,
         public_id: row.public_id || null,
         title: row.title,
@@ -151,11 +152,15 @@ async function searchListings(supabase, term, category, { businessIds }) {
     .limit(8);
 
   if (error) {
-    console.warn("searchListings failed", error);
+    console.error("[public listings error]", error);
+    console.log("[public listings]", { count: 0 });
     return [];
   }
 
-  return (data || []).map((row) => withListingPricing({
+  const rows = Array.isArray(data) ? data : [];
+  console.log("[public listings]", { count: rows.length });
+
+  return rows.map((row) => withListingPricing({
     id: row.id,
     public_id: row.public_id || null,
     title: row.title,
@@ -278,95 +283,90 @@ async function searchMapboxPlaces(term) {
 }
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const query = (searchParams.get("q") || "").trim();
-  const category = (searchParams.get("category") || "").trim();
-  const cookieLocation = await getLocationFromCookies();
-  const location = getNormalizedLocation({
-    ...(cookieLocation || {}),
-    city: searchParams.get("city") || cookieLocation?.city,
-    region:
-      searchParams.get("state") ||
-      searchParams.get("region") ||
-      cookieLocation?.region,
-    lat: searchParams.get("lat") || cookieLocation?.lat,
-    lng: searchParams.get("lng") || cookieLocation?.lng,
-  });
-  const locationKey = getLocationCacheKey(location);
-  const cacheKeyBase = `${query.toLowerCase()}::${category.toLowerCase()}::${locationKey}`;
-
-  if (!query) {
-    return NextResponse.json({
-      items: [],
-      businesses: [],
-      places: [],
-      message: "empty query",
-    });
-  }
-
-  if (!hasUsableLocationFilter(location)) {
-    return NextResponse.json({
-      items: [],
-      businesses: [],
-      places: [],
-      message: "missing_location",
-    });
-  }
-
-  const ip = getClientIp(request);
-  if (isRateLimited(ip)) {
-    return NextResponse.json(
-      {
-        error: "rate_limit_exceeded",
-        message: "Too many search requests. Please wait a moment.",
-      },
-      { status: 429 }
-    );
-  }
-
-  let viewerCanSeeInternalContent = false;
-
-  let supabase = null;
   try {
-    supabase = await getSupabaseServerClient();
-  } catch (err) {
-    console.error("Failed to init Supabase client", err);
-  }
+    const { searchParams } = new URL(request.url);
+    const query = (searchParams.get("q") || "").trim();
+    const category = (searchParams.get("category") || "").trim();
+    const cookieLocation = await getLocationFromCookies();
+    const location = getNormalizedLocation({
+      ...(cookieLocation || {}),
+      city: searchParams.get("city") || cookieLocation?.city,
+      region:
+        searchParams.get("state") ||
+        searchParams.get("region") ||
+        cookieLocation?.region,
+      lat: searchParams.get("lat") || cookieLocation?.lat,
+      lng: searchParams.get("lng") || cookieLocation?.lng,
+    });
+    const locationKey = getLocationCacheKey(location);
+    const cacheKey = `${query.toLowerCase()}::${category.toLowerCase()}::${locationKey}::public`;
 
-  ({ viewerCanSeeInternalContent } = supabase
-    ? await getCurrentViewerVisibilityGate(supabase)
-    : { viewerCanSeeInternalContent: false });
-  const cacheKey = `${cacheKeyBase}::${viewerCanSeeInternalContent ? "internal" : "public"}`;
-  if (!viewerCanSeeInternalContent) {
+    if (!query) {
+      console.log("[public listings]", { count: 0 });
+      return NextResponse.json({
+        items: [],
+        businesses: [],
+        places: [],
+        message: "empty query",
+      });
+    }
+
+    if (!hasUsableLocationFilter(location)) {
+      console.log("[public listings]", { count: 0 });
+      return NextResponse.json({
+        items: [],
+        businesses: [],
+        places: [],
+        message: "missing_location",
+      });
+    }
+
+    const ip = getClientIp(request);
+    if (isRateLimited(ip)) {
+      return NextResponse.json(
+        {
+          error: "rate_limit_exceeded",
+          message: "Too many search requests. Please wait a moment.",
+        },
+        { status: 429 }
+      );
+    }
+
     const publicCached = getCachedResponse(cacheKey);
     if (publicCached) {
       return NextResponse.json(publicCached);
     }
-  }
-  const businessIds = supabase
-    ? await findBusinessOwnerIdsForLocation(supabase, location, {
-        limit: 1000,
-        viewerCanSeeInternalContent,
-      })
-    : [];
 
-  const [items, businesses, places] = await Promise.all([
-    supabase ? searchListings(supabase, query, category, { businessIds }) : [],
-    supabase ? searchBusinesses(supabase, query, category, { businessIds }) : [],
-    searchMapboxPlaces(query),
-  ]);
+    const supabase = getPublicSupabaseServerClient();
+    const businessIds = await findBusinessOwnerIdsForLocation(supabase, location, {
+      limit: 1000,
+      viewerCanSeeInternalContent: false,
+    });
 
-  const payload = {
-    items,
-    businesses,
-    places,
-  };
+    const [items, businesses, places] = await Promise.all([
+      searchListings(supabase, query, category, { businessIds }),
+      searchBusinesses(supabase, query, category, { businessIds }),
+      searchMapboxPlaces(query),
+    ]);
 
-  if (!viewerCanSeeInternalContent) {
+    const payload = {
+      items: Array.isArray(items) ? items : [],
+      businesses: Array.isArray(businesses) ? businesses : [],
+      places: Array.isArray(places) ? places : [],
+    };
+
     setCachedResponse(cacheKey, payload);
+    return NextResponse.json(payload);
+  } catch (e) {
+    console.error("[public listings fatal]", e);
+    console.log("[public listings]", { count: 0 });
+    return NextResponse.json(
+      {
+        items: [],
+        businesses: [],
+        places: [],
+      },
+      { status: 200 }
+    );
   }
-
-  return NextResponse.json(payload, {
-    headers: viewerCanSeeInternalContent ? { "Cache-Control": "private, no-store" } : undefined,
-  });
 }

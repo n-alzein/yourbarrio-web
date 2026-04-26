@@ -676,6 +676,21 @@ export default function ListingDetailsClient({
     }
   };
 
+  const handleClosePreview = useCallback(() => {
+    if (!previewBanner?.editorHref) return;
+    if (previewBanner?.isFromEditorPreview) {
+      setPreviewCloseHelp("");
+      window.close();
+      window.setTimeout(() => {
+        setPreviewCloseHelp("You can close this preview tab and return to the editor.");
+      }, 250);
+      return;
+    }
+    if (typeof window !== "undefined") {
+      window.location.href = previewBanner.editorHref;
+    }
+  }, [previewBanner?.editorHref, previewBanner?.isFromEditorPreview]);
+
   if (loading) {
     return (
       <div
@@ -778,20 +793,6 @@ export default function ListingDetailsClient({
     isOutOfStock ||
     cartActionLoading ||
     (hasVariantOptions && !selectedVariant?.id);
-  const handleClosePreview = useCallback(() => {
-    if (!previewBanner?.editorHref) return;
-    if (previewBanner?.isFromEditorPreview) {
-      setPreviewCloseHelp("");
-      window.close();
-      window.setTimeout(() => {
-        setPreviewCloseHelp("You can close this preview tab and return to the editor.");
-      }, 250);
-      return;
-    }
-    if (typeof window !== "undefined") {
-      window.location.href = previewBanner.editorHref;
-    }
-  }, [previewBanner?.editorHref, previewBanner?.isFromEditorPreview]);
 
   return (
     <>

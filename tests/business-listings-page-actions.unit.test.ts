@@ -8,6 +8,21 @@ const source = readFileSync(
 );
 
 describe("business listings page card hierarchy", () => {
+  it("adds search, filters, sorting, and a persisted grid/table toggle", () => {
+    expect(source).toContain("BUSINESS_LISTINGS_VIEW_STORAGE_KEY");
+    expect(source).toContain("Search title, ref, or SKU");
+    expect(source).toContain("All statuses");
+    expect(source).toContain("All categories");
+    expect(source).toContain("Last updated");
+    expect(source).toContain("LayoutGrid");
+    expect(source).toContain("TableProperties");
+    expect(source).toContain("Grid");
+    expect(source).toContain("Table");
+    expect(source).toContain("overflow-x-auto");
+    expect(source).toContain('min-w-[1180px]');
+    expect(source).toContain("Buyer price includes marketplace fee.");
+  });
+
   it("uses a single status badge with out-of-stock precedence", () => {
     expect(source).toContain('const hasUnpublishedChanges = listing.has_unpublished_changes === true;');
     expect(source).toContain('"Changes not published"');
@@ -24,7 +39,9 @@ describe("business listings page card hierarchy", () => {
     expect(source).toContain('handleStatusChange(listing.id, "draft")');
     expect(source).toContain("Publish");
     expect(source).toContain("Unpublish");
+    expect(source).toContain("Preview");
     expect(source).toContain("text-slate-500 hover:text-slate-900");
+    expect(source).toContain("whitespace-nowrap");
   });
 
   it("makes the card the edit entry point and removes card-level inventory controls", () => {
@@ -45,9 +62,24 @@ describe("business listings page card hierarchy", () => {
 
   it("labels seller pricing and shows customer-facing pricing only when fee-inclusive pricing exists", () => {
     expect(source).toContain("Seller price");
+    expect(source).toContain("Buyer price");
     expect(source).toContain("Customer-facing price:");
     expect(source).toContain("incl. marketplace fee");
     expect(source).toContain("pricing.finalPriceCents > pricing.basePriceCents");
     expect(source).not.toContain('>Price TBD<');
+  });
+
+  it("shows safe short refs without relying on raw UUID ids", () => {
+    expect(source).toContain("getListingRef");
+    expect(source).toContain("Ref:");
+    expect(source).toContain("getListingSku");
+    expect(source).not.toContain('Ref: {listing.id}');
+  });
+
+  it("merges thumbnail and listing name into one listing column for table view", () => {
+    expect(source).toContain(">Listing name<");
+    expect(source).not.toContain(">Image<");
+    expect(source).toContain('className="flex min-w-0 items-start gap-3"');
+    expect(source).toContain('objectFit: "cover"');
   });
 });
