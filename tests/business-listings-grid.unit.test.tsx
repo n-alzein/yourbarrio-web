@@ -21,7 +21,7 @@ const listings = [
     id: "listing-1",
     title: "Cold Brew Concentrate",
     price: 12,
-    category: "food-beverage",
+    category: "food-drink",
     city: "Los Angeles",
     photo_url: "/cold-brew.jpg",
     photo_variants: [
@@ -35,9 +35,16 @@ const listings = [
     id: "listing-2",
     title: "Pan Dulce Box",
     price: 18,
-    category: "food-beverage",
+    category: "food-drink",
     city: "Los Angeles",
-    photo_url: "/pan-dulce.jpg",
+    images: [
+      {
+        id: "photo-2",
+        url: "/pan-dulce-cropped.jpg",
+        original: { url: "/pan-dulce-full.jpg" },
+        is_cover: true,
+      },
+    ],
     public_id: "listing-2",
   },
 ];
@@ -65,7 +72,7 @@ describe("BusinessListingsGrid", () => {
   });
 
   it("uses cover_image_id for the visible listing image and falls back when absent", () => {
-    render(
+    const { container } = render(
       <BusinessListingsGrid
         listings={listings}
         itemHrefResolver={(item) => `/listings/${item.public_id}`}
@@ -74,6 +81,23 @@ describe("BusinessListingsGrid", () => {
 
     const images = screen.getAllByRole("img");
     expect(images[0]).toHaveAttribute("src", "/cold-brew-cover.jpg");
-    expect(images[1]).toHaveAttribute("src", "/pan-dulce.jpg");
+    expect(images[1]).toHaveAttribute("src", "/pan-dulce-full.jpg");
+    expect(images[0]).toHaveClass("object-contain");
+
+    const imageFrame = container.querySelector(".aspect-\\[4\\/3\\]");
+    expect(imageFrame).toHaveClass("bg-white", "flex", "items-center", "justify-center");
+  });
+
+  it("removes the top category pill while keeping category metadata below the title", () => {
+    render(
+      <BusinessListingsGrid
+        listings={listings}
+        itemHrefResolver={(item) => `/listings/${item.public_id}`}
+      />
+    );
+
+    expect(document.querySelector(".border-\\[\\#e5dcff\\]")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Los Angeles")).toHaveLength(2);
+    expect(document.querySelectorAll(".bg-slate-50").length).toBeGreaterThanOrEqual(4);
   });
 });

@@ -55,6 +55,7 @@ export default function AdminUserDetailLayout({
     if (activeTab === "listings" && !canSeeListingsTab) return "overview";
     return activeTab;
   }, [activeTab, canSeeListingsTab, canSeePermissionsTab, canSeeSecurityTab]);
+  const isListingsTab = effectiveActiveTab === "listings";
 
   return (
     <section className="space-y-8">
@@ -62,11 +63,19 @@ export default function AdminUserDetailLayout({
       {flash}
       <AdminUserTabs tabs={tabs} activeTab={effectiveActiveTab} onTabChange={setActiveTab} />
 
-      <div className="grid gap-4 md:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] md:gap-6">
-        <aside className="min-w-0 md:sticky md:top-4 md:max-h-[calc(100vh-12rem)] md:overflow-y-auto">
-          {aside}
-        </aside>
-        <div className="min-w-0 md:max-h-[calc(100vh-12rem)] md:overflow-y-auto md:pr-1">
+      <div
+        className={
+          isListingsTab
+            ? "block"
+            : "grid gap-4 md:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] md:gap-6"
+        }
+      >
+        {!isListingsTab ? (
+          <aside className="min-w-0 md:sticky md:top-4 md:max-h-[calc(100vh-12rem)] md:overflow-y-auto">
+            {aside}
+          </aside>
+        ) : null}
+        <div className={`min-w-0 ${isListingsTab ? "" : "md:max-h-[calc(100vh-12rem)] md:overflow-y-auto md:pr-1"}`}>
           {tabs.map((tab) => {
             const isActive = tab.key === effectiveActiveTab;
             return (

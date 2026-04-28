@@ -29,7 +29,16 @@ function formatDate(value: string | null | undefined) {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString();
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    timeZone: "UTC",
+  }).format(date);
 }
 
 function formatPrice(value: number | null | undefined) {
@@ -119,14 +128,14 @@ export default function AdminBusinessListingsTable({
           <table className="min-w-full text-sm">
             <thead className="border-b border-neutral-800 bg-neutral-950/80 text-left text-[11px] uppercase tracking-[0.16em] text-neutral-500">
               <tr>
-                <th className="px-4 py-3 font-medium">Listing</th>
-                <th className="px-4 py-3 font-medium">Public ID</th>
-                <th className="px-4 py-3 font-medium">Price</th>
-                <th className="px-4 py-3 font-medium">Visibility</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Inventory</th>
-                <th className="px-4 py-3 font-medium">Updated</th>
-                <th className="px-4 py-3 font-medium">Actions</th>
+                <th className="px-5 py-3 font-medium">Listing</th>
+                <th className="px-5 py-3 font-medium">Public ID</th>
+                <th className="px-5 py-3 font-medium">Price</th>
+                <th className="px-5 py-3 font-medium">Visibility</th>
+                <th className="px-5 py-3 font-medium">Status</th>
+                <th className="px-5 py-3 font-medium">Inventory</th>
+                <th className="px-5 py-3 font-medium">Updated</th>
+                <th className="px-5 py-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -136,9 +145,9 @@ export default function AdminBusinessListingsTable({
                 const status = statusBadge(row);
                 const inventory = inventoryBadge(row);
                 return (
-                  <tr key={row.id} className="border-b border-neutral-900 align-top">
-                    <td className="px-4 py-3">
-                      <div className="flex items-start gap-3">
+                  <tr key={row.id} className="border-b border-neutral-900 align-middle">
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3.5">
                         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
                           <SafeImage
                             src={coverImageUrl || "/listing-placeholder.png"}
@@ -147,25 +156,27 @@ export default function AdminBusinessListingsTable({
                             fallbackSrc="/listing-placeholder.png"
                           />
                         </div>
-                        <div className="min-w-0">
-                          <div className="font-medium text-neutral-100">{row.title || "Untitled listing"}</div>
+                        <div className="min-w-0 max-w-[22rem]">
+                          <div className="line-clamp-2 text-[15px] font-medium leading-5 text-neutral-100">
+                            {row.title || "Untitled listing"}
+                          </div>
                           <div className="mt-1 text-xs text-neutral-500">Created {formatDate(row.created_at)}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-neutral-300">{row.public_id || row.id}</td>
-                    <td className="px-4 py-3 text-neutral-200">{formatPrice(row.price)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4 font-mono text-xs text-neutral-300">{row.public_id || row.id}</td>
+                    <td className="px-5 py-4 text-neutral-200">{formatPrice(row.price)}</td>
+                    <td className="px-5 py-4">
                       <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${visibility.className}`}>
                         {visibility.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4">
                       <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${status.className}`}>
                         {status.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4">
                       <div className="flex flex-col gap-1">
                         <span className={`inline-flex w-fit rounded-md border px-2 py-0.5 text-[11px] font-medium ${inventory.className}`}>
                           {inventory.label}
@@ -173,8 +184,8 @@ export default function AdminBusinessListingsTable({
                         <span className="text-xs text-neutral-400">{inventoryDetail(row)}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-neutral-400">{formatDate(row.updated_at)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4 text-neutral-400">{formatDate(row.updated_at)}</td>
+                    <td className="px-5 py-4">
                       <AdminListingActionsMenu row={row} onUpdated={onRowUpdated} />
                     </td>
                   </tr>
@@ -193,8 +204,8 @@ export default function AdminBusinessListingsTable({
           const inventory = inventoryBadge(row);
           return (
             <article key={row.id} className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-              <div className="flex gap-3">
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
+              <div className="flex items-center gap-3">
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
                   <SafeImage
                     src={coverImageUrl || "/listing-placeholder.png"}
                     alt={row.title || "Listing thumbnail"}
@@ -203,7 +214,9 @@ export default function AdminBusinessListingsTable({
                   />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h4 className="font-medium text-neutral-100">{row.title || "Untitled listing"}</h4>
+                  <h4 className="line-clamp-2 text-[15px] font-medium leading-5 text-neutral-100">
+                    {row.title || "Untitled listing"}
+                  </h4>
                   <p className="mt-1 break-all font-mono text-xs text-neutral-400">{row.public_id || row.id}</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${visibility.className}`}>

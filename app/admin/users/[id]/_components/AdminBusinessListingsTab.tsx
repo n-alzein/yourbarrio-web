@@ -116,7 +116,7 @@ export default function AdminBusinessListingsTab({
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   return (
-    <section className="space-y-3" data-testid="admin-business-listings-tab">
+    <section className="space-y-5" data-testid="admin-business-listings-tab">
       <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -136,7 +136,7 @@ export default function AdminBusinessListingsTab({
           </button>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <label className="block text-sm text-neutral-200 xl:col-span-2">
             Search
             <input

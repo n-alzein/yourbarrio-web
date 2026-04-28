@@ -3,7 +3,7 @@
 import Link from "next/link";
 import FastImage from "@/components/FastImage";
 import { ArrowUpRight, MapPin, Tag } from "lucide-react";
-import { resolveListingCoverImageUrl } from "@/lib/listingPhotos";
+import { resolveListingMedia } from "@/lib/resolveListingMedia";
 import { getListingUrl } from "@/lib/ids/publicRefs";
 import { getListingCategoryLabel } from "@/lib/taxonomy/compat";
 import { getListingCategoryPlaceholder } from "@/lib/taxonomy/placeholders";
@@ -58,7 +58,7 @@ export default function BusinessListingsGrid({
         <div className="-mx-1 px-1">
           <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-0.5 pb-2 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {listings.map((item) => {
-              const cover = resolveListingCoverImageUrl(item);
+              const cover = resolveListingMedia(item).coverImageUrl;
               const categoryLabel = getListingCategoryLabel(item, "Listing");
               const displayPriceCents = getDisplayPriceCents(item);
               const priceLabel =
@@ -71,11 +71,11 @@ export default function BusinessListingsGrid({
                   href={itemHrefResolver(item)}
                   className="group flex w-[calc((100%-1rem)/2)] min-w-[calc((100%-1rem)/2)] shrink-0 snap-start flex-col overflow-hidden rounded-[18px] border border-slate-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-md sm:w-[18.5rem] sm:min-w-[18.5rem] md:w-[19.5rem] md:min-w-[19.5rem] lg:w-[18rem] lg:min-w-[18rem] xl:w-[17rem] xl:min-w-[17rem]"
                 >
-                  <div className="relative aspect-square overflow-hidden bg-slate-100">
+                  <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-white">
                     <FastImage
                       src={cover || getListingCategoryPlaceholder(item)}
                       alt={item.title || "Listing"}
-                      className="object-cover transition duration-300 group-hover:scale-[1.02]"
+                      className="object-contain transition duration-300 group-hover:scale-[1.02]"
                       fill
                       sizes="(max-width: 639px) calc((100vw - 1rem) / 2), (max-width: 767px) 18.5rem, (max-width: 1023px) 19.5rem, (max-width: 1279px) 18rem, 17rem"
                       decoding="async"
@@ -83,15 +83,12 @@ export default function BusinessListingsGrid({
                   </div>
                   <div className="flex flex-1 flex-col gap-2.5 p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="inline-flex rounded-full border border-[#e5dcff] bg-[#f6f1ff] px-2.5 py-1 text-[11px] font-medium text-[#5b37d6]">
-                        {categoryLabel}
-                      </span>
                       <span className="text-sm font-semibold text-slate-900">
                         {priceLabel}
                       </span>
                     </div>
 
-                    <div>
+                    <div className="mt-0.5">
                       <h3 className="text-sm font-semibold tracking-[-0.02em] text-slate-950 line-clamp-2 sm:text-[0.95rem]">
                         {item.title || "Untitled listing"}
                       </h3>
