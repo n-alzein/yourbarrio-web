@@ -10,6 +10,7 @@ const paramsSchema = z.object({
 
 const bodySchema = z.object({
   hidden: z.boolean(),
+  reason: z.string().trim().min(1, "Reason is required."),
 });
 
 export async function POST(
@@ -44,6 +45,7 @@ export async function POST(
       listingId: parsedParams.data.id,
       hidden: parsedBody.data.hidden,
       actorUserId: auth.actorUser.id,
+      reason: parsedBody.data.reason,
     });
 
     return NextResponse.json(

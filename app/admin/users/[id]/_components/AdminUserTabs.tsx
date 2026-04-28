@@ -1,6 +1,12 @@
 "use client";
 
-export type AdminUserTabKey = "overview" | "permissions" | "security" | "activity" | "notes";
+export type AdminUserTabKey =
+  | "overview"
+  | "permissions"
+  | "security"
+  | "activity"
+  | "notes"
+  | "listings";
 
 type AdminUserTabsProps = {
   tabs: { key: AdminUserTabKey; label: string }[];

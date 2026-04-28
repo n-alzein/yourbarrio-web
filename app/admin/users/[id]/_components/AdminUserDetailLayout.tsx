@@ -10,12 +10,14 @@ type AdminUserDetailLayoutProps = {
   children: ReactNode;
   canSeePermissionsTab?: boolean;
   canSeeSecurityTab?: boolean;
+  canSeeListingsTab?: boolean;
 };
 
 const TABS: { key: AdminUserTabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "permissions", label: "Permissions" },
   { key: "security", label: "Security" },
+  { key: "listings", label: "Listings" },
   { key: "activity", label: "Activity" },
   { key: "notes", label: "Notes" },
 ];
@@ -27,15 +29,17 @@ export default function AdminUserDetailLayout({
   children,
   canSeePermissionsTab = false,
   canSeeSecurityTab = false,
+  canSeeListingsTab = false,
 }: AdminUserDetailLayoutProps) {
   const [activeTab, setActiveTab] = useState<AdminUserTabKey>("overview");
   const tabs = useMemo(() => {
     return TABS.filter((tab) => {
       if (tab.key === "permissions" && !canSeePermissionsTab) return false;
       if (tab.key === "security" && !canSeeSecurityTab) return false;
+      if (tab.key === "listings" && !canSeeListingsTab) return false;
       return true;
     });
-  }, [canSeePermissionsTab, canSeeSecurityTab]);
+  }, [canSeeListingsTab, canSeePermissionsTab, canSeeSecurityTab]);
   const panelByKey = useMemo(() => {
     const allPanels = Children.toArray(children);
     const map = new Map<AdminUserTabKey, ReactNode>();
@@ -48,8 +52,9 @@ export default function AdminUserDetailLayout({
   const effectiveActiveTab = useMemo(() => {
     if (activeTab === "permissions" && !canSeePermissionsTab) return "overview";
     if (activeTab === "security" && !canSeeSecurityTab) return "overview";
+    if (activeTab === "listings" && !canSeeListingsTab) return "overview";
     return activeTab;
-  }, [activeTab, canSeePermissionsTab, canSeeSecurityTab]);
+  }, [activeTab, canSeeListingsTab, canSeePermissionsTab, canSeeSecurityTab]);
 
   return (
     <section className="space-y-8">

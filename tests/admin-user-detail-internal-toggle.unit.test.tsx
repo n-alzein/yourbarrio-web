@@ -8,6 +8,7 @@ const {
   getActorAdminRoleKeysMock,
   getAdminDataClientMock,
   getBusinessByUserIdMock,
+  listAdminBusinessListingsMock,
 } = vi.hoisted(() => ({
   requireAdminRoleMock: vi.fn(),
   canAdminMock: vi.fn(),
@@ -15,6 +16,7 @@ const {
   getActorAdminRoleKeysMock: vi.fn(),
   getAdminDataClientMock: vi.fn(),
   getBusinessByUserIdMock: vi.fn(),
+  listAdminBusinessListingsMock: vi.fn(),
 }));
 
 vi.mock("next/link", () => ({
@@ -69,6 +71,11 @@ vi.mock("@/app/admin/users/[id]/_components/AdminUserActivityPanel", () => ({
   default: () => <div>User activity</div>,
 }));
 
+vi.mock("@/app/admin/users/[id]/_components/AdminBusinessListingsTab", () => ({
+  __esModule: true,
+  default: () => <div>Business listings</div>,
+}));
+
 vi.mock("@/app/admin/users/[id]/_components/AdminUserNotesPanel", () => ({
   __esModule: true,
   default: () => <div>User notes</div>,
@@ -105,6 +112,11 @@ vi.mock("@/lib/admin/getActorAdminRoleKeys", () => ({
 
 vi.mock("@/lib/business/getBusinessByUserId", () => ({
   getBusinessByUserId: getBusinessByUserIdMock,
+}));
+
+vi.mock("@/lib/admin/listings", () => ({
+  ADMIN_BUSINESS_LISTINGS_PAGE_SIZE: 20,
+  listAdminBusinessListings: listAdminBusinessListingsMock,
 }));
 
 vi.mock("@/lib/admin/permissions", () => ({
@@ -210,6 +222,12 @@ describe("AdminUserDetailPage internal toggle rendering", () => {
       rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
     });
     getActorAdminRoleKeysMock.mockResolvedValue(["admin_ops"]);
+    listAdminBusinessListingsMock.mockResolvedValue({
+      rows: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 20,
+    });
   });
 
   it("shows only the business internal toggle for business accounts", async () => {

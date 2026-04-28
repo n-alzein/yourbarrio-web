@@ -11,6 +11,7 @@ import BusinessVerificationActionsClient from "@/app/admin/verification/_compone
 import AdminUserDetailLayout from "@/app/admin/users/[id]/_components/AdminUserDetailLayout";
 import AdminUserHeaderBar from "@/app/admin/users/[id]/_components/AdminUserHeaderBar";
 import AdminUserActivityPanel from "@/app/admin/users/[id]/_components/AdminUserActivityPanel";
+import AdminBusinessListingsTab from "@/app/admin/users/[id]/_components/AdminBusinessListingsTab";
 import AdminUserNotesPanel from "@/app/admin/users/[id]/_components/AdminUserNotesPanel";
 import AdminUserProfileEditor from "@/app/admin/users/[id]/_components/AdminUserProfileEditor";
 import AdminUserRoleEditor from "@/app/admin/users/[id]/_components/AdminUserRoleEditor";
@@ -18,6 +19,10 @@ import AdminUserSecurityActions from "@/app/admin/users/[id]/_components/AdminUs
 import AdminRestoreAccountButton from "@/app/admin/users/[id]/_components/AdminRestoreAccountButton";
 import DeleteUserButton from "@/app/admin/users/[ref]/_components/DeleteUserButton";
 import { getActorAdminRoleKeys } from "@/lib/admin/getActorAdminRoleKeys";
+import {
+  ADMIN_BUSINESS_LISTINGS_PAGE_SIZE,
+  listAdminBusinessListings,
+} from "@/lib/admin/listings";
 import { getBusinessByUserId } from "@/lib/business/getBusinessByUserId";
 import { canAdmin, requireAdminRole } from "@/lib/admin/permissions";
 import { normalizeUserRef } from "@/lib/ids/normalizeUserRef";
@@ -112,12 +117,11 @@ export default async function AdminUserDetailPage({
 
   const viewedRole = String(userDetail?.role ?? user?.role ?? "").trim().toLowerCase();
   const isBusinessAccount = viewedRole === "business";
-  const business = isBusinessAccount
-    ? await getBusinessByUserId({
-        client,
-        userId: user.id,
-      })
-    : null;
+  const business = await getBusinessByUserId({
+    client,
+    userId: user.id,
+  });
+  const hasBusinessContext = isBusinessAccount || Boolean(business);
 
   mergedUser = {
     ...user,
@@ -196,6 +200,26 @@ export default async function AdminUserDetailPage({
   const initialActivityTotal = initialActivityRows.length
     ? Number(initialActivityRows[0]?.total_count || 0)
     : 0;
+  let initialListings = [];
+  let initialListingsTotalCount = 0;
+  let initialListingsPage = 1;
+  let initialListingsPageSize = ADMIN_BUSINESS_LISTINGS_PAGE_SIZE;
+  let listingsError = "";
+
+  if (hasBusinessContext) {
+    try {
+      const initialListingsResult = await listAdminBusinessListings(user.id, {
+        page: 1,
+        pageSize: ADMIN_BUSINESS_LISTINGS_PAGE_SIZE,
+      });
+      initialListings = initialListingsResult.rows;
+      initialListingsTotalCount = initialListingsResult.totalCount;
+      initialListingsPage = initialListingsResult.page;
+      initialListingsPageSize = initialListingsResult.pageSize;
+    } catch (error: any) {
+      listingsError = error?.message || "Failed to load listings.";
+    }
+  }
 
   return (
     <AdminUserDetailLayout
@@ -213,6 +237,7 @@ export default async function AdminUserDetailPage({
       }
       canSeePermissionsTab={canSeePermissionsTab}
       canSeeSecurityTab={canSuper}
+      canSeeListingsTab={hasBusinessContext}
     >
         <div className="space-y-3">
           {String(mergedUser.account_status || "") === "pending_deletion" ? (
@@ -428,6 +453,21 @@ export default async function AdminUserDetailPage({
             <p className="mb-3 text-sm text-rose-200/80">Permanently deleting a user cannot be undone.</p>
             <DeleteUserButton targetUserId={user.id} actorRoleKeys={actorRoleKeys} />
           </div>
+        </div>
+
+        <div className="space-y-3">
+          {hasBusinessContext ? (
+            <AdminBusinessListingsTab
+              businessOwnerUserId={user.id}
+              initialRows={initialListings}
+              initialTotalCount={initialListingsTotalCount}
+              initialPage={initialListingsPage}
+              initialPageSize={initialListingsPageSize}
+              initialError={listingsError}
+            />
+          ) : (
+            <PlaceholderMessage message="This account does not have a business listings workspace." />
+          )}
         </div>
 
         <div className="space-y-3">

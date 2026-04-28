@@ -190,6 +190,13 @@ export default function AdminListingsClient({
 
   async function updateVisibility(hidden: boolean) {
     if (!selectedRow) return;
+    const reason = window.prompt(
+      hidden ? "Reason for hiding this listing from the marketplace:" : "Reason for restoring marketplace visibility:"
+    );
+    if (!reason || !reason.trim()) {
+      setActionError("Reason is required.");
+      return;
+    }
     setActionLoading(true);
     setActionError("");
     try {
@@ -199,7 +206,7 @@ export default function AdminListingsClient({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ hidden }),
+        body: JSON.stringify({ hidden, reason: reason.trim() }),
       });
       const payload = await response.json();
       if (!response.ok) {

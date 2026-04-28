@@ -2,10 +2,13 @@ import "server-only";
 
 import { parseEntityDisplayId, normalizeIdValue, stripKnownEntityPrefix, getEntityIdSearchVariants } from "@/lib/entityIds";
 import { isUuid } from "@/lib/ids/isUuid";
+import { logAdminAction } from "@/lib/admin/audit";
 import { getAdminDataClient } from "@/lib/supabase/admin";
 
 const DEFAULT_SEARCH_LIMIT = 20;
 const MAX_SEARCH_LIMIT = 50;
+export const ADMIN_BUSINESS_LISTINGS_PAGE_SIZE = 20;
+const MAX_ADMIN_BUSINESS_LISTINGS_PAGE_SIZE = 50;
 
 type SearchEntityKind = "listing" | "order" | "uuid" | "text";
 
@@ -29,21 +32,53 @@ export type AdminListingRow = {
   business_id: string | null;
   business: AdminListingBusinessSummary | null;
   status: string;
+  raw_status: string | null;
   status_reason: string | null;
+  admin_hidden: boolean;
+  visibility_state: "visible" | "admin_hidden" | "internal";
+  inventory_state: "in_stock" | "out_of_stock" | "unknown";
   created_at: string | null;
   updated_at: string | null;
   deleted_at: string | null;
+  price: number | null;
+  photo_url: string | null;
+  photo_variants: unknown;
+  cover_image_id: string | null;
+  has_unpublished_changes: boolean;
   inventory_quantity: number | null;
   inventory_status: string | null;
   inventory_type: string | null;
   low_stock_threshold: number | null;
   inventory_last_updated_at: string | null;
   is_internal: boolean;
+  is_test: boolean | null;
   is_seeded: boolean;
   is_published: boolean | null;
   is_active: boolean | null;
   related_order_count: number;
   recent_orders: AdminListingRecentOrder[];
+};
+
+export type AdminBusinessListingsStatusFilter = "all" | "draft" | "published";
+export type AdminBusinessListingsVisibilityFilter = "all" | "visible" | "admin_hidden";
+export type AdminBusinessListingsInternalFilter = "all" | "internal" | "external";
+export type AdminBusinessListingsInventoryFilter = "all" | "in_stock" | "out_of_stock";
+
+export type AdminBusinessListingsFilters = {
+  q?: string;
+  status?: AdminBusinessListingsStatusFilter;
+  visibility?: AdminBusinessListingsVisibilityFilter;
+  internal?: AdminBusinessListingsInternalFilter;
+  inventory?: AdminBusinessListingsInventoryFilter;
+  page?: number;
+  pageSize?: number;
+};
+
+export type AdminBusinessListingsResult = {
+  rows: AdminListingRow[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 };
 
 type AdminListingSearchDescriptor = {
@@ -169,26 +204,51 @@ function computeListingStatus(row: Record<string, any>) {
   const status = toNullableString(row?.status)?.toLowerCase() || null;
   const isPublished = toNullableBoolean(row?.is_published);
   const isActive = toNullableBoolean(row?.is_active);
+  const adminHidden = row?.admin_hidden === true;
+  const isInternal = row?.is_internal === true || row?.is_test === true;
 
+  if (adminHidden) {
+    return { status: "hidden", reason: "admin_hidden is true" };
+  }
+  if (isInternal) {
+    return { status: "internal", reason: "internal/test flag is true" };
+  }
   if (deletedAt) {
     return { status: "deleted", reason: "deleted_at is set" };
   }
   if (status === "draft") {
     return { status: "draft", reason: "status is draft" };
   }
-  if (isPublished === false) {
-    return { status: "hidden", reason: "is_published is false" };
-  }
-  if (isActive === false) {
-    return { status: "hidden", reason: "is_active is false" };
-  }
   if (status === "published") {
-    return { status: "active", reason: "status is published" };
+    return { status: "published", reason: "status is published" };
   }
-  if (status && status !== "active") {
+  if (status) {
     return { status, reason: `status is ${status}` };
   }
+  if (isPublished === false) {
+    return { status: "unpublished", reason: "is_published is false" };
+  }
+  if (isActive === false) {
+    return { status: "inactive", reason: "is_active is false" };
+  }
   return { status: "active", reason: null };
+}
+
+function computeVisibilityState(row: Record<string, any>): AdminListingRow["visibility_state"] {
+  if (row?.admin_hidden === true) return "admin_hidden";
+  if (row?.is_internal === true || row?.is_test === true) return "internal";
+  return "visible";
+}
+
+function computeInventoryState(row: Record<string, any>): AdminListingRow["inventory_state"] {
+  const quantity = toNullableNumber(row?.inventory_quantity);
+  const inventoryStatus = toNullableString(row?.inventory_status)?.toLowerCase() || null;
+  if (typeof quantity === "number") {
+    return quantity > 0 ? "in_stock" : "out_of_stock";
+  }
+  if (inventoryStatus === "out_of_stock") return "out_of_stock";
+  if (inventoryStatus === "in_stock") return "in_stock";
+  return "unknown";
 }
 
 function mapListingRow(row: Record<string, any>, businessById: Map<string, AdminListingBusinessSummary>, orderMetaByListingId: Map<string, { count: number; recent: AdminListingRecentOrder[] }>): AdminListingRow {
@@ -204,16 +264,26 @@ function mapListingRow(row: Record<string, any>, businessById: Map<string, Admin
     business_id: businessId,
     business: businessId ? businessById.get(businessId) || null : null,
     status: listingStatus.status,
+    raw_status: toNullableString(row?.status)?.toLowerCase() || null,
     status_reason: listingStatus.reason,
+    admin_hidden: row?.admin_hidden === true,
+    visibility_state: computeVisibilityState(row),
+    inventory_state: computeInventoryState(row),
     created_at: toNullableString(row?.created_at),
     updated_at: toNullableString(row?.updated_at),
     deleted_at: toNullableString(row?.deleted_at),
+    price: toNullableNumber(row?.price),
+    photo_url: toNullableString(row?.photo_url),
+    photo_variants: row?.photo_variants ?? null,
+    cover_image_id: toNullableString(row?.cover_image_id),
+    has_unpublished_changes: row?.has_unpublished_changes === true,
     inventory_quantity: toNullableNumber(row?.inventory_quantity),
     inventory_status: toNullableString(row?.inventory_status),
     inventory_type: toNullableString(row?.inventory_type),
     low_stock_threshold: toNullableNumber(row?.low_stock_threshold),
     inventory_last_updated_at: toNullableString(row?.inventory_last_updated_at),
     is_internal: row?.is_internal === true,
+    is_test: toNullableBoolean(row?.is_test),
     is_seeded: row?.is_seeded === true,
     is_published: toNullableBoolean(row?.is_published),
     is_active: toNullableBoolean(row?.is_active),
@@ -397,10 +467,12 @@ export async function setAdminListingVisibility({
   listingId,
   hidden,
   actorUserId,
+  reason,
 }: {
   listingId: string;
   hidden: boolean;
   actorUserId: string;
+  reason: string;
 }) {
   const { client } = await getAdminDataClient({ mode: "service" });
   const nowIso = new Date().toISOString();
@@ -415,22 +487,12 @@ export async function setAdminListingVisibility({
     throw new Error("Listing not found.");
   }
 
-  const updates: Record<string, unknown> = {};
-  if ("deleted_at" in current) {
-    updates.deleted_at = hidden ? nowIso : null;
-  }
-  if ("is_published" in current) {
-    updates.is_published = hidden ? false : true;
-  }
-  if ("is_active" in current) {
-    updates.is_active = hidden ? false : true;
-  }
-  if ("status" in current) {
-    const currentStatus = String(current.status || "").trim().toLowerCase();
-    updates.status = hidden ? "hidden" : currentStatus === "draft" ? "draft" : "published";
-  }
-  if ("updated_at" in current) {
-    updates.updated_at = nowIso;
+  const updates = applySupportedListingUpdates(current, nowIso, {
+    admin_hidden: hidden,
+  });
+
+  if (!("admin_hidden" in updates)) {
+    throw new Error("Listing admin moderation visibility is not supported in this environment.");
   }
 
   const { data: updated, error } = await client
@@ -444,17 +506,188 @@ export async function setAdminListingVisibility({
     throw new Error(error?.message || "Failed to update listing visibility.");
   }
 
-  await client.rpc("log_admin_action", {
-    p_action: hidden ? "listing_hidden" : "listing_unhidden",
-    p_actor_user_id: actorUserId,
-    p_target_type: "listing",
-    p_target_id: listingId,
-    p_meta: {
+  await logAdminAction(client, {
+    action: hidden ? "listing_hidden" : "listing_unhidden",
+    actorUserId,
+    targetType: "listing",
+    targetId: listingId,
+    meta: {
       listing_id: listingId,
       public_id: updated.public_id || null,
-      hidden,
-      previous_status: computeListingStatus(current).status,
-      next_status: computeListingStatus(updated).status,
+      changed_at: nowIso,
+      field: "visibility",
+      previous_value: {
+        hidden: computeListingStatus(current).status === "hidden",
+        admin_hidden: current?.admin_hidden === true,
+      },
+      new_value: {
+        admin_hidden: updated?.admin_hidden === true,
+      },
+      reason,
+    },
+  });
+
+  const enriched = await enrichAdminListings(client, [updated]);
+  return enriched[0] || null;
+}
+
+function normalizeAdminBusinessListingsPage(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
+}
+
+function normalizeAdminBusinessListingsPageSize(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return ADMIN_BUSINESS_LISTINGS_PAGE_SIZE;
+  return Math.min(MAX_ADMIN_BUSINESS_LISTINGS_PAGE_SIZE, Math.floor(parsed));
+}
+
+export async function listAdminBusinessListings(
+  businessOwnerUserId: string,
+  filters: AdminBusinessListingsFilters = {}
+): Promise<AdminBusinessListingsResult> {
+  const { client } = await getAdminDataClient({ mode: "service" });
+  const page = normalizeAdminBusinessListingsPage(filters.page);
+  const pageSize = normalizeAdminBusinessListingsPageSize(filters.pageSize);
+  const rangeFrom = (page - 1) * pageSize;
+  const rangeTo = rangeFrom + pageSize - 1;
+  const search = sanitizeSearchTerm(String(filters.q || "").trim());
+
+  let query = client
+    .from("listings")
+    .select("*", { count: "exact" })
+    .eq("business_id", businessOwnerUserId)
+    .order("created_at", { ascending: false });
+
+  if (search) {
+    query = query.or(`title.ilike.%${search}%,public_id.ilike.%${search}%`);
+  }
+  if (filters.status && filters.status !== "all") {
+    query = query.eq("status", filters.status);
+  }
+  if (filters.visibility === "admin_hidden") {
+    query = query.eq("admin_hidden", true);
+  } else if (filters.visibility === "visible") {
+    query = query.eq("admin_hidden", false);
+  }
+  if (filters.internal === "internal") {
+    query = query.or("is_internal.is.true,is_test.is.true");
+  } else if (filters.internal === "external") {
+    query = query.not("is_internal", "is", true).not("is_test", "is", true);
+  }
+  if (filters.inventory === "out_of_stock") {
+    query = query.or("inventory_quantity.eq.0,inventory_status.eq.out_of_stock");
+  } else if (filters.inventory === "in_stock") {
+    query = query.or("inventory_quantity.gt.0,inventory_status.eq.in_stock");
+  }
+
+  const { data, error, count } = await query.range(rangeFrom, rangeTo);
+
+  if (error) {
+    throw new Error(error.message || "Failed to load business listings.");
+  }
+
+  const rawRows = Array.isArray(data) ? data : [];
+  const rows = rawRows.filter(
+    (row) => toNullableString(row?.business_id) === businessOwnerUserId
+  );
+  const totalCount =
+    rows.length !== rawRows.length && Number(count || 0) <= rawRows.length
+      ? rows.length
+      : Number(count || 0);
+
+  return {
+    rows: await enrichAdminListings(client, rows),
+    totalCount,
+    page,
+    pageSize,
+  };
+}
+
+function applySupportedListingUpdates(
+  current: Record<string, any>,
+  nowIso: string,
+  partialUpdates: Record<string, unknown>
+) {
+  const updates: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(partialUpdates)) {
+    if (key in current) {
+      updates[key] = value;
+    }
+  }
+  if ("updated_at" in current) {
+    updates.updated_at = nowIso;
+  }
+  return updates;
+}
+
+async function loadAdminListingForUpdate(listingId: string) {
+  const { client } = await getAdminDataClient({ mode: "service" });
+  const { data: current, error } = await client
+    .from("listings")
+    .select("*")
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (error || !current?.id) {
+    throw new Error("Listing not found.");
+  }
+
+  return { client, current };
+}
+
+export async function setAdminListingInternalState({
+  listingId,
+  internal,
+  actorUserId,
+  reason,
+}: {
+  listingId: string;
+  internal: boolean;
+  actorUserId: string;
+  reason: string;
+}) {
+  const nowIso = new Date().toISOString();
+  const { client, current } = await loadAdminListingForUpdate(listingId);
+  const updates = applySupportedListingUpdates(current, nowIso, {
+    is_internal: internal,
+    is_test: internal,
+  });
+
+  if (!Object.keys(updates).some((key) => key === "is_internal" || key === "is_test")) {
+    throw new Error("Listing internal/test state is not supported in this environment.");
+  }
+
+  const { data: updated, error } = await client
+    .from("listings")
+    .update(updates)
+    .eq("id", listingId)
+    .select("*")
+    .maybeSingle();
+
+  if (error || !updated?.id) {
+    throw new Error(error?.message || "Failed to update listing internal/test state.");
+  }
+
+  await logAdminAction(client, {
+    action: internal ? "listing_marked_internal" : "listing_unmarked_internal",
+    actorUserId,
+    targetType: "listing",
+    targetId: listingId,
+    meta: {
+      listing_id: listingId,
+      public_id: updated.public_id || null,
+      changed_at: nowIso,
+      field: "internal_test",
+      previous_value: {
+        is_internal: current?.is_internal ?? null,
+        is_test: current?.is_test ?? null,
+      },
+      new_value: {
+        is_internal: updated?.is_internal ?? null,
+        is_test: updated?.is_test ?? null,
+      },
+      reason,
     },
   });
 
