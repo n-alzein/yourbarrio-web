@@ -2,26 +2,31 @@
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import Link from "next/link";
+import { Heart } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
-import { resolveListingCoverImageUrl } from "@/lib/listingPhotos";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { BookmarkCheck, Heart, Sparkles, Star } from "lucide-react";
 import SafeImage from "@/components/SafeImage";
-import { useTheme } from "@/components/ThemeProvider";
-import {
-  getAvailabilityBadgeStyle,
-  normalizeInventory,
-  sortListingsByAvailability,
-} from "@/lib/inventory";
+import { useLocation } from "@/components/location/LocationProvider";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { createFetchSafe } from "@/lib/fetchSafe";
 import { memoizeRequest } from "@/lib/requestMemo";
-import { getCustomerBusinessUrl, getListingUrl } from "@/lib/ids/publicRefs";
-import { getListingCategoryLabel } from "@/lib/taxonomy/compat";
+import { getCustomerBusinessUrl } from "@/lib/ids/publicRefs";
 import { resolveBusinessImageSrc } from "@/lib/placeholders/businessPlaceholders";
+import ListingMarketplaceCard from "@/app/(public)/listings/components/ListingMarketplaceCard";
+import { sortListingsByAvailability } from "@/lib/inventory";
 
 const SAVED_BUSINESSES_EVENT = "yb:saved-businesses-changed";
 
 const getShopId = (shop) => shop?.owner_user_id || shop?.id || null;
+
+const formatCurrency = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return null;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(number);
+};
 
 const formatShopLocation = (shop) => {
   const city = String(shop?.city || "").trim();
@@ -30,11 +35,23 @@ const formatShopLocation = (shop) => {
   return city || state || null;
 };
 
-const getShopHook = (shop) => {
-  if (["auto_verified", "manually_verified"].includes(shop?.verification_status)) {
-    return "✓ Verified · Trusted local shop";
-  }
-  return "Saved local shop";
+const getSavedLocationName = (location, saved, savedShops) => {
+  const locationCity = String(location?.city || "").trim();
+  if (locationCity) return locationCity;
+
+  const listingCity = saved.find((item) => String(item?.city || "").trim())?.city;
+  if (listingCity) return String(listingCity).trim();
+
+  const shopCity = savedShops.find((shop) => String(shop?.city || "").trim())?.city;
+  if (shopCity) return String(shopCity).trim();
+
+  return "your area";
+};
+
+const getShopMetaLine = (shop) => {
+  const category = String(shop?.category || shop?.business_type || "Local shop").trim();
+  const location = formatShopLocation(shop);
+  return [category, location].filter(Boolean).join(" · ");
 };
 
 export default function CustomerSavedClient({
@@ -45,8 +62,7 @@ export default function CustomerSavedClient({
   supportModeActive = false,
 }) {
   const { user, supabase, loadingUser, authStatus } = useAuth();
-  const { theme, hydrated } = useTheme();
-  const isLight = hydrated ? theme === "light" : true;
+  const { location } = useLocation();
   const resolvedUserId =
     authStatus === "unauthenticated" ? null : user?.id || initialUserId || null;
   const authDiagEnabled = process.env.NEXT_PUBLIC_AUTH_DIAG === "1";
@@ -69,6 +85,7 @@ export default function CustomerSavedClient({
     return "listings";
   });
   const [savingShopIds, setSavingShopIds] = useState(() => new Set());
+  const [savingListingIds, setSavingListingIds] = useState(() => new Set());
 
   const initSavedState = (id) => {
     if (hasServerSaved) {
@@ -196,9 +213,9 @@ export default function CustomerSavedClient({
       const parsed = raw ? JSON.parse(raw) : null;
       if (Array.isArray(parsed)) {
         dispatchSaved({ type: "LOAD_FROM_CACHE_SUCCESS", saved: parsed });
-        return;
+      } else {
+        dispatchSaved({ type: "LOAD_FROM_CACHE_EMPTY" });
       }
-      dispatchSaved({ type: "LOAD_FROM_CACHE_EMPTY" });
     } catch (err) {
       dispatchSaved({
         type: "LOAD_FROM_CACHE_ERROR",
@@ -221,7 +238,6 @@ export default function CustomerSavedClient({
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
-  // Avoid getting stuck in loading if a request hangs
   useEffect(() => {
     if (!loading) return;
     const timer = setTimeout(() => setLoading(false), 8000);
@@ -506,7 +522,6 @@ export default function CustomerSavedClient({
   useEffect(() => {
     if (supportModeActive) return;
     if (!isVisible && hasLoaded) return;
-    // Wait for auth before refetching so we don't cache empty results.
     if (!resolvedUserId) return;
 
     let active = true;
@@ -527,18 +542,73 @@ export default function CustomerSavedClient({
   const totalSavedAll = totalSaved + totalSavedShops;
   const averagePrice =
     totalSaved === 0
-      ? 0
-      : saved.reduce((sum, item) => sum + Number(item.price || 0), 0) /
-        totalSaved;
-  const distinctCategories = Array.from(
-    new Set(saved.map((item) => item.category).filter(Boolean))
+      ? null
+      : saved.reduce((sum, item) => sum + Number(item.price || 0), 0) / totalSaved;
+  const locationName = useMemo(
+    () => getSavedLocationName(location, saved, savedShops),
+    [location, saved, savedShops]
   );
+  const statsSummary = [
+    `${totalSavedAll} saved`,
+    `${totalSavedShops} shop${totalSavedShops === 1 ? "" : "s"}`,
+    `Avg ${formatCurrency(averagePrice) || "—"}`,
+  ].join(" • ");
 
   useEffect(() => {
     if (activeTab === "listings" && totalSaved === 0 && totalSavedShops > 0) {
       setActiveTab("shops");
     }
   }, [activeTab, totalSaved, totalSavedShops]);
+
+  const persistSavedListings = useCallback(
+    (nextSaved) => {
+      if (typeof window === "undefined") return;
+      const cacheKey = buildCacheKey(resolvedUserId);
+      if (!cacheKey) return;
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(nextSaved));
+      } catch {
+        /* ignore */
+      }
+    },
+    [resolvedUserId]
+  );
+
+  const handleToggleSavedListing = useCallback(
+    async (listing) => {
+      const listingId = String(listing?.id || "").trim();
+      if (!listingId || !resolvedUserId) return;
+
+      setSavingListingIds((prev) => new Set(prev).add(listingId));
+      const previous = saved;
+      const next = saved.filter((item) => String(item?.id || "") !== listingId);
+      dispatchSaved({ type: "LOAD_FROM_CACHE_SUCCESS", saved: next });
+
+      try {
+        const response = await fetch("/api/customer/saved-listings", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ listingId }),
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload?.error || "Failed to unsave listing");
+        }
+        persistSavedListings(next);
+      } catch (err) {
+        console.error("Unsave listing failed", err);
+        dispatchSaved({ type: "LOAD_FROM_CACHE_SUCCESS", saved: previous });
+      } finally {
+        setSavingListingIds((prev) => {
+          const updated = new Set(prev);
+          updated.delete(listingId);
+          return updated;
+        });
+      }
+    },
+    [persistSavedListings, resolvedUserId, saved]
+  );
 
   const handleUnsaveShop = useCallback(
     async (shop) => {
@@ -591,10 +661,10 @@ export default function CustomerSavedClient({
 
   if (loadingUser && !user && !initialUserId) {
     return (
-      <div className="min-h-screen bg-[var(--yb-bg)] text-[var(--yb-text)] flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <div className="h-12 w-12 rounded-full border-4 border-[var(--yb-border)] border-t-slate-500 animate-spin mx-auto" />
-          <p className="text-lg text-[var(--yb-text-muted)]">Loading your account...</p>
+      <div className="flex min-h-screen items-center justify-center bg-[#fafafc] px-6 text-slate-900">
+        <div className="space-y-3 text-center">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-slate-500" />
+          <p className="text-sm text-slate-500">Loading your saved items...</p>
         </div>
       </div>
     );
@@ -602,330 +672,219 @@ export default function CustomerSavedClient({
 
   return (
     <section
-      className="relative w-full min-h-screen text-white overflow-hidden pb-12 md:pb-16"
+      className="min-h-screen bg-[#fafafc] pb-12 text-slate-950 md:pb-16"
       style={{ paddingTop: "calc(var(--yb-nav-content-offset, 0px) + 16px)" }}
     >
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0b0720] via-[#0a0816] to-black" />
-        <div className="absolute -top-32 -left-20 h-[360px] w-[360px] rounded-full bg-purple-600/20 blur-[120px]" />
-        <div className="absolute top-10 right-10 h-[300px] w-[300px] rounded-full bg-pink-500/15 blur-[120px]" />
-      </div>
+      <div className="mx-auto w-full max-w-5xl px-4 md:px-6">
+        <div className="space-y-8">
+          <header className="space-y-1">
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+              Saved
+            </h1>
+            <p className="text-sm text-slate-500">Your favorites in {locationName}</p>
+            {isAuthed ? (
+              <div className="pt-1">
+                <div className="flex items-end gap-6">
+                  {[
+                    { key: "listings", label: `Listings (${totalSaved})` },
+                    { key: "shops", label: `Shops (${totalSavedShops})` },
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setActiveTab(tab.key)}
+                      className={`border-b-2 px-0 pb-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70 ${
+                        activeTab === tab.key
+                          ? "border-violet-600 text-violet-600"
+                          : "border-transparent text-slate-500 hover:text-slate-900"
+                      }`}
+                      aria-pressed={activeTab === tab.key}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="pt-2 text-xs text-slate-400">{statsSummary}</p>
+                <div className="mt-4 border-b border-slate-200" />
+              </div>
+            ) : (
+              <div className="mt-4 border-b border-slate-200" />
+            )}
+          </header>
 
-      <div className="w-full px-5 sm:px-6 md:px-8 lg:px-12">
-        <div className="max-w-6xl mx-auto space-y-20">
-        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl overflow-hidden relative mb-12 md:mb-16">
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 via-pink-500/15 to-transparent" />
-          <div className="relative p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-white/70">
-                <Sparkles className="h-4 w-4 text-pink-200" />
-                Your saved collection
-              </div>
-              <h1 className="text-3xl md:text-4xl font-extrabold leading-tight">
-                Keep favorites in one premium vault
-              </h1>
-              <p className="text-white/70 max-w-2xl">
-                Curate the spots you love and jump back in instantly—no refreshing, no waiting.
-              </p>
-              <div className="flex flex-wrap gap-3 pt-2">
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm">
-                  <Heart className="h-4 w-4 text-rose-200" />
-                  {totalSavedAll} saved
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm">
-                  <Star className="h-4 w-4 text-amber-200" />
-                  {distinctCategories.length || "All"} categories
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm">
-                  <BookmarkCheck className="h-4 w-4 text-emerald-200" />
-                  Avg ${averagePrice ? averagePrice.toFixed(0) : "—"}
-                </span>
-              </div>
+          {error ? (
+            <div className="rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm text-rose-600">
+              We could not load your saved items. Please refresh and try again.
             </div>
+          ) : null}
 
-            <div className="w-full md:w-auto">
+          {!isAuthed && !loadingUser ? (
+            <div className="rounded-3xl border border-slate-200 bg-white px-6 py-10 text-center shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+              <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                <Heart className="h-6 w-6" />
+              </div>
+              <h2 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">
+                Please sign in to view saved items
+              </h2>
+              <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
+                Log in to keep your favorites synced across devices.
+              </p>
+              <Link
+                href="/customer-auth/login"
+                className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-violet-600 px-5 text-sm font-semibold text-white transition hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70"
+              >
+                Sign in
+              </Link>
+            </div>
+          ) : null}
+
+          {isAuthed && totalSavedAll === 0 ? (
+            <div className="rounded-3xl border border-slate-200 bg-white px-6 py-14 text-center shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+              <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                <Heart className="h-7 w-7" />
+              </div>
+              <h2 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">
+                Nothing saved yet
+              </h2>
+              <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
+                Start exploring local shops and save what you love.
+              </p>
               <Link
                 href="/customer/home"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-500 px-5 py-3 text-sm font-semibold shadow-lg hover:scale-[1.02] transition"
+                className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-violet-600 px-5 text-sm font-semibold text-white transition hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70"
               >
-                Discover more
+                Browse listings
               </Link>
             </div>
-          </div>
-        </div>
+          ) : null}
 
-        {error ? (
-          <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-            We could not load your saved picks. Please refresh or try again shortly.
-          </div>
-        ) : null}
-
-        {!isAuthed && !loadingUser && (
-          <div className="rounded-3xl border border-white/12 bg-white/5 backdrop-blur-xl shadow-2xl p-8 text-center space-y-4">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 border border-white/10 mx-auto">
-              <Heart className="h-8 w-8 text-pink-200" />
+          {isAuthed && totalSavedAll > 0 && activeTab === "listings" && saved.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center text-sm text-slate-500">
+              No saved listings yet.
             </div>
-            <h2 className="text-2xl font-bold">Please sign in to view saved picks</h2>
-            <p className="text-white/60 max-w-xl mx-auto">
-              Log in to keep all your favorites in one place across devices.
-            </p>
-            <Link
-              href="/customer-auth/login"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-lg font-semibold hover:brightness-110 transition shadow-lg"
-            >
-              Sign in
-            </Link>
-          </div>
-        )}
+          ) : null}
 
-        {isAuthed && (
-          <div className="flex justify-center">
-            <div className="inline-flex rounded-full border border-white/15 bg-white/10 p-1 backdrop-blur">
-              {[
-                { key: "listings", label: `Listings (${totalSaved})` },
-                { key: "shops", label: `Shops (${totalSavedShops})` },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    activeTab === tab.key
-                      ? "bg-white text-slate-950 shadow-sm"
-                      : "text-white/75 hover:text-white"
-                  }`}
-                  aria-pressed={activeTab === tab.key}
-                >
-                  {tab.label}
-                </button>
-              ))}
+          {isAuthed && totalSavedAll > 0 && activeTab === "shops" && savedShops.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center text-sm text-slate-500">
+              No saved shops yet.
             </div>
-          </div>
-        )}
+          ) : null}
 
-        {isAuthed && totalSavedAll === 0 && (
-          <div className="rounded-3xl border border-white/12 bg-white/5 backdrop-blur-xl shadow-2xl p-8 text-center space-y-4">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 border border-white/10 mx-auto">
-              <Heart className="h-8 w-8 text-pink-200" />
-            </div>
-            <h2 className="text-2xl font-bold">Nothing saved yet</h2>
-            <p className="text-white/60 max-w-xl mx-auto">
-              Items and businesses you save will appear here for quick access.
-            </p>
-            <Link
-              href="/customer/nearby"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-lg font-semibold hover:brightness-110 transition shadow-lg"
-            >
-              Start exploring
-            </Link>
-          </div>
-        )}
-
-        {isAuthed && totalSavedAll > 0 && activeTab === "listings" && saved.length === 0 && (
-          <div className="rounded-3xl border border-white/12 bg-white/5 backdrop-blur-xl shadow-2xl p-8 text-center space-y-4">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 border border-white/10 mx-auto">
-              <Heart className="h-8 w-8 text-pink-200" />
-            </div>
-            <h2 className="text-2xl font-bold">No saved listings yet</h2>
-            <p className="text-white/60 max-w-xl mx-auto">Items you save will appear here.</p>
-            <Link
-              href="/customer/home"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-lg font-semibold hover:brightness-110 transition shadow-lg"
-            >
-              Browse listings
-            </Link>
-          </div>
-        )}
-
-        {isAuthed && totalSavedAll > 0 && activeTab === "shops" && savedShops.length === 0 && (
-          <div className="rounded-3xl border border-white/12 bg-white/5 backdrop-blur-xl shadow-2xl p-8 text-center space-y-4">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 border border-white/10 mx-auto">
-              <Heart className="h-8 w-8 text-pink-200" />
-            </div>
-            <h2 className="text-2xl font-bold">No saved shops yet</h2>
-            <p className="text-white/60 max-w-xl mx-auto">Businesses you save will appear here.</p>
-            <Link
-              href="/customer/nearby"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-lg font-semibold hover:brightness-110 transition shadow-lg"
-            >
-              Explore nearby businesses
-            </Link>
-          </div>
-        )}
-
-        {isAuthed && activeTab === "listings" && saved.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-white/60">Saved picks</p>
-                <p className="text-lg font-semibold text-white">Handpicked just for you</p>
+          {isAuthed && activeTab === "listings" && saved.length > 0 ? (
+            <section className="mt-8 space-y-4 md:mt-10">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold tracking-[-0.03em] text-slate-950">
+                    Saved listings
+                  </h2>
+                </div>
               </div>
-              <div className="hidden md:flex items-center gap-2 text-sm text-white/70">
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2">
-                  <Sparkles className="h-4 w-4 text-pink-200" />
-                  Freshly synced
-                </span>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {sortedSaved.map((item) => {
-                const inventory = normalizeInventory(item);
-                const badgeStyle = getAvailabilityBadgeStyle(
-                  inventory.availability,
-                  isLight
-                );
-                return (
-                <Link
-                  key={item.id}
-                  href={getListingUrl(item)}
-                  className="group relative rounded-2xl overflow-hidden border border-white/10 bg-white/5 backdrop-blur-xl shadow-xl hover:-translate-y-1 transition-transform duration-300"
-                >
-                  <div className="relative h-48 w-full overflow-hidden">
-                    <SafeImage
-                      src={resolveListingCoverImageUrl(item)}
-                      alt={item.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
-                      fallbackSrc="/business-placeholder.png"
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {sortedSaved.map((item, index) => {
+                  const listingId = String(item?.id || "");
+                  return (
+                    <ListingMarketplaceCard
+                      key={item.public_id || item.id || `${item.title}-${index}`}
+                      listing={item}
+                      fallbackLocationLabel={locationName}
+                      variant="saved"
+                      isSaved
+                      saveLoading={savingListingIds.has(listingId)}
+                      onToggleSave={handleToggleSavedListing}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-                    <div className="theme-lock absolute top-3 left-3 text-xs px-3 py-1 rounded-full bg-black/50 border border-white/15 backdrop-blur flex items-center gap-1">
-                      <Heart className="h-3.5 w-3.5 text-pink-200" />
-                      <span className="text-white">Saved</span>
-                    </div>
-                    {item.price ? (
-                      <div className="theme-lock absolute bottom-3 right-3 rounded-xl bg-black/60 border border-white/10 px-3 py-1 text-sm font-semibold">
-                        <span className="text-white">${item.price}</span>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="p-4 space-y-2">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <h3 className="text-lg font-semibold leading-tight">
-                          {item.title}
-                        </h3>
-                        <p className="text-xs uppercase tracking-wide text-white/60">
-                          {getListingCategoryLabel(item, "Listing")}
-                        </p>
-                        <span
-                          className="inline-flex items-center rounded-full border bg-transparent px-2 py-1 text-[10px] font-semibold"
-                          style={
-                            badgeStyle
-                              ? { color: badgeStyle.color, borderColor: badgeStyle.border }
-                              : undefined
-                          }
-                        >
-                          {inventory.label}
-                        </span>
-                      </div>
-                      <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/70">
-                        <BookmarkCheck className="h-3.5 w-3.5" />
-                        Quick open
-                      </span>
-                    </div>
-
-                    <p className="text-white/70 text-sm line-clamp-2">
-                      {item.description || "A local listing from YourBarrio."}
-                    </p>
-
-                    <div className="flex items-center justify-between text-sm text-white/70 pt-1">
-                      <span className="inline-flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                        In your vault
-                      </span>
-                      <span className="text-white/60">View details →</span>
-                    </div>
-                  </div>
-                </Link>
-              );
-              })}
-            </div>
-          </div>
-        )}
-
-        {isAuthed && activeTab === "shops" && savedShops.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-white/60">Saved shops</p>
-                <p className="text-lg font-semibold text-white">Businesses you want to revisit</p>
+                  );
+                })}
               </div>
-              <Link
-                href="/customer/nearby"
-                className="hidden rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 md:inline-flex"
-              >
-                Explore nearby businesses
-              </Link>
-            </div>
+            </section>
+          ) : null}
 
-            <div className="grid grid-cols-1 gap-4">
-              {savedShops.map((shop) => {
-                const businessId = getShopId(shop);
-                const imageSrc = resolveBusinessImageSrc({
-                  imageUrl: shop.cover_photo_url || shop.profile_photo_url || null,
-                  businessType: shop.business_type,
-                  legacyCategory: shop.category,
-                });
-                const normalizedShop = {
-                  ...shop,
-                  id: businessId,
-                  public_id: shop.public_id || null,
-                };
-                const href = getCustomerBusinessUrl(normalizedShop);
-                const location = formatShopLocation(shop);
-                return (
-                  <article
-                    key={businessId || shop.public_id || shop.business_name}
-                    className="group relative overflow-hidden rounded-3xl border border-white/12 bg-white/8 p-3 shadow-2xl shadow-black/10 backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/10"
-                  >
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        handleUnsaveShop(shop);
-                      }}
-                      disabled={savingShopIds.has(businessId)}
-                      className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/30 text-rose-200 backdrop-blur transition hover:bg-black/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 disabled:cursor-wait disabled:opacity-70"
-                      aria-label="Remove saved shop"
-                      aria-pressed="true"
+          {isAuthed && activeTab === "shops" && savedShops.length > 0 ? (
+            <section className="mt-8 space-y-4 md:mt-10">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold tracking-[-0.03em] text-slate-950">
+                    Saved shops
+                  </h2>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {savedShops.map((shop) => {
+                  const businessId = getShopId(shop);
+                  const imageSrc = resolveBusinessImageSrc({
+                    imageUrl: shop.cover_photo_url || shop.profile_photo_url || null,
+                    businessType: shop.business_type,
+                    legacyCategory: shop.category,
+                  });
+                  const normalizedShop = {
+                    ...shop,
+                    id: businessId,
+                    public_id: shop.public_id || null,
+                  };
+                  const href = getCustomerBusinessUrl(normalizedShop);
+
+                  return (
+                    <article
+                      key={businessId || shop.public_id || shop.business_name}
+                      className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
                     >
-                      <Heart className="h-5 w-5" fill="currentColor" />
-                    </button>
-                    <Link href={href} className="grid gap-4 text-left sm:grid-cols-[160px_minmax(0,1fr)]">
-                      <div className="relative h-40 overflow-hidden rounded-2xl bg-white/10 sm:h-36">
-                        <SafeImage
-                          src={imageSrc}
-                          alt={shop.business_name || "Saved shop"}
-                          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                          fallbackSrc={imageSrc}
-                        />
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => handleUnsaveShop(shop)}
+                          disabled={savingShopIds.has(businessId)}
+                          className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/80 bg-white/90 text-slate-600 shadow-sm backdrop-blur-sm transition hover:border-rose-200 hover:text-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70 disabled:cursor-wait disabled:opacity-70"
+                          aria-label="Remove saved shop"
+                          aria-pressed="true"
+                          title="Remove saved shop"
+                        >
+                          <Heart className="h-5 w-5 text-rose-500" fill="currentColor" />
+                        </button>
+
+                        <Link
+                          href={href}
+                          className="relative block aspect-[16/10] overflow-hidden bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70"
+                        >
+                          <SafeImage
+                            src={imageSrc}
+                            alt={shop.business_name || "Saved shop"}
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                            fallbackSrc={imageSrc}
+                          />
+                        </Link>
                       </div>
-                      <div className="flex min-w-0 flex-col justify-between gap-3 py-1 pr-12 sm:pr-4">
-                        <div className="min-w-0">
-                          <h3 className="line-clamp-2 text-xl font-semibold text-white">
-                            {shop.business_name || "Local business"}
-                          </h3>
-                          <p className="mt-1 line-clamp-1 text-sm font-medium text-white/60">
-                            {[shop.category || "Local shop", location].filter(Boolean).join(" · ")}
-                          </p>
-                          <p className="mt-2 line-clamp-1 text-sm font-semibold text-violet-100">
-                            {getShopHook(shop)}
+
+                      <div className="space-y-4 p-4">
+                        <div className="min-w-0 space-y-1">
+                          <Link
+                            href={href}
+                            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70"
+                          >
+                            <h3 className="line-clamp-2 text-lg font-semibold tracking-[-0.02em] text-slate-950">
+                              {shop.business_name || "Local business"}
+                            </h3>
+                          </Link>
+                          <p className="line-clamp-1 text-sm text-slate-500">
+                            {getShopMetaLine(shop)}
                           </p>
                         </div>
-                        <span className="inline-flex w-fit min-h-9 items-center justify-center rounded-full bg-violet-500 px-4 text-sm font-semibold text-white shadow-sm transition group-hover:bg-violet-400">
-                          View shop
-                        </span>
+
+                        <div className="flex items-center justify-end pt-1">
+                          <Link
+                            href={href}
+                            className="inline-flex items-center justify-center rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm font-medium text-violet-600 transition hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70"
+                          >
+                            View shop
+                          </Link>
+                        </div>
                       </div>
-                    </Link>
-                  </article>
-                );
-              })}
-            </div>
-          </div>
-        )}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
         </div>
       </div>
     </section>

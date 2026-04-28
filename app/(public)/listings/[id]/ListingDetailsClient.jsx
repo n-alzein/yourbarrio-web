@@ -55,6 +55,7 @@ import {
 import { formatEntityId } from "@/lib/entityIds";
 import { calculateListingPricing } from "@/lib/pricing";
 import { getCustomerBusinessUrl, getListingUrl } from "@/lib/ids/publicRefs";
+import { getSelectedPhotoUrl } from "@/lib/listingPhotos";
 import {
   getBusinessTypeLabel,
   getListingCategoryLabel,
@@ -68,6 +69,7 @@ import {
   isSeededListing,
   SEEDED_LISTING_PREVIEW_MESSAGE,
 } from "@/lib/seededListings";
+import { cn } from "@/lib/utils/cx";
 
 const PENDING_AUTH_ACTION_STORAGE_KEY = "yb:pendingAuthAction";
 
@@ -81,6 +83,32 @@ function writePendingAuthAction(intent) {
 function getInitialHeroSrc(listing) {
   const resolvedMedia = resolveListingMedia(listing);
   return resolvedMedia.coverImageUrl || getListingCategoryPlaceholder(listing);
+}
+
+function getGalleryRenderSrc(image, fallbackSrc) {
+  if (!image || typeof image !== "object") return fallbackSrc || null;
+
+  const selectedVariantUrl = getSelectedPhotoUrl(image);
+  if (typeof selectedVariantUrl === "string" && selectedVariantUrl.trim()) {
+    return selectedVariantUrl.trim();
+  }
+
+  const candidates = [
+    image.original?.url,
+    image.original?.publicUrl,
+    image.original?.public_url,
+    image.enhanced?.url,
+    image.enhanced?.publicUrl,
+    image.enhanced?.public_url,
+    image.publicUrl,
+    image.public_url,
+    image.image_url,
+    image.storage_path,
+    image.url,
+  ];
+
+  const resolved = candidates.find((value) => typeof value === "string" && value.trim());
+  return resolved ? resolved.trim() : fallbackSrc || null;
 }
 
 export default function ListingDetailsClient({
@@ -756,10 +784,21 @@ export default function ListingDetailsClient({
   const showSaveControls = !accountContext.isBusiness && !accountContext.rolePending;
   const purchaseRestricted = accountContext.purchaseRestricted;
   const purchaseEligibilityPending = accountContext.rolePending;
-  const galleryPhotos = resolvedMedia.images.map((image) => image.url).filter(Boolean);
-  const mobileGalleryPhotos = galleryPhotos.slice(0, 5);
+  const galleryItems = resolvedMedia.images
+    .map((image, index) => {
+      const src = getGalleryRenderSrc(image, getListingCategoryPlaceholder(listing));
+      if (!src) return null;
+      return {
+        key: image?.id || `${src}-${index}`,
+        src,
+        image,
+      };
+    })
+    .filter(Boolean);
+  const galleryPhotos = galleryItems.map((item) => item.src).filter(Boolean);
+  const mobileGalleryItems = galleryItems.slice(0, 5);
   const mobileGalleryOverflowCount = Math.max(
-    galleryPhotos.length - mobileGalleryPhotos.length,
+    galleryItems.length - mobileGalleryItems.length,
     0
   );
   const inventory = normalizeInventory(listing);
@@ -773,19 +812,17 @@ export default function ListingDetailsClient({
       ? "Select options"
       : (hasVariantOptions ? selectedInventory.availability : inventory.availability) === "out"
       ? "Out of stock"
-      : fulfillmentSummary.pickupAvailable
-        ? "Available today"
-        : "In stock";
+      : "In stock";
   const availabilityTextClassName = seededListing
     ? "text-slate-600"
     : isOutOfStock
       ? "text-slate-500"
-      : "text-emerald-700";
+      : "text-neutral-500";
   const availabilityDotClassName = seededListing
     ? "bg-slate-400"
     : isOutOfStock
       ? "bg-slate-400"
-      : "bg-emerald-600";
+      : "bg-emerald-500";
   const businessProfileHref = business?.id ? getCustomerBusinessUrl(business) : null;
   const isBusinessVerified = ["auto_verified", "manually_verified"].includes(
     String(business?.verification_status || "").trim().toLowerCase()
@@ -867,18 +904,18 @@ export default function ListingDetailsClient({
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <div
-              className="relative overflow-hidden rounded-3xl shadow-[0_18px_40px_-32px_rgba(15,23,42,0.22)]"
+              className="relative overflow-visible rounded-3xl shadow-[0_18px_40px_-32px_rgba(15,23,42,0.22)]"
               style={{ background: "var(--surface)", border: "1px solid rgba(15,23,42,0.08)" }}
             >
               {galleryPhotos.length > 1 ? (
                 <div className="absolute left-4 top-4 z-10 hidden flex-col gap-2 rounded-[20px] border p-2 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.18)] md:flex">
-                  {galleryPhotos.map((photo, idx) => {
-                    const active = heroSrc === photo;
+                  {galleryItems.map((item, idx) => {
+                    const active = heroSrc === item.src;
                     return (
                       <button
-                        key={`${photo}-${idx}`}
+                        key={`${item.key}-${idx}`}
                         type="button"
-                        onClick={() => setHeroSrc(photo)}
+                        onClick={() => setHeroSrc(item.src)}
                         className={`flex h-[60px] w-[60px] items-center justify-center overflow-hidden rounded-[16px] border p-1.5 transition duration-200 ${
                           active
                             ? "shadow-sm"
@@ -896,7 +933,7 @@ export default function ListingDetailsClient({
                         aria-label={`View photo ${idx + 1}`}
                       >
                         <SafeImage
-                          src={photo}
+                          src={item.src}
                           alt={`Listing photo ${idx + 1}`}
                           className="object-contain"
                           width={64}
@@ -946,40 +983,41 @@ export default function ListingDetailsClient({
                 <div className="pointer-events-none absolute inset-0 ring-1 ring-black/[0.04]" />
               </div>
               {galleryPhotos.length > 1 ? (
-                <div className="mx-4 mt-3 flex max-w-full gap-2 overflow-x-auto scroll-smooth px-1 pb-2 md:hidden">
-                  {mobileGalleryPhotos.map((photo, idx) => {
-                    const active = heroSrc === photo;
+                <div className="scrollbar-none mx-4 mt-3 flex max-w-full gap-2 overflow-x-auto overflow-y-visible scroll-smooth px-1 pt-2 pb-2 md:hidden">
+                  {mobileGalleryItems.map((item, idx) => {
+                    const active = heroSrc === item.src;
                     const showOverflowCount =
-                      idx === mobileGalleryPhotos.length - 1 &&
+                      idx === mobileGalleryItems.length - 1 &&
                       mobileGalleryOverflowCount > 0;
                     return (
                       <button
-                        key={`${photo}-${idx}-mobile`}
+                        key={`${item.key}-${idx}-mobile`}
                         type="button"
-                        onClick={() => setHeroSrc(photo)}
-                        className={`relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border bg-white transition ${
-                          active ? "ring-2 ring-purple-500" : ""
-                        }`}
-                        style={{
-                          borderColor: active
-                            ? "rgba(110,52,255,0.45)"
-                            : "rgba(15,23,42,0.08)",
-                        }}
+                        onClick={() => setHeroSrc(item.src)}
+                        className={cn(
+                          "relative flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-white border transition md:h-20 md:w-20",
+                          active
+                            ? "border-purple-500 ring-2 ring-purple-200"
+                            : "border-gray-200"
+                        )}
                         aria-label={
                           showOverflowCount
                             ? `View photo ${idx + 1}, plus ${mobileGalleryOverflowCount} more`
                             : `View photo ${idx + 1}`
                         }
                       >
-                        <SafeImage
-                          src={photo}
-                          alt={`Listing photo ${idx + 1}`}
-                          className="object-cover"
-                          fill
-                          sizes="64px"
-                          useNextImage
-                          fallbackSrc={getListingCategoryPlaceholder(listing)}
-                        />
+                        <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-2xl bg-white p-1">
+                          <SafeImage
+                            src={item.src}
+                            alt={`Listing photo ${idx + 1}`}
+                            className="h-full w-full object-contain"
+                            width={80}
+                            height={80}
+                            sizes="(max-width: 767px) 64px, 80px"
+                            useNextImage
+                            fallbackSrc={getListingCategoryPlaceholder(listing)}
+                          />
+                        </span>
                         {showOverflowCount ? (
                           <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-sm font-semibold text-white">
                             +{mobileGalleryOverflowCount}
@@ -1145,12 +1183,14 @@ export default function ListingDetailsClient({
                   {formattedPrice ? (
                     <p className="text-xs opacity-65">Price before tax</p>
                   ) : null}
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className={`inline-flex items-center gap-1.5 font-medium ${availabilityTextClassName}`}>
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-neutral-500">
+                    <span className={`inline-flex items-center gap-1.5 ${availabilityTextClassName}`}>
                       <span className={`h-1.5 w-1.5 rounded-full ${availabilityDotClassName}`} />
                       {availabilityText}
                     </span>
-                    <span className="opacity-55">by</span>
+                    <span className="opacity-35" aria-hidden="true">
+                      ·
+                    </span>
                     {businessProfileHref ? (
                       <Link
                         href={businessProfileHref}
@@ -1159,12 +1199,12 @@ export default function ListingDetailsClient({
                             return;
                           }
                         }}
-                        className="font-medium text-slate-700 transition hover:text-slate-900 hover:underline hover:underline-offset-4"
+                        className="font-medium text-neutral-500 transition hover:text-slate-700 hover:underline hover:underline-offset-4"
                       >
                         {storeName}
                       </Link>
                     ) : (
-                      <span className="font-medium text-slate-700">{storeName}</span>
+                      <span className="font-medium text-neutral-500">{storeName}</span>
                     )}
                   </div>
                 </div>

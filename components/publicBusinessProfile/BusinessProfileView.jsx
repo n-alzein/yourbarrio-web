@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import PublicBusinessHero from "@/components/publicBusinessProfile/PublicBusinessHero";
 import BusinessAbout from "@/components/publicBusinessProfile/BusinessAbout";
 import BusinessAnnouncementsPreview from "@/components/publicBusinessProfile/BusinessAnnouncementsPreview";
@@ -46,8 +47,21 @@ export default function BusinessProfileView({
   heroVariant = "default",
   navClassName = "",
 }) {
+  const [contentVisible, setContentVisible] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setContentVisible(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [businessId, profile?.public_id, profile?.id]);
+
   return (
-    <>
+    <div
+      className={[
+        "transition-[opacity,transform] duration-200 ease-out",
+        loading ? "opacity-75" : contentVisible ? "opacity-100" : "opacity-0",
+      ].join(" ")}
+      data-testid="public-business-profile-content"
+    >
       <PublicBusinessHero
         profile={profile}
         ratingSummary={ratingSummary}
@@ -105,6 +119,6 @@ export default function BusinessProfileView({
           renderTileActions={galleryTileActions}
         />
       </div>
-    </>
+    </div>
   );
 }

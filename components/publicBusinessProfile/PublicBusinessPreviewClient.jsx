@@ -3,6 +3,7 @@
 import { useEffect, useReducer, useRef } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import BusinessProfileView from "@/components/publicBusinessProfile/BusinessProfileView";
+import PublicBusinessProfileSkeleton from "@/components/publicBusinessProfile/PublicBusinessProfileSkeleton";
 import {
   ProfilePageShell,
 } from "@/components/business/profile-system/ProfileSystem";
@@ -65,50 +66,6 @@ function sanitizePreviewPayload(payload) {
   };
 }
 
-function PreviewSkeleton({ withContainer = true }) {
-  const content = (
-    <>
-      <div className="rounded-[28px] border border-slate-200/80 bg-white/92 p-6 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.28)] md:p-8">
-        <div className="h-5 w-32 rounded bg-slate-200" />
-        <div className="mt-4 space-y-2">
-          <div className="h-4 w-full rounded bg-slate-200" />
-          <div className="h-4 w-5/6 rounded bg-slate-200" />
-          <div className="h-4 w-4/6 rounded bg-slate-200" />
-        </div>
-      </div>
-
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
-        <div className="rounded-[28px] border border-slate-200/80 bg-white/92 p-6 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.28)] md:p-8 space-y-4">
-          <div className="h-5 w-40 rounded bg-slate-200" />
-          <div className="h-20 w-full rounded bg-slate-200" />
-        </div>
-        <div className="rounded-[28px] border border-slate-200/80 bg-white/92 p-6 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.28)] md:p-8">
-          <div className="h-5 w-32 rounded bg-slate-200" />
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="h-28 rounded bg-slate-200" />
-            <div className="h-28 rounded bg-slate-200" />
-            <div className="h-28 rounded bg-slate-200" />
-            <div className="h-28 rounded bg-slate-200" />
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-[28px] border border-slate-200/80 bg-white/92 p-6 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.28)] md:p-8">
-        <div className="h-5 w-32 rounded bg-slate-200" />
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="h-40 rounded bg-slate-200" />
-          <div className="h-40 rounded bg-slate-200" />
-          <div className="h-40 rounded bg-slate-200" />
-        </div>
-      </div>
-    </>
-  );
-
-  if (!withContainer) return content;
-
-  return <div className="mt-6 space-y-8">{content}</div>;
-}
-
 export default function PublicBusinessPreviewClient({
   businessId,
   onReady,
@@ -122,6 +79,7 @@ export default function PublicBusinessPreviewClient({
     reviews: [],
     ratingSummary: EMPTY_SUMMARY,
     loading: true,
+    refreshing: false,
     error: null,
   };
 
@@ -137,6 +95,7 @@ export default function PublicBusinessPreviewClient({
         reviews: safePayload.reviews,
         ratingSummary: safePayload.ratingSummary,
         loading: false,
+        refreshing: false,
         error: null,
       };
     }
@@ -159,13 +118,15 @@ export default function PublicBusinessPreviewClient({
           reviews: safePayload.reviews,
           ratingSummary: safePayload.ratingSummary,
           loading: false,
+          refreshing: false,
           error: null,
         };
       }
       case "REQUEST":
         return {
           ...state,
-          loading: true,
+          loading: !action.preserve,
+          refreshing: Boolean(action.preserve),
           error: null,
         };
       case "SUCCESS":
@@ -179,6 +140,7 @@ export default function PublicBusinessPreviewClient({
           reviews: safePayload.reviews,
           ratingSummary: safePayload.ratingSummary,
           loading: false,
+          refreshing: false,
           error: null,
         };
       }
@@ -186,6 +148,7 @@ export default function PublicBusinessPreviewClient({
         return {
           ...state,
           loading: false,
+          refreshing: false,
           error: action.error || "preview-load-failed",
         };
       default:
@@ -194,7 +157,7 @@ export default function PublicBusinessPreviewClient({
   };
 
   const [state, dispatch] = useReducer(reducer, businessId, initState);
-  const { profile, announcements, gallery, listings, reviews, ratingSummary, loading } =
+  const { profile, announcements, gallery, listings, reviews, ratingSummary, loading, refreshing } =
     state;
   const viewTrackedRef = useRef(false);
 
@@ -229,7 +192,8 @@ export default function PublicBusinessPreviewClient({
       if (!businessId) return;
       const client = getSupabaseBrowserClient();
       if (!client) return;
-      dispatch({ type: "REQUEST" });
+      const cached = readPreviewCache(businessId);
+      dispatch({ type: "REQUEST", preserve: Boolean(cached?.profile) });
 
       const profileQuery = client
         .from("businesses")
@@ -272,7 +236,7 @@ export default function PublicBusinessPreviewClient({
         .from("business_reviews")
         .select("rating")
         .eq("business_id", businessId);
-      const reviewsWithAuthors = await fetchBusinessReviews(client, {
+      const reviewsPromise = fetchBusinessReviews(client, {
         businessId,
         limit: 10,
       });
@@ -283,12 +247,14 @@ export default function PublicBusinessPreviewClient({
         galleryResult,
         listingsResult,
         ratingsResult,
+        reviewsWithAuthors,
       ] = await Promise.all([
         profileQuery,
         announcementsQuery,
         galleryQuery,
         listingsQuery,
         ratingsQuery,
+        reviewsPromise,
       ]);
 
       console.log("[public business] reviews load", {
@@ -322,6 +288,28 @@ export default function PublicBusinessPreviewClient({
             : EMPTY_SUMMARY,
         },
       });
+      if (typeof window !== "undefined" && safeProfile) {
+        try {
+          sessionStorage.setItem(
+            `yb_public_preview_${businessId}`,
+            JSON.stringify({
+              businessId,
+              profile: safeProfile,
+              announcements: sanitizeAnnouncements(announcementsResult?.data),
+              gallery: sanitizeGalleryPhotos(galleryResult?.data),
+              listings: sanitizeListings(
+                (listingsResult?.data || []).map((listing) => withListingPricing(listing))
+              ),
+              reviews: sanitizeReviews(reviewsWithAuthors),
+              ratingSummary: ratingsResult?.data
+                ? buildRatingSummary(ratingsResult.data)
+                : EMPTY_SUMMARY,
+            })
+          );
+        } catch {
+          // ignore cache errors
+        }
+      }
     }
 
     load().catch((err) => {
@@ -345,30 +333,41 @@ export default function PublicBusinessPreviewClient({
   if (!profile) {
     return (
       <ProfilePageShell>
-        <PreviewSkeleton />
+        <PublicBusinessProfileSkeleton withinProfileShell />
       </ProfilePageShell>
     );
   }
 
   return (
     <ProfilePageShell>
-      {loading ? (
-        <PreviewSkeleton />
-      ) : (
-        <BusinessProfileView
-          mode="public"
-          profile={profile}
-          businessId={businessId}
-          publicPath={getBusinessPublicUrl(profile || { id: businessId })}
-          ratingSummary={ratingSummary}
-          listings={listings}
-          reviews={reviews}
-          announcements={announcements}
-          gallery={gallery}
-          loading={loading}
-          sectionClassName="rounded-none"
-          reviewsClassName="rounded-none"
-        />
+      {loading ? null : (
+        <div className="relative">
+          {refreshing ? (
+            <div className="pointer-events-none absolute right-0 top-0 z-20">
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/92 px-3 py-1 text-[11px] font-medium text-slate-500 shadow-sm ring-1 ring-slate-100"
+                data-testid="public-business-profile-refresh-indicator"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                Refreshing profile
+              </span>
+            </div>
+          ) : null}
+          <BusinessProfileView
+            mode="public"
+            profile={profile}
+            businessId={businessId}
+            publicPath={getBusinessPublicUrl(profile || { id: businessId })}
+            ratingSummary={ratingSummary}
+            listings={listings}
+            reviews={reviews}
+            announcements={announcements}
+            gallery={gallery}
+            loading={refreshing}
+            sectionClassName="rounded-none"
+            reviewsClassName="rounded-none"
+          />
+        </div>
       )}
     </ProfilePageShell>
   );

@@ -17,6 +17,7 @@ type ListingsToolbarProps = {
   categoryOptions: SelectOption[];
   sortOptions: SelectOption[];
   activeFilterCount?: number;
+  loading?: boolean;
 };
 
 function SelectControl({
@@ -206,6 +207,7 @@ export default function ListingsToolbar({
   categoryOptions,
   sortOptions,
   activeFilterCount = 0,
+  loading = false,
 }: ListingsToolbarProps) {
   return (
     <div className="w-full min-w-0 pb-1">
@@ -236,6 +238,13 @@ export default function ListingsToolbar({
             <span className="min-w-0 truncate whitespace-nowrap">
               {activeFilterCount > 0 ? `Filters (${activeFilterCount})` : "Filters"}
             </span>
+            {loading ? (
+              <span
+                className="ml-auto inline-flex h-2 w-2 shrink-0 rounded-full bg-slate-300"
+                aria-hidden="true"
+                data-testid="listings-toolbar-loading-indicator"
+              />
+            ) : null}
           </button>
         </div>
       </div>

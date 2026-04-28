@@ -13,7 +13,10 @@ import {
 } from "@/lib/listings/browseCategories";
 import { getLocationCacheKey } from "@/lib/location";
 import { installNetTrace } from "@/lib/netTrace";
-import ListingMarketplaceCard from "./components/ListingMarketplaceCard";
+import ListingMarketplaceCard, {
+  LISTING_MARKETPLACE_GRID_CLASS,
+} from "./components/ListingMarketplaceCard";
+import ListingMarketplaceCardSkeleton from "./components/ListingMarketplaceCardSkeleton";
 import ListingsToolbar from "./components/ListingsToolbar";
 import type { ListingItem } from "./types";
 
@@ -69,24 +72,11 @@ function getResultErrorMessage(error: unknown) {
   return null;
 }
 
-function LoadingGridSkeleton() {
+export function LoadingGridSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5">
+    <div className={LISTING_MARKETPLACE_GRID_CLASS} data-testid="listings-loading-grid">
       {Array.from({ length: 18 }).map((_, index) => (
-        <div
-          key={index}
-          className="overflow-hidden rounded-[20px] border border-black/5 bg-white shadow-[0_12px_32px_-30px_rgba(15,23,42,0.22)]"
-        >
-          <div className="aspect-[4/3] animate-pulse bg-white" />
-          <div className="grid min-h-[96px] grid-rows-[auto_minmax(2.3rem,2.3rem)_auto] gap-1 px-3 pb-3 pt-2.5">
-            <div className="h-4 w-20 rounded-full bg-slate-200/70" />
-            <div className="space-y-1">
-              <div className="h-4 w-full rounded-full bg-slate-200/70" />
-              <div className="h-4 w-4/5 rounded-full bg-slate-200/70" />
-            </div>
-            <div className="h-3.5 w-2/3 self-end rounded-full bg-slate-100" />
-          </div>
-        </div>
+        <ListingMarketplaceCardSkeleton key={index} />
       ))}
     </div>
   );
@@ -244,6 +234,7 @@ export default function ListingsClient() {
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [loadError, setLoadError] = useState<{ message?: string } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [sortBy, setSortBy] = useState("recommended");
   const [priceFilter, setPriceFilter] = useState("all");
@@ -266,6 +257,14 @@ export default function ListingsClient() {
   const marketCity = String(location?.city || "").trim() || "Long Beach";
   const didInitTraceRef = useRef(false);
   const loggedErrorRef = useRef<string | null>(null);
+  const displayKeyRef = useRef<string | null>(null);
+  const [displayKey, setDisplayKey] = useState<string | null>(null);
+  const [resultsVisible, setResultsVisible] = useState(false);
+
+  function commitDisplayKey(nextKey: string | null) {
+    displayKeyRef.current = nextKey;
+    setDisplayKey(nextKey);
+  }
 
   const sortedListings = useMemo(
     () => sortListingsByAvailability(Array.isArray(listings) ? listings : []),
@@ -401,6 +400,8 @@ export default function ListingsClient() {
         setListings(parsed);
         setHasLoaded(true);
         setLoading(false);
+        setRefreshing(false);
+        commitDisplayKey(cacheKey);
       }
     } catch {
       // ignore cache errors
@@ -419,6 +420,8 @@ export default function ListingsClient() {
       setLoadError(null);
       setHasLoaded(true);
       setLoading(false);
+      setRefreshing(false);
+      commitDisplayKey(null);
       if (process.env.NODE_ENV !== "production") {
         console.info("[listings] invalid category param", { rawCategory });
       }
@@ -430,6 +433,8 @@ export default function ListingsClient() {
       setLoadError(null);
       setHasLoaded(true);
       setLoading(false);
+      setRefreshing(false);
+      commitDisplayKey(null);
       return undefined;
     }
 
@@ -463,7 +468,9 @@ export default function ListingsClient() {
     }
 
     async function load() {
-      setLoading((prev) => (hasLoaded ? prev : true));
+      const canRefreshInPlace = displayKeyRef.current === cacheKey;
+      setLoading(!canRefreshInPlace);
+      setRefreshing(canRefreshInPlace);
       setLoadError(null);
       try {
         const result = await getListingsSafe({ signal: controller.signal });
@@ -487,12 +494,16 @@ export default function ListingsClient() {
           setLoadError({
             message: errorMessage,
           });
-          setListings([]);
+          if (!canRefreshInPlace) {
+            setListings([]);
+            commitDisplayKey(null);
+          }
           return;
         }
         const next = result.data;
         setListings(next);
         setHasLoaded(true);
+        commitDisplayKey(cacheKey);
         if (typeof window !== "undefined") {
           try {
             sessionStorage.setItem(cacheKey, JSON.stringify(next));
@@ -502,9 +513,15 @@ export default function ListingsClient() {
         }
       } catch (error) {
         console.error("Failed to load listings", error);
-        if (active) setListings([]);
+        if (active && !canRefreshInPlace) {
+          setListings([]);
+          commitDisplayKey(null);
+        }
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     }
 
@@ -514,6 +531,15 @@ export default function ListingsClient() {
       controller.abort();
     };
   }, [cacheKey, category, hasLoaded, hasLocation, invalidCategory, rawCategory, retryKey, searchTerm]);
+
+  useEffect(() => {
+    if (loading || loadError || showLocationEmpty || displayKey !== cacheKey) {
+      setResultsVisible(false);
+      return undefined;
+    }
+    const frame = window.requestAnimationFrame(() => setResultsVisible(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [cacheKey, displayKey, filteredListings, loadError, loading, showLocationEmpty]);
 
   function updateQueryParam(key: string, value: string | null) {
     const next = new URLSearchParams(searchParams.toString());
@@ -555,6 +581,7 @@ export default function ListingsClient() {
                 categoryOptions={CATEGORY_OPTIONS}
                 sortOptions={SORT_OPTIONS}
                 activeFilterCount={activeFilterCount}
+                loading={refreshing}
               />
             </div>
           </section>
@@ -580,11 +607,17 @@ export default function ListingsClient() {
           {!showLocationEmpty && !loadError ? (
             <>
               <div className="mt-2.5 border-t border-black/6 sm:mt-3" />
-              <div className="pb-1 pt-2 sm:pb-2 sm:pt-3">
+              <div className="flex min-h-8 items-center gap-2 pb-1 pt-2 sm:pb-2 sm:pt-3">
                 {!loading ? (
                   <p className="text-sm text-slate-400">
                     {filteredListings.length} {filteredListings.length === 1 ? "listing" : "listings"}
                   </p>
+                ) : null}
+                {refreshing ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
+                    <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                    Refreshing
+                  </span>
                 ) : null}
               </div>
             </>
@@ -601,8 +634,17 @@ export default function ListingsClient() {
           <div className="pt-0.5 sm:pt-1">
             {loading && !showLocationEmpty && !loadError ? <LoadingGridSkeleton /> : null}
 
-            {!loading && !loadError && !showLocationEmpty ? (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5">
+            {!loading && !loadError && !showLocationEmpty && displayKey === cacheKey ? (
+              <div
+                className={[
+                  LISTING_MARKETPLACE_GRID_CLASS,
+                  "transition-opacity duration-200 ease-out",
+                  refreshing ? "opacity-70" : "",
+                  resultsVisible ? "opacity-100" : "opacity-0",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
                 {filteredListings.map((listing, index) => (
                   <ListingMarketplaceCard
                     key={listing.public_id || listing.id || `${listing.title}-${index}`}

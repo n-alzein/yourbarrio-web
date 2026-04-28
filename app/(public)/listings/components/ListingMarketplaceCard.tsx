@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ShoppingCart } from "lucide-react";
+import { Heart, ShoppingCart } from "lucide-react";
 import SafeImage from "@/components/SafeImage";
 import { useCart } from "@/components/cart/CartProvider";
 import { resolveListingCoverImageUrl } from "@/lib/listingPhotos";
@@ -10,7 +11,30 @@ import { getListingUrl } from "@/lib/ids/publicRefs";
 import { normalizeInventory } from "@/lib/inventory";
 import { calculateListingPricing } from "@/lib/pricing";
 import { getSeededListingBadgeLabel, isSeededListing } from "@/lib/seededListings";
+import { getListingCategoryLabel } from "@/lib/taxonomy/compat";
 import type { ListingItem } from "../types";
+
+export const LISTING_MARKETPLACE_GRID_CLASS =
+  "grid grid-cols-2 gap-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5";
+export const LISTING_MARKETPLACE_CARD_CLASS =
+  "group flex h-full min-w-0 flex-col rounded-xl border border-slate-100 bg-white transition duration-200 ease-out hover:shadow-sm";
+export const LISTING_MARKETPLACE_IMAGE_FRAME_CLASS =
+  "relative flex h-[140px] items-center justify-center overflow-hidden md:h-[180px]";
+export const LISTING_MARKETPLACE_IMAGE_CLASS =
+  "h-full w-full object-contain object-center px-[8%] py-[7%] transition duration-300 ease-out group-hover:scale-[1.02]";
+export const LISTING_MARKETPLACE_CONTENT_CLASS = "px-3 pb-3 pt-2.5";
+export const LISTING_MARKETPLACE_CTA_WRAPPER_CLASS =
+  "px-3 pb-3 pt-0.5 transition-all duration-200 md:translate-y-1 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 md:group-focus-within:translate-y-0 md:group-focus-within:opacity-100";
+
+function getAvailabilityText(label: string) {
+  const normalized = String(label || "").trim().toLowerCase();
+  if (!normalized) return "Availability varies";
+  if (normalized.includes("out")) return "Sold out";
+  if (normalized.includes("low")) return "Low stock";
+  if (normalized.includes("pre")) return "Preorder";
+  if (normalized.includes("available")) return "Available";
+  return label;
+}
 
 function formatPrice(value: ListingItem["price"]) {
   if (value === null || value === undefined || value === "") return "Price TBD";
@@ -35,13 +59,32 @@ function formatPriceCents(value: number) {
   return formatPrice(value / 100);
 }
 
+function listingNeedsDetailsBeforeCart(listing: ListingItem & Record<string, unknown>) {
+  return Boolean(
+    listing?.hasOptions ||
+      listing?.has_options ||
+      listing?.options_enabled ||
+      listing?.requires_options ||
+      listing?.requiresOptions
+  );
+}
+
 export default function ListingMarketplaceCard({
   listing,
   fallbackLocationLabel,
+  variant = "default",
+  isSaved = false,
+  saveLoading = false,
+  onToggleSave,
 }: {
   listing: ListingItem;
   fallbackLocationLabel: string;
+  variant?: "default" | "saved";
+  isSaved?: boolean;
+  saveLoading?: boolean;
+  onToggleSave?: ((listing: ListingItem) => void) | null;
 }) {
+  const router = useRouter();
   const { addItem } = useCart();
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
@@ -51,11 +94,25 @@ export default function ListingMarketplaceCard({
   const businessName = String(listing?.business_name || "").trim();
   const listingHref = getListingUrl(listing);
   const displayPriceCents = getDisplayPriceCents(listing);
+  const isSavedVariant = variant === "saved";
+  const needsDetailsBeforeCart = listingNeedsDetailsBeforeCart(listing as ListingItem & Record<string, unknown>);
   void fallbackLocationLabel;
-  const addToCartLabel = seeded ? "Coming soon" : adding ? "Adding..." : added ? "Added" : "Add to cart";
+  const addToCartLabel = seeded
+    ? "Coming soon"
+    : needsDetailsBeforeCart && isSavedVariant
+      ? "Select options"
+      : adding
+        ? "Adding..."
+        : added
+          ? "Added"
+          : "Add to cart";
 
   const handleAddToCart = async () => {
     if (!listing?.id || isOutOfStock || seeded || adding) return;
+    if (needsDetailsBeforeCart && isSavedVariant) {
+      router.push(listingHref);
+      return;
+    }
     setAdding(true);
     setAdded(false);
     const result = await addItem({
@@ -74,30 +131,71 @@ export default function ListingMarketplaceCard({
     }
   };
 
+  const handleToggleSave = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onToggleSave?.(listing);
+  };
+
   return (
-    <div className="group flex h-full min-w-0 flex-col rounded-xl border border-slate-100 bg-white transition duration-200 ease-out hover:shadow-sm">
+    <div
+      className={
+        isSavedVariant
+          ? "group relative flex h-full min-w-0 flex-col rounded-xl border border-slate-100 bg-white transition duration-200 ease-out hover:shadow-sm"
+          : LISTING_MARKETPLACE_CARD_CLASS
+      }
+    >
+      {isSavedVariant && onToggleSave ? (
+        <button
+          type="button"
+          onClick={handleToggleSave}
+          disabled={saveLoading}
+          className={`absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/70 bg-white/80 text-slate-600 shadow-sm backdrop-blur-sm transition hover:border-rose-200 hover:text-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70 disabled:cursor-wait disabled:opacity-70 ${
+            isSaved ? "opacity-100" : "opacity-80"
+          }`}
+          aria-pressed={isSaved}
+          aria-label={isSaved ? "Unsave listing" : "Save listing"}
+          title={isSaved ? "Unsave listing" : "Save listing"}
+        >
+          <Heart
+            className={`h-[18px] w-[18px] ${isSaved ? "text-rose-500" : ""}`}
+            fill={isSaved ? "currentColor" : "none"}
+            aria-hidden="true"
+          />
+        </button>
+      ) : null}
       <Link
         href={listingHref}
         className="flex min-h-0 flex-1 flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8c73bb59] focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf6f0]"
         prefetch={false}
       >
-        <div className="relative flex h-[140px] items-center justify-center overflow-hidden md:h-[180px]">
+        <div
+          className={
+            isSavedVariant
+              ? "relative flex h-[140px] items-center justify-center overflow-hidden bg-white md:h-[180px]"
+              : LISTING_MARKETPLACE_IMAGE_FRAME_CLASS
+          }
+        >
           <SafeImage
             src={resolveListingCoverImageUrl(listing)}
             alt={listing.title || "Listing photo"}
-            className="h-full w-full object-contain object-center px-[8%] py-[7%] transition duration-300 ease-out group-hover:scale-[1.02]"
+            className={
+              isSavedVariant
+                ? "h-full w-full object-contain object-center transition duration-300 ease-out group-hover:scale-[1.02]"
+                : LISTING_MARKETPLACE_IMAGE_CLASS
+            }
             sizes="(max-width: 767px) 50vw, (max-width: 1023px) 25vw, (max-width: 1439px) 20vw, 19vw"
             onError={() => {}}
             onLoad={() => {}}
           />
-          {seeded ? (
+          {seeded && !isSavedVariant ? (
             <span className="absolute left-2.5 top-2.5 inline-flex items-center rounded-full border border-slate-300 bg-white/92 px-2.5 py-1 text-[11px] font-medium text-slate-600">
               {getSeededListingBadgeLabel(listing)}
             </span>
           ) : null}
         </div>
 
-        <div className="px-3 pb-3 pt-2.5">
+        <div className={isSavedVariant ? "px-3 pb-3 pt-2.5" : LISTING_MARKETPLACE_CONTENT_CLASS}>
           <div className="space-y-0">
             <p className="whitespace-nowrap text-[15px] font-semibold tracking-[-0.02em] text-slate-950 md:text-base">
               {displayPriceCents > 0 ? formatPriceCents(displayPriceCents) : formatPrice(listing.price)}
@@ -110,11 +208,27 @@ export default function ListingMarketplaceCard({
                 {businessName}
               </p>
             ) : null}
+            {isSavedVariant ? (
+              <>
+                <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
+                  {getListingCategoryLabel(listing, "Listing")}
+                </p>
+                <p className="mt-2 text-xs font-medium text-slate-500">
+                  {getAvailabilityText(inventory.label)}
+                </p>
+              </>
+            ) : null}
           </div>
         </div>
       </Link>
 
-      <div className="px-3 pb-3 pt-0.5 transition-all duration-200 md:translate-y-1 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 md:group-focus-within:translate-y-0 md:group-focus-within:opacity-100">
+      <div
+        className={
+          isSavedVariant
+            ? "px-3 pb-3 pt-0.5"
+            : LISTING_MARKETPLACE_CTA_WRAPPER_CLASS
+        }
+      >
         <button
           type="button"
           onClick={handleAddToCart}

@@ -14,7 +14,7 @@ describe("getPickupAvailabilityLabel", () => {
       },
     });
 
-    expect(label).toBe("Available today until 6 PM");
+    expect(label).toBe("Pickup today until 6 PM");
   });
 
   it("returns available tomorrow when closed now and the next opening is tomorrow", () => {
@@ -28,7 +28,7 @@ describe("getPickupAvailabilityLabel", () => {
       },
     });
 
-    expect(label).toBe("Available tomorrow");
+    expect(label).toBe("Pickup tomorrow");
   });
 
   it("returns the next weekday when the next opening is later than tomorrow", () => {
@@ -44,7 +44,7 @@ describe("getPickupAvailabilityLabel", () => {
       },
     });
 
-    expect(label).toBe("Available Monday");
+    expect(label).toBe("Pickup Monday");
   });
 
   it("falls back to shop-confirmed copy when hours are missing", () => {
@@ -81,7 +81,7 @@ describe("getPickupAvailabilityLabel", () => {
       },
     });
 
-    expect(label).toBe("Available today until 2 AM");
+    expect(label).toBe("Pickup today until 2 AM");
   });
 
   it("falls back when hours are malformed", () => {

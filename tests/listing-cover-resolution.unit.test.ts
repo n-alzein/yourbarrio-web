@@ -124,6 +124,32 @@ describe("listing cover resolution", () => {
     expect(media.images).toHaveLength(2);
   });
 
+  it("prefers explicit original or enhanced asset URLs over a generic image.url when present", () => {
+    const media = resolveListingMedia({
+      images: [
+        {
+          id: "photo-1",
+          url: "https://example.com/cropped-square.jpg",
+          original: { url: "https://example.com/full-original.jpg" },
+          is_cover: true,
+        },
+        {
+          id: "photo-2",
+          url: "https://example.com/cropped-enhanced-square.jpg",
+          original: { url: "https://example.com/full-original-2.jpg" },
+          enhanced: { url: "https://example.com/full-enhanced-2.jpg" },
+          selectedVariant: "enhanced",
+        },
+      ],
+    });
+
+    expect(media.coverImageUrl).toBe("https://example.com/full-original.jpg");
+    expect(media.images.map((image) => image.url)).toEqual([
+      "https://example.com/full-original.jpg",
+      "https://example.com/full-enhanced-2.jpg",
+    ]);
+  });
+
   it("supports draft photo arrays under the photos field used by some editor-shaped payloads", () => {
     const media = resolveListingMedia({
       photo_url: JSON.stringify(["https://example.com/base.jpg"]),
