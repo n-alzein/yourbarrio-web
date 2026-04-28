@@ -168,7 +168,7 @@ export default async function BusinessHome() {
       <BusinessHeroHeader />
       <div className="h-[74px]" aria-hidden="true" />
 
-      <main className="relative overflow-hidden bg-[linear-gradient(180deg,#fcfbf9_0%,#f8f3ec_42%,#ffffff_100%)] text-slate-900">
+      <main className="yb-business-marketing relative overflow-hidden bg-[linear-gradient(180deg,#fcfbf9_0%,#f8f3ec_42%,#ffffff_100%)] text-slate-900">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[18rem] bg-[radial-gradient(circle_at_top_left,rgba(124,58,237,0.06),transparent_38%)]" />
 
         <section className="relative px-6 pb-14 pt-12 md:px-8 md:pb-16 md:pt-16">
@@ -187,7 +187,7 @@ export default async function BusinessHome() {
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                 <BusinessAuthPopupLink
                   href="/business-auth/register"
-                  className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#8b33ea)] px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_-18px_rgba(124,58,237,0.34)] yb-business-polish-transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_-22px_rgba(124,58,237,0.42)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed] focus-visible:ring-offset-2"
+                  className="yb-auth-cta inline-flex min-h-12 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#8b33ea)] px-6 py-3 text-sm font-semibold text-white hover:bg-[linear-gradient(135deg,#6d28d9,#7e22ce)] hover:text-white active:bg-[linear-gradient(135deg,#5b21b6,#6b21a8)] active:text-white shadow-[0_10px_24px_-18px_rgba(124,58,237,0.34)] yb-business-polish-transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_-22px_rgba(124,58,237,0.42)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed] focus-visible:ring-offset-2"
                 >
                   Create a business account
                 </BusinessAuthPopupLink>
@@ -245,7 +245,7 @@ export default async function BusinessHome() {
             <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
               <BusinessAuthPopupLink
                 href="/business-auth/register"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#7c3aed,#9333ea)] px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_34px_-16px_rgba(124,58,237,0.34)] yb-business-polish-transition hover:-translate-y-0.5 hover:shadow-[0_20px_40px_-20px_rgba(124,58,237,0.38)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed] focus-visible:ring-offset-2"
+                className="yb-auth-cta inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#7c3aed,#9333ea)] px-6 py-3 text-sm font-semibold text-white hover:bg-[linear-gradient(135deg,#6d28d9,#7e22ce)] hover:text-white active:bg-[linear-gradient(135deg,#5b21b6,#6b21a8)] active:text-white shadow-[0_14px_34px_-16px_rgba(124,58,237,0.34)] yb-business-polish-transition hover:-translate-y-0.5 hover:shadow-[0_20px_40px_-20px_rgba(124,58,237,0.38)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed] focus-visible:ring-offset-2"
               >
                 Get started <ArrowRight className="h-4 w-4" />
               </BusinessAuthPopupLink>

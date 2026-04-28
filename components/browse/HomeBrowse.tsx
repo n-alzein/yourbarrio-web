@@ -12,7 +12,7 @@ export default async function HomeBrowse({ mode, initialData }: HomeBrowseProps)
   return (
     <>
       <div className="relative z-10 mt-0 md:-mt-12">
-        <HeroBanner hero={homeHeroConfig} priority />
+        <HeroBanner hero={homeHeroConfig} city={initialData.city || null} priority />
       </div>
 
       <CustomerHomeClient

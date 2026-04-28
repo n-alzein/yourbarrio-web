@@ -80,7 +80,35 @@ const DateRangeControls = ({
             <p className="text-[0.66rem] font-semibold uppercase tracking-[0.16em] text-slate-400/90">
               Business dashboard
             </p>
-            <div className="mt-6 flex items-start gap-4 sm:gap-5">
+            <div className="mt-6 sm:hidden">
+              <div className="flex flex-row items-center gap-3">
+                <SafeAvatar
+                  src={businessAvatarUrl || ""}
+                  businessName={displayName}
+                  shape="rounded-square"
+                  identityType="business"
+                  alt={`${displayName} profile image`}
+                  className="h-12 w-12 min-h-12 min-w-12 shrink-0 overflow-hidden border border-gray-100 bg-gray-200 object-cover object-center shadow-sm ring-1 ring-gray-300"
+                  initialsClassName="text-[0.9rem]"
+                  width={48}
+                  height={48}
+                />
+                <h1 className="min-w-0 leading-tight text-[2rem] font-semibold tracking-[-0.055em] text-slate-950">
+                  <span className="block">{displayName}</span>
+                </h1>
+              </div>
+              <p className="mt-3.5 max-w-2xl text-sm leading-6 text-slate-600">
+                A clear view of what to do next across products, traffic, and orders.
+              </p>
+              {setupComplete ? (
+                <div className="mt-3 inline-flex items-center gap-2 text-[0.78rem] text-slate-400">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
+                  <span>All setup steps completed</span>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-6 hidden items-start gap-5 sm:flex">
               <SafeAvatar
                 src={businessAvatarUrl || ""}
                 businessName={displayName}
