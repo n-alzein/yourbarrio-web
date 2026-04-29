@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 
@@ -21,7 +21,7 @@ export default function SearchCategoryDropdown({
   const [activeIndex, setActiveIndex] = useState(selectedIndex);
   const buttonRef = useRef(null);
   const optionRefs = useRef([]);
-  const listboxId = useId();
+  const listboxId = id ? `${id}-listbox` : "search-category-listbox";
 
   useEffect(() => {
     setActiveIndex(selectedIndex);

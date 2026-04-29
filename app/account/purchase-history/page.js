@@ -47,12 +47,14 @@ export default async function PurchaseHistoryPage({ searchParams }) {
   const error = result.error;
 
   return (
-    <div className="min-h-screen px-4 md:px-8 lg:px-12 pt-1 pb-12" style={{ background: "var(--background)", color: "var(--text)" }}>
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="space-y-2">
+    <div className="min-h-screen -mt-16 px-4 pb-12 md:-mt-10 md:px-8 lg:px-12" style={{ background: "var(--background)", color: "var(--text)" }}>
+      <div className="mx-auto max-w-5xl space-y-7">
+        <div className="space-y-2.5">
           <p className="text-xs uppercase tracking-[0.2em] opacity-70">Orders</p>
           <h1 className="text-3xl font-semibold">Purchase History</h1>
-          <div className="h-4" />
+          <p className="text-sm opacity-70">
+            Review completed orders in a cleaner running history.
+          </p>
         </div>
 
         <AccountNavTabs active="history" variant="history" />

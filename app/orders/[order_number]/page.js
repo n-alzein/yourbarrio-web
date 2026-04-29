@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/auth/server";
 import { getEntityIdSearchVariants } from "@/lib/entityIds";
-import { formatOrderPurchaseDateTime } from "@/lib/orders";
+import { formatOrderDateTime, formatOrderPurchaseDateTime } from "@/lib/orders";
 import { reconcilePendingStripeOrders } from "@/lib/orders/persistence";
 import { getSupabaseServerClient as getServiceClient } from "@/lib/supabase/server";
 import OrderReceiptClient from "./OrderReceiptClient";
@@ -12,6 +12,14 @@ function buildOrderLookupClause(orderRef) {
   return getEntityIdSearchVariants("order", orderRef)
     .map((variant) => `order_number.ilike.${variant}`)
     .join(",");
+}
+
+function isTruthyParam(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") return false;
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === "true" || normalized === "1" || normalized === "yes";
 }
 
 export default async function OrderPage({ params, searchParams }) {
@@ -31,6 +39,10 @@ export default async function OrderPage({ params, searchParams }) {
     typeof resolvedSearchParams?.checkout_session_id === "string"
       ? resolvedSearchParams.checkout_session_id.trim()
       : "";
+  const arrivedFromCheckout =
+    checkoutSessionId.length > 0 ||
+    resolvedSearchParams?.from === "checkout" ||
+    isTruthyParam(resolvedSearchParams?.success);
   const { supabase, user } = await requireRole("customer");
   const userId = user?.id || "";
 
@@ -109,6 +121,8 @@ export default async function OrderPage({ params, searchParams }) {
       order={order}
       vendor={vendor}
       purchasedAtLabel={formatOrderPurchaseDateTime(order)}
+      statusTimestampLabel={formatOrderDateTime(order.updated_at || order.created_at)}
+      mode={arrivedFromCheckout ? "checkout" : "details"}
     />
   );
 }

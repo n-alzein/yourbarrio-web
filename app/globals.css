@@ -660,7 +660,10 @@ button {
 }
 
 .yb-navbar.yb-navbar-bordered[data-nav-sticky="1"] {
-  position: sticky;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
 }
 
 body:has(nav[data-nav-sticky="1"]),

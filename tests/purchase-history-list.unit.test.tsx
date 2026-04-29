@@ -52,7 +52,7 @@ describe("PurchaseHistoryList", () => {
     const image = container.querySelector("img");
     expect(image).toHaveAttribute("src", "https://example.com/main-listing.jpg");
     expect(image).toHaveAttribute("loading", "lazy");
-    expect(image).toHaveClass("h-16", "w-16", "rounded-xl", "object-cover");
+    expect(image).toHaveClass("h-14", "w-14", "rounded-xl", "object-cover");
   });
 
   it("keeps attention statuses visible without a large fulfilled badge", () => {
@@ -79,7 +79,7 @@ describe("PurchaseHistoryList", () => {
       />
     );
 
-    expect(screen.getByText("Payment failed")).toHaveClass("text-xs", "font-medium", "opacity-70");
+    expect(screen.getByText("Payment failed")).toHaveClass("text-xs", "font-medium", "text-slate-500");
     expect(container.querySelector("img")).toHaveAttribute("src", "https://example.com/first-photo.jpg");
   });
 
@@ -102,7 +102,7 @@ describe("PurchaseHistoryList", () => {
     );
 
     expect(container.querySelector("img")).not.toBeInTheDocument();
-    expect(container.querySelector(".h-16.w-16.rounded-xl")).toBeInTheDocument();
+    expect(container.querySelector(".h-14.w-14.rounded-xl")).toBeInTheDocument();
   });
 
   it("shows a compact multi-image preview with overflow count for multi-item orders", () => {

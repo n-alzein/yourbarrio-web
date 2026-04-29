@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import GlobalHeader from "@/components/nav/GlobalHeader";
+import CustomerRouteShell from "@/components/layout/CustomerRouteShell";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -10,7 +11,9 @@ export default function CartLayout({ children }) {
       <Suspense fallback={null}>
         <GlobalHeader surface="customer" />
       </Suspense>
-      <div className="pt-28 md:pt-20 min-h-screen">{children}</div>
+      <CustomerRouteShell>
+        <div className="min-h-screen pt-[2.25rem] md:pt-[2.5rem]">{children}</div>
+      </CustomerRouteShell>
     </>
   );
 }

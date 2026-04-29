@@ -689,7 +689,7 @@ export default function NearbyBusinessesClient() {
   const controlClassName =
     "h-11 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-normal text-slate-950 placeholder:text-slate-400 focus:border-violet-300/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70";
   const controls = (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <div className="flex flex-col gap-0.5">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-violet-700">
@@ -703,13 +703,10 @@ export default function NearbyBusinessesClient() {
               &nbsp;· {filteredBusinesses.length} businesses
             </span>
           </div>
-          <p className="mt-2 text-sm text-slate-600">
-            Browse shops first. Use the map whenever you want to explore by area.
-          </p>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-col gap-2.5 lg:grid lg:grid-cols-[minmax(260px,1fr)_210px_180px_auto_auto] lg:items-center">
+      <div className="mt-2 flex flex-col gap-2.5 lg:grid lg:grid-cols-[minmax(260px,1fr)_210px_180px_auto_auto] lg:items-center">
         <label className="block w-full min-w-0">
           <span className="sr-only">Search nearby businesses</span>
           <input

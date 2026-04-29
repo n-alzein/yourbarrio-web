@@ -24,14 +24,17 @@ function MultiItemThumbnailPreview({ order }) {
   const lastIndex = items.length - 1;
 
   return (
-    <div className="flex h-16 w-[6.75rem] shrink-0 items-center" aria-hidden="true">
+    <div
+      className="flex h-14 w-[7.5rem] shrink-0 items-center sm:h-16 sm:w-[6.75rem]"
+      aria-hidden="true"
+    >
       {items.map((item, index) => {
         const showOverflow = overflowCount > 0 && index === lastIndex;
 
         return (
           <div
             key={item.key}
-            className={`relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border bg-white ${index > 0 ? "-ml-3" : ""}`}
+            className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border bg-white sm:h-11 sm:w-11 ${index > 0 ? "-ml-3" : ""}`}
             style={{ borderColor: "var(--border)" }}
           >
             {item.url ? (
@@ -66,7 +69,7 @@ function SubtleStatus({ status }) {
   if (!status || status === "fulfilled") return null;
 
   return (
-    <span className="text-xs font-medium opacity-70">
+    <span className="text-xs font-medium text-slate-500">
       {getOrderStatusLabel(status)}
     </span>
   );
@@ -76,20 +79,20 @@ export default function PurchaseHistoryList({ orders }) {
   const groups = groupOrdersByPurchaseDate(orders || []);
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-8">
       {groups.map((group) => (
-        <section key={group.key} className="space-y-2.5 first:mt-0 mt-8" aria-labelledby={`purchase-date-${group.key}`}>
+        <section key={group.key} className="space-y-3 first:mt-0" aria-labelledby={`purchase-date-${group.key}`}>
           <div className="flex items-center gap-3">
             <h2
               id={`purchase-date-${group.key}`}
-              className="text-xs font-semibold uppercase tracking-[0.18em] opacity-60"
+              className="text-[11px] font-medium text-slate-500"
             >
               {group.label}
             </h2>
             <div className="h-px flex-1" style={{ background: "var(--border)" }} />
           </div>
 
-          <div className="flex flex-col gap-3.5">
+          <div>
             {group.orders.map((order) => {
               const vendorName = getVendorName(order);
               const thumbnailUrl = getOrderThumbnailUrl(order);
@@ -102,14 +105,16 @@ export default function PurchaseHistoryList({ orders }) {
                   key={order.id}
                   href={`/orders/${order.order_number}`}
                   aria-label={`View receipt for order ${displayOrderId} from ${vendorName}`}
-                  className="group rounded-3xl px-4 py-4 md:px-5 flex items-center justify-between gap-4 transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(15,23,42,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="group flex items-center justify-between gap-3 px-2 py-4 transition-colors hover:bg-[rgba(248,250,252,0.95)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] sm:px-3 sm:py-[1.1875rem]"
                   style={{
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
-                    outlineColor: "var(--text)",
+                    outlineColor: "rgb(var(--brand-rgb))",
+                    borderBottom:
+                      group.orders[group.orders.length - 1]?.id === order.id
+                        ? "none"
+                        : "1px solid rgba(15, 23, 42, 0.06)",
                   }}
                 >
-                  <div className="min-w-0 flex items-center gap-4">
+                  <div className="min-w-0 flex flex-1 items-center gap-3.5 sm:gap-4">
                     {isMultiItemOrder ? (
                       <MultiItemThumbnailPreview order={order} />
                     ) : thumbnailUrl ? (
@@ -117,12 +122,12 @@ export default function PurchaseHistoryList({ orders }) {
                           src={thumbnailUrl}
                           alt=""
                           loading="lazy"
-                          className="h-16 w-16 shrink-0 rounded-xl object-cover"
+                          className="h-14 w-14 shrink-0 rounded-xl object-cover sm:h-16 sm:w-16"
                         />
                     ) : (
                       <div
                         aria-hidden="true"
-                        className="h-16 w-16 shrink-0 rounded-xl"
+                        className="h-14 w-14 shrink-0 rounded-xl sm:h-16 sm:w-16"
                         style={{
                           background:
                             "linear-gradient(135deg, rgba(15, 23, 42, 0.06), rgba(15, 23, 42, 0.02))",
@@ -131,19 +136,19 @@ export default function PurchaseHistoryList({ orders }) {
                       />
                     )}
 
-                    <div className="min-w-0 space-y-1.5">
-                      <p className="text-base font-semibold truncate">{vendorName}</p>
-                      <p className="text-xs opacity-70">
+                    <div className="min-w-0 flex-1 space-y-0.5 pr-1">
+                      <p className="truncate text-base font-semibold text-slate-950">{vendorName}</p>
+                      <p className="text-xs leading-4 text-slate-500">
                         Order {displayOrderId} · {formatOrderPurchaseTime(order)}
                       </p>
+                      <SubtleStatus status={order.status} />
                     </div>
                   </div>
 
-                  <div className="shrink-0 flex items-center justify-end gap-3 text-sm text-right">
-                    <SubtleStatus status={order.status} />
-                    <span className="text-base font-semibold">${formatMoney(order.total)}</span>
-                    <span className="text-lg leading-none opacity-35 transition-opacity group-hover:opacity-70" aria-hidden="true">
-                      &gt;
+                  <div className="ml-2 flex shrink-0 items-center gap-2.5 self-center text-right">
+                    <span className="text-base font-semibold text-slate-950">${formatMoney(order.total)}</span>
+                    <span className="text-lg leading-none text-slate-500 transition-colors group-hover:text-[rgb(var(--brand-rgb))]" aria-hidden="true">
+                      →
                     </span>
                   </div>
                 </Link>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { formatEntityId } from "@/lib/entityIds";
+import { getOrderStatusDescription, getOrderStatusLabel } from "@/lib/orders";
 
 /** @typedef {import("@/lib/types/orders").Order} Order */
 /** @typedef {import("@/lib/types/cart").VendorSummary} VendorSummary */
@@ -14,17 +15,51 @@ const formatMoney = (value) => {
   });
 };
 
-const statusCopy = {
-  pending_payment: "Pending payment",
-  payment_failed: "Payment failed",
-  requested: "Request received",
-  confirmed: "Confirmed",
-  ready: "Ready",
-  out_for_delivery: "Out for delivery",
-  fulfilled: "Fulfilled",
-  completed: "Completed",
-  cancelled: "Cancelled",
+const STATUS_DOT_STYLES = {
+  requested: { background: "#d97706" },
+  pending_payment: { background: "rgba(110, 52, 255, 0.72)" },
+  payment_failed: { background: "#b45309" },
+  confirmed: { background: "#2563eb" },
+  ready: { background: "#0f766e" },
+  out_for_delivery: { background: "#0f766e" },
+  fulfilled: { background: "#15803d" },
+  completed: { background: "#15803d" },
+  cancelled: { background: "#b91c1c" },
 };
+
+const NEXT_STEPS_COPY = {
+  pending_payment: "Complete checkout to place the order.",
+  payment_failed: "Complete checkout to place the order.",
+  requested:
+    "The business will review your order and confirm pickup details. You'll be notified when it's ready.",
+  confirmed:
+    "The business has confirmed your order and will share the next fulfillment update soon.",
+  ready: "Your order is ready. Head to the business when you're able.",
+  out_for_delivery: "Your order is on the way. Keep an eye out for delivery updates.",
+  fulfilled: "This order has been completed.",
+  completed: "This order has been completed.",
+  cancelled: "This order has been cancelled.",
+};
+
+function getFulfillmentSummary(order) {
+  if (order?.fulfillment_type === "delivery") {
+    return `Delivery · ${order?.delivery_time || "ASAP"}`;
+  }
+
+  return `Pickup · ${order?.pickup_time || "ASAP"}`;
+}
+
+function getPaymentSummary(order) {
+  if (order?.status === "pending_payment") {
+    return "Complete Stripe Checkout to finalize your payment.";
+  }
+
+  if (order?.status === "payment_failed") {
+    return "Stripe could not complete your payment.";
+  }
+
+  return "Payment completed with Stripe.";
+}
 
 function ReceiptItemName({ item }) {
   const title = item?.title || "Item";
@@ -55,42 +90,109 @@ function ReceiptItemName({ item }) {
   );
 }
 
-/** @param {{ order: Order, vendor: VendorSummary, purchasedAtLabel: string }} props */
-export default function OrderReceiptClient({ order, vendor, purchasedAtLabel }) {
+function StatusHeader({
+  order,
+  mode,
+  displayOrderId,
+  statusTimestampLabel,
+}) {
+  const statusLabel = getOrderStatusLabel(order?.status);
+  const statusDescription = getOrderStatusDescription(order?.status);
+  const isCheckoutMode = mode === "checkout";
+
+  return (
+    <section className="space-y-7">
+      <div className="space-y-2.5">
+        {!isCheckoutMode ? (
+          <p className="text-[11px] tracking-[0.16em] text-slate-400">Order details</p>
+        ) : null}
+        <h1 className="text-3xl font-semibold text-slate-950">
+          {isCheckoutMode ? "Order confirmed" : `Order ${displayOrderId}`}
+        </h1>
+        <p className="text-sm text-slate-500">Order {displayOrderId}</p>
+        <p className="text-sm text-slate-600">
+          {isCheckoutMode
+            ? "We received your order and payment."
+            : statusDescription}
+        </p>
+      </div>
+
+      <div className="space-y-2.5">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm leading-5 text-slate-600">
+          <span className="inline-flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="h-2 w-2 rounded-full"
+              style={
+                STATUS_DOT_STYLES[order?.status] || {
+                  background: "rgba(15, 23, 42, 0.45)",
+                }
+              }
+            />
+            <span className="font-medium text-slate-900">{statusLabel}</span>
+          </span>
+          <span className="text-slate-400" aria-hidden="true">
+            ·
+          </span>
+          <span className="text-slate-500">{statusTimestampLabel}</span>
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-sm leading-6 text-slate-600">
+          {NEXT_STEPS_COPY[order?.status] || "We'll keep you posted on the next update."}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/** @param {{ order: Order, vendor: VendorSummary, purchasedAtLabel: string, statusTimestampLabel: string, mode: "checkout" | "details" }} props */
+export default function OrderReceiptClient({
+  order,
+  vendor,
+  purchasedAtLabel,
+  statusTimestampLabel,
+  mode = "details",
+}) {
   const items = order?.order_items || [];
-  const statusLabel = statusCopy[order?.status] || "Processing";
   const displayOrderId =
     formatEntityId("order", order?.order_number) || order?.order_number;
+  const fulfillmentSummary = getFulfillmentSummary(order);
+  const paymentSummary = getPaymentSummary(order);
+  const isCheckoutMode = mode === "checkout";
 
   return (
     <div className="min-h-screen px-4 md:px-8 lg:px-12 py-12" style={{ background: "var(--background)", color: "var(--text)" }}>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex flex-col gap-2">
-          <p className="text-xs uppercase tracking-[0.2em] opacity-70">Order confirmation</p>
-          <h1 className="text-3xl font-semibold">Order {displayOrderId}</h1>
-          <p className="text-sm opacity-80">Status: {statusLabel}</p>
-          <p className="text-xs opacity-70 mb-3">
-            Purchased {purchasedAtLabel}
-          </p>
-        </div>
+      <div className="max-w-4xl mx-auto space-y-10">
+        <StatusHeader
+          order={order}
+          mode={mode}
+          displayOrderId={displayOrderId}
+          statusTimestampLabel={statusTimestampLabel}
+        />
 
-        <div className="rounded-3xl p-6 space-y-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+        <div
+          className="rounded-3xl p-6 space-y-4"
+          style={{
+            background: "var(--surface)",
+            border: "1px solid rgba(15, 23, 42, 0.06)",
+          }}
+        >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold">Receipt</p>
+              <p className="text-sm font-semibold">
+                {isCheckoutMode ? "Receipt" : "Receipt and payment"}
+              </p>
               <p className="text-xs opacity-70 mb-6">
-                {order?.status === "pending_payment"
-                  ? "Complete Stripe Checkout to finalize your payment."
-                  : order?.status === "payment_failed"
-                    ? "Stripe could not complete your payment."
-                    : "Payment completed with Stripe."}
+                {paymentSummary}
               </p>
             </div>
             <button
               type="button"
               onClick={() => window.print()}
-              className="rounded-full px-4 py-2 text-xs font-semibold"
-              style={{ background: "var(--text)", color: "var(--background)" }}
+              className="inline-flex h-8 items-center justify-center rounded-full border px-2.5 text-[11px] font-medium text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/30 focus-visible:ring-offset-2"
+              style={{ borderColor: "rgba(15, 23, 42, 0.08)" }}
             >
               Print receipt
             </button>
@@ -98,12 +200,12 @@ export default function OrderReceiptClient({ order, vendor, purchasedAtLabel }) 
 
           <div className="grid md:grid-cols-2 gap-4 text-sm mt-4 md:mt-0">
             <div className="space-y-1">
-              <p className="text-xs uppercase tracking-[0.2em] opacity-60">Vendor</p>
+              <p className="text-[11px] font-medium text-slate-500">Vendor</p>
               <p className="font-semibold">{vendor?.business_name || vendor?.full_name || "Local vendor"}</p>
               {vendor?.city ? <p className="text-xs opacity-70">{vendor.city}</p> : null}
             </div>
             <div className="space-y-0">
-              <p className="text-xs uppercase tracking-[0.2em] opacity-60 mb-1">Fulfillment</p>
+              <p className="mb-1 text-[11px] font-medium text-slate-500">Fulfillment</p>
               {order?.fulfillment_type === "delivery" ? (
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -115,13 +217,13 @@ export default function OrderReceiptClient({ order, vendor, purchasedAtLabel }) 
                   </div>
                   {order?.delivery_instructions ? (
                     <div className="text-right">
-                      <p className="uppercase tracking-[0.2em] text-[0.6rem] opacity-60">Delivery instructions</p>
+                      <p className="text-[0.65rem] font-medium text-slate-500">Delivery instructions</p>
                       <p className="mt-2 text-xs opacity-70">{order.delivery_instructions}</p>
                     </div>
                   ) : null}
                   {order?.delivery_notes_snapshot ? (
                     <div className="text-right">
-                      <p className="uppercase tracking-[0.2em] text-[0.6rem] opacity-60">Delivery notes</p>
+                      <p className="text-[0.65rem] font-medium text-slate-500">Delivery notes</p>
                       <p className="mt-2 text-xs opacity-70">{order.delivery_notes_snapshot}</p>
                     </div>
                   ) : null}
@@ -131,6 +233,9 @@ export default function OrderReceiptClient({ order, vendor, purchasedAtLabel }) 
                   Pickup time: {order.pickup_time || "ASAP"}
                 </p>
               )}
+              {order?.fulfillment_type === "delivery" ? (
+                <p className="text-xs text-slate-500">{fulfillmentSummary}</p>
+              ) : null}
             </div>
           </div>
 
@@ -143,7 +248,7 @@ export default function OrderReceiptClient({ order, vendor, purchasedAtLabel }) 
                   <col style={{ width: "5.5rem" }} />
                   <col style={{ width: "5.5rem" }} />
                 </colgroup>
-                <thead className="text-xs uppercase tracking-[0.2em] opacity-60 leading-none">
+                <thead className="text-[11px] font-medium text-slate-500 leading-none">
                   <tr>
                     <th className="text-left font-medium pb-2">Item</th>
                     <th className="text-right font-medium pb-2">Qty</th>
@@ -199,11 +304,11 @@ export default function OrderReceiptClient({ order, vendor, purchasedAtLabel }) 
               <span className="font-semibold">Total</span>
               <span className="font-semibold">${formatMoney(order?.total)}</span>
             </div>
-            <p className="text-xs opacity-70">
-              {order?.status === "pending_payment"
-                ? "Your order will move forward after Stripe confirms payment."
-                : "The business will confirm fulfillment details next."}
-            </p>
+            {order?.status === "pending_payment" ? (
+              <p className="text-xs opacity-70">
+                Your order will move forward after Stripe confirms payment.
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

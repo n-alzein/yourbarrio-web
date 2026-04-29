@@ -6,27 +6,37 @@ import { markNavInProgress } from "@/lib/nav/safariNavGuard";
 
 const variants = {
   orders: {
-    container: "flex items-center gap-3 mb-4",
+    container:
+      "mb-1 flex items-center gap-5 border-b border-[rgba(15,23,42,0.08)]",
     active: {
       className:
-        "inline-flex items-center justify-center rounded-full border border-transparent px-4 h-11 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 focus-visible:ring-offset-2",
-      style: { background: "var(--text)", color: "var(--background)" },
+        "inline-flex h-10 items-center justify-center border-b-2 border-transparent px-0 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/35 focus-visible:ring-offset-2",
+      style: {
+        color: "rgb(var(--brand-rgb))",
+        borderBottomColor: "rgba(var(--brand-rgb), 0.52)",
+      },
     },
     inactive: {
       className:
-        "inline-flex items-center justify-center rounded-full border px-4 h-11 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 focus-visible:ring-offset-2",
-      style: { borderColor: "var(--border)" },
+        "inline-flex h-10 items-center justify-center border-b-2 border-transparent px-0 text-sm font-medium transition-colors hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/25 focus-visible:ring-offset-2",
+      style: { color: "rgba(15, 23, 42, 0.62)" },
     },
   },
   history: {
-    container: "flex items-center gap-3 mb-4",
+    container:
+      "mb-1 flex items-center gap-5 border-b border-[rgba(15,23,42,0.08)]",
     active: {
-      className: "rounded-full px-4 py-2 text-sm font-semibold",
-      style: { background: "var(--text)", color: "var(--background)" },
+      className:
+        "inline-flex h-10 items-center justify-center border-b-2 border-transparent px-0 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/35 focus-visible:ring-offset-2",
+      style: {
+        color: "rgb(var(--brand-rgb))",
+        borderBottomColor: "rgba(var(--brand-rgb), 0.52)",
+      },
     },
     inactive: {
-      className: "rounded-full border px-4 py-2 text-sm font-semibold",
-      style: { borderColor: "var(--border)" },
+      className:
+        "inline-flex h-10 items-center justify-center border-b-2 border-transparent px-0 text-sm font-medium transition-colors hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/25 focus-visible:ring-offset-2",
+      style: { color: "rgba(15, 23, 42, 0.62)" },
     },
   },
 };

@@ -1,11 +1,11 @@
 import Link from "next/link";
 import AccountNavTabs from "@/components/account/AccountNavTabs";
-import OrderStatusBadge from "@/components/orders/OrderStatusBadge";
 import OrderItemThumbnails from "./OrderItemThumbnails";
 import {
   formatMoney,
   formatOrderDateTime,
   getOrderStatusDescription,
+  getOrderStatusLabel,
 } from "@/lib/orders";
 import { formatEntityId } from "@/lib/entityIds";
 import { requireRole } from "@/lib/auth/server";
@@ -19,6 +19,26 @@ const PENDING_STATUSES = [
   "ready",
   "out_for_delivery",
 ];
+
+const STATUS_DOT_STYLES = {
+  requested: { background: "#d97706" },
+  pending_payment: { background: "rgba(110, 52, 255, 0.72)" },
+  confirmed: { background: "#2563eb" },
+  ready: { background: "#0f766e" },
+  out_for_delivery: { background: "#0f766e" },
+  payment_failed: { background: "#b45309" },
+};
+
+function isMeaningfullyDifferentTimestamp(base, compare) {
+  if (!base || !compare) return false;
+
+  const baseTime = new Date(base).getTime();
+  const compareTime = new Date(compare).getTime();
+
+  if (!Number.isFinite(baseTime) || !Number.isFinite(compareTime)) return false;
+
+  return Math.abs(compareTime - baseTime) >= 15 * 60 * 1000;
+}
 
 export default async function AccountOrdersPage({ searchParams }) {
   await requireRole("customer");
@@ -51,16 +71,16 @@ export default async function AccountOrdersPage({ searchParams }) {
 
   return (
     <div
-      className="min-h-screen px-4 md:px-8 lg:px-12 pt-0 pb-12"
+      className="min-h-screen -mt-16 px-4 pb-12 md:-mt-10 md:px-8 lg:px-12"
       style={{ background: "var(--background)", color: "var(--text)" }}
     >
-      <div className="max-w-5xl mx-auto space-y-8">
-        <div className="space-y-2">
+      <div className="mx-auto max-w-5xl space-y-7">
+        <div className="space-y-2.5">
           <p className="text-xs uppercase tracking-[0.2em] opacity-70">
             Orders
           </p>
           <h1 className="text-3xl font-semibold">My orders</h1>
-          <p className="text-sm opacity-70 mt-2 mb-4">
+          <p className="text-sm opacity-70">
             Track active orders and check the latest updates.
           </p>
         </div>
@@ -113,63 +133,84 @@ export default async function AccountOrdersPage({ searchParams }) {
               const lastUpdate = order.updated_at || order.created_at;
               const displayOrderId =
                 formatEntityId("order", order.order_number) || order.order_number;
+              const statusLabel = getOrderStatusLabel(order.status);
+              const hasMeaningfulUpdate = isMeaningfullyDifferentTimestamp(
+                order.created_at,
+                lastUpdate
+              );
+              const statusTimestamp = hasMeaningfulUpdate
+                ? formatOrderDateTime(lastUpdate)
+                : formatOrderDateTime(order.created_at);
               return (
-                <div
+                <Link
                   key={order.id}
-                  className="rounded-3xl p-6 space-y-5"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                  href={`/orders/${order.order_number}`}
+                  aria-label={`View details for order ${displayOrderId} from ${vendorName}`}
+                  className="group cursor-pointer rounded-[28px] border bg-white/95 px-4 py-3.5 shadow-[0_10px_24px_-28px_rgba(15,23,42,0.18)] transition-[background-color,border-color,box-shadow,transform] hover:bg-[rgba(248,250,252,0.95)] hover:border-[rgba(15,23,42,0.09)] active:bg-[rgba(241,245,249,0.95)] active:scale-[0.998] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/30 focus-visible:ring-offset-2 sm:px-5 sm:py-4"
+                  style={{
+                    borderColor: "rgba(15, 23, 42, 0.06)",
+                  }}
                 >
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3.5 min-w-0">
-                      <OrderItemThumbnails order={order} />
-                      <div className="space-y-1 min-w-0">
-                        <p className="text-sm font-semibold">
-                          Order {displayOrderId}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                    <div className="min-w-0 flex-1 space-y-2.5">
+                      <div className="grid grid-cols-[auto,minmax(0,1fr)] items-start gap-4 sm:flex sm:min-w-0 sm:items-start sm:gap-[1.125rem]">
+                        <OrderItemThumbnails order={order} />
+                        <div className="min-w-0 space-y-0.5">
+                          <p className="truncate text-base font-semibold text-slate-950 sm:text-[1.05rem]">
+                            {vendorName}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Order {displayOrderId}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Placed {formatOrderDateTime(order.created_at)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium leading-5 text-slate-600">
+                          <span className="inline-flex items-center gap-2">
+                            <span
+                              aria-hidden="true"
+                              className="h-2 w-2 rounded-full"
+                              style={
+                                STATUS_DOT_STYLES[order.status] || {
+                                  background: "rgba(15, 23, 42, 0.45)",
+                                }
+                              }
+                            />
+                            <span className="text-slate-900">{statusLabel}</span>
+                          </span>
+                          <span className="text-slate-400" aria-hidden="true">
+                            ·
+                          </span>
+                          <span className="text-slate-500">
+                            {statusTimestamp}
+                          </span>
                         </p>
-                        <p className="text-xs opacity-70">{vendorName}</p>
-                        <p className="text-xs opacity-70">
-                          Placed {formatOrderDateTime(order.created_at)}
+                        <p className="text-sm leading-5 text-slate-600">
+                          {fulfillmentLabel} · {scheduleLabel}
                         </p>
+                        {hasMeaningfulUpdate ? (
+                          <p className="text-xs text-slate-500">
+                            {getOrderStatusDescription(order.status)}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 md:justify-end">
-                      <OrderStatusBadge status={order.status} />
-                      <span className="text-sm font-semibold">
+
+                    <div className="flex shrink-0 items-center justify-between gap-4 border-t border-[rgba(15,23,42,0.08)] pt-3.5 sm:min-w-[150px] sm:flex-col sm:items-end sm:justify-start sm:border-t-0 sm:pt-0">
+                      <span className="text-base font-semibold text-slate-950">
                         ${formatMoney(order.total)}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-sm font-medium text-[rgba(var(--brand-rgb),0.9)] transition-colors group-hover:text-[rgb(var(--brand-rgb))]">
+                        View details
+                        <span aria-hidden="true">→</span>
                       </span>
                     </div>
                   </div>
-
-                  <div className="grid md:grid-cols-3 gap-4 text-sm mt-4">
-                    <div className="space-y-1">
-                      <p className="text-xs uppercase tracking-[0.2em] opacity-60">
-                        Status update
-                      </p>
-                      <p className="font-semibold">
-                        {getOrderStatusDescription(order.status)}
-                      </p>
-                      <p className="text-xs opacity-70 mt-2">
-                        Updated {formatOrderDateTime(lastUpdate)}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs uppercase tracking-[0.2em] opacity-60">
-                        Fulfillment
-                      </p>
-                      <p className="font-semibold">{fulfillmentLabel}</p>
-                      <p className="text-xs opacity-70 mt-2">{scheduleLabel}</p>
-                    </div>
-                    <div className="flex md:justify-end items-center">
-                      <Link
-                        href={`/orders/${order.order_number}`}
-                        className="inline-flex items-center justify-center rounded-full px-5 h-11 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 focus-visible:ring-offset-2"
-                        style={{ background: "var(--text)", color: "var(--background)" }}
-                      >
-                        View details
-                      </Link>
-                    </div>
-                  </div>
-                </div>
+                </Link>
               );
             })}
           </div>

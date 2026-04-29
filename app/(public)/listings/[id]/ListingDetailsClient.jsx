@@ -851,6 +851,8 @@ export default function ListingDetailsClient({
     isOutOfStock ||
     cartActionLoading ||
     (hasVariantOptions && !selectedVariant?.id);
+  const inlineStatusMessage =
+    statusMessage === "No items in cart." ? "" : statusMessage;
 
   return (
     <>
@@ -1530,12 +1532,12 @@ export default function ListingDetailsClient({
                         ? "Select each option to see availability."
                         : "This item is currently out of stock"}
                     </div>
-                  ) : statusMessage ? (
+                  ) : inlineStatusMessage ? (
                     <div
                       className="rounded-xl px-3 py-2 text-xs"
                       style={{ background: "var(--overlay)", border: "1px solid rgba(15,23,42,0.08)" }}
                     >
-                      {statusMessage}
+                      {inlineStatusMessage}
                     </div>
                   ) : purchaseRestricted ? (
                     <div className="text-xs leading-5 opacity-75">
