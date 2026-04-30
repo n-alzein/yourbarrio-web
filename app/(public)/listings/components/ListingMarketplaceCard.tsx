@@ -17,7 +17,7 @@ import type { ListingItem } from "../types";
 export const LISTING_MARKETPLACE_GRID_CLASS =
   "grid grid-cols-2 gap-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5";
 export const LISTING_MARKETPLACE_CARD_CLASS =
-  "group flex h-full min-w-0 flex-col rounded-xl border border-slate-100 bg-white transition duration-200 ease-out hover:shadow-sm";
+  "group flex h-full min-w-0 flex-col rounded-xl border border-slate-100 bg-white transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]";
 export const LISTING_MARKETPLACE_IMAGE_FRAME_CLASS =
   "relative flex h-[140px] items-center justify-center overflow-hidden md:h-[180px]";
 export const LISTING_MARKETPLACE_IMAGE_CLASS =
@@ -73,6 +73,8 @@ export default function ListingMarketplaceCard({
   listing,
   fallbackLocationLabel,
   variant = "default",
+  actionVisibility = "hover",
+  routeToDetailsForOptionedListings = false,
   isSaved = false,
   saveLoading = false,
   onToggleSave,
@@ -80,6 +82,8 @@ export default function ListingMarketplaceCard({
   listing: ListingItem;
   fallbackLocationLabel: string;
   variant?: "default" | "saved";
+  actionVisibility?: "hover" | "always";
+  routeToDetailsForOptionedListings?: boolean;
   isSaved?: boolean;
   saveLoading?: boolean;
   onToggleSave?: ((listing: ListingItem) => void) | null;
@@ -96,10 +100,11 @@ export default function ListingMarketplaceCard({
   const displayPriceCents = getDisplayPriceCents(listing);
   const isSavedVariant = variant === "saved";
   const needsDetailsBeforeCart = listingNeedsDetailsBeforeCart(listing as ListingItem & Record<string, unknown>);
+  const shouldRouteToDetailsBeforeCart = needsDetailsBeforeCart && (isSavedVariant || routeToDetailsForOptionedListings);
   void fallbackLocationLabel;
   const addToCartLabel = seeded
     ? "Coming soon"
-    : needsDetailsBeforeCart && isSavedVariant
+    : shouldRouteToDetailsBeforeCart
       ? "Select options"
       : adding
         ? "Adding..."
@@ -109,7 +114,7 @@ export default function ListingMarketplaceCard({
 
   const handleAddToCart = async () => {
     if (!listing?.id || isOutOfStock || seeded || adding) return;
-    if (needsDetailsBeforeCart && isSavedVariant) {
+    if (shouldRouteToDetailsBeforeCart) {
       router.push(listingHref);
       return;
     }
@@ -166,7 +171,7 @@ export default function ListingMarketplaceCard({
       ) : null}
       <Link
         href={listingHref}
-        className="flex min-h-0 flex-1 flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8c73bb59] focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf6f0]"
+        className="flex min-h-0 flex-1 cursor-pointer flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8c73bb59] focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf6f0]"
         prefetch={false}
       >
         <div
@@ -224,7 +229,7 @@ export default function ListingMarketplaceCard({
 
       <div
         className={
-          isSavedVariant
+          isSavedVariant || actionVisibility === "always"
             ? "px-3 pb-3 pt-0.5"
             : LISTING_MARKETPLACE_CTA_WRAPPER_CLASS
         }

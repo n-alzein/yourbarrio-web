@@ -10,7 +10,7 @@ const listingTileSource = readFileSync(
   path.join(process.cwd(), "app/(public)/listings/components/ListingMarketplaceCard.tsx"),
   "utf8"
 );
-const cartPageSource = readFileSync(path.join(process.cwd(), "app/cart/page.js"), "utf8");
+const cartPageSource = readFileSync(path.join(process.cwd(), "app/cart/CartPageClient.jsx"), "utf8");
 const checkoutPageSource = readFileSync(path.join(process.cwd(), "app/checkout/page.js"), "utf8");
 const stripeCheckoutSource = readFileSync(
   path.join(process.cwd(), "app/api/stripe/checkout/create-session/route.ts"),

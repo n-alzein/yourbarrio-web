@@ -244,6 +244,28 @@ button {
   color: #fff !important;
 }
 
+.yb-cart-empty-cta {
+  background-color: #6d28d9 !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+.yb-cart-empty-cta:hover:not(:disabled) {
+  background-color: #5b21b6 !important;
+  color: #fff !important;
+}
+
+.yb-cart-empty-cta:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(196, 181, 253, 0.9) !important;
+}
+
+.theme-light .yb-cart-empty-cta,
+.theme-light .yb-cart-empty-cta.text-white,
+.theme-light .yb-cart-empty-cta * {
+  color: #fff !important;
+}
+
 .theme-light .theme-lock [class*="text-white/"] {
   color: rgba(255, 255, 255, 0.7) !important;
 }

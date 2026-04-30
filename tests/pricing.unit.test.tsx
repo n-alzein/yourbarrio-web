@@ -15,6 +15,12 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+}));
+
 vi.mock("@/components/SafeImage", () => ({
   __esModule: true,
   default: ({ alt, ...rest }) => <img alt={alt} {...rest} />,

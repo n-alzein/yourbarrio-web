@@ -69,6 +69,14 @@ export default function NearbyBusinessCard({
     businessType: business?.business_type,
     legacyCategory: business?.categoryLabel || business?.category,
   });
+  const businessName = business.name || "business";
+  const handleCardActivate = () => onClick(business);
+  const handleCardKeyDown = (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleCardActivate();
+    }
+  };
 
   return (
     <article
@@ -88,13 +96,15 @@ export default function NearbyBusinessCard({
       onBlur={onLeave}
     >
       <div className="relative">
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           className="flex h-full w-full min-w-0 cursor-pointer flex-col text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70 focus-visible:ring-inset"
-          onClick={() => onClick(business)}
-          aria-pressed={selected}
+          onClick={handleCardActivate}
+          onKeyDown={handleCardKeyDown}
           data-selected={selected ? "true" : "false"}
-          aria-label={`Open ${business.name || "business"} profile`}
+          aria-pressed={selected}
+          aria-label={`Open ${businessName} profile`}
         >
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-t-[1.45rem] bg-slate-100">
             <FastImage
@@ -137,7 +147,7 @@ export default function NearbyBusinessCard({
                     onMapFocusClick?.(business);
                   }}
                   className="inline-flex min-h-9 items-center justify-center rounded-full border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-violet-200 hover:text-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70 md:hidden"
-                  aria-label={`Show ${business.name || "business"} on map`}
+                  aria-label={`Show ${businessName} on map`}
                   title="Show on map"
                 >
                   Show map
@@ -152,7 +162,7 @@ export default function NearbyBusinessCard({
               </span>
             </div>
           </div>
-        </button>
+        </div>
 
         {showSaveControl ? (
           <button
