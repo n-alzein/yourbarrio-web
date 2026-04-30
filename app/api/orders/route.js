@@ -11,10 +11,9 @@ import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
 import { getCurrentAccountContext } from "@/lib/auth/getCurrentAccountContext";
 import { createOrderWithItems } from "@/lib/orders/persistence";
 import {
-  applyInventoryReservationsToItems,
-  reserveInventoryForOrderItems,
-  restoreInventoryReservations,
-} from "@/lib/orders/inventoryReservations";
+  commitOrderInventoryFromCartReservations,
+  revalidateCartReservationsForCheckout,
+} from "@/lib/cart/reservations";
 import { getSupabaseServerClient as getSupabaseServiceClient } from "@/lib/supabase/server";
 import { MAX_ORDER_QUANTITY, validateOrderQuantity } from "@/lib/inventory";
 import { getVariantInventoryListing } from "@/lib/listingOptions";
@@ -22,6 +21,14 @@ import { assertListingPurchasable } from "@/lib/seededListings";
 
 function jsonError(message, status = 400, extra = {}) {
   return NextResponse.json({ error: message, ...extra }, { status });
+}
+
+function getServiceClientOrFallback(fallbackClient) {
+  try {
+    return getSupabaseServiceClient() ?? fallbackClient;
+  } catch {
+    return fallbackClient;
+  }
 }
 
 function isStockError(error) {
@@ -74,7 +81,7 @@ async function getListingVariantsByIds(client, variantIds) {
 
 export async function POST(request) {
   const supabase = await getSupabaseServerClient();
-  const serviceClient = getSupabaseServiceClient() ?? supabase;
+  const serviceClient = getServiceClientOrFallback(supabase);
   const { user, error: userError } = await getUserCached(supabase);
   const diagEnabled = process.env.NODE_ENV !== "production";
 
@@ -243,13 +250,32 @@ export async function POST(request) {
   const total = subtotal + deliveryFee + fees;
 
   let orderRecord = null;
-  let inventoryReserved = false;
-  let inventoryReservations = [];
   try {
-    // This server-side reservation is the stock guarantee for non-Stripe order creation.
-    inventoryReservations = await reserveInventoryForOrderItems({ client: serviceClient, items: orderItems });
-    inventoryReserved = true;
-    orderItems = applyInventoryReservationsToItems(orderItems, inventoryReservations);
+    const cartReservationCheck = await revalidateCartReservationsForCheckout({
+      client: serviceClient,
+      cartItems: items,
+      userId: user.id,
+    });
+    if (!cartReservationCheck.ok) {
+      return jsonError("Some cart reservations changed before checkout.", 409, {
+        code: "CART_RESERVATION_INVALID",
+        issues: cartReservationCheck.issues,
+      });
+    }
+
+    orderItems = cartReservationCheck.items.map((item) => ({
+      listing_id: item.listing_id,
+      variant_id: item.variant_id || null,
+      variant_label: item.variant_label || null,
+      selected_options: item.selected_options || null,
+      title: item.title,
+      unit_price: item.unit_price,
+      image_url: item.image_url,
+      quantity: Number(item.quantity || 0),
+      cart_item_id: item.id,
+      inventory_reserved_at: item.inventory_reserved_at,
+      reserved_quantity: item.reserved_quantity,
+    }));
 
     orderRecord = await createOrderWithItems({
       client: serviceClient,
@@ -286,22 +312,13 @@ export async function POST(request) {
       },
       items: orderItems,
     });
+
+    await commitOrderInventoryFromCartReservations({
+      client: serviceClient,
+      orderId: orderRecord.id,
+      userId: user.id,
+    });
   } catch (error) {
-    if (inventoryReserved) {
-      try {
-        await restoreInventoryReservations({
-          client: serviceClient,
-          reservations: inventoryReservations,
-          allowUnlinked: true,
-        });
-      } catch (restoreError) {
-        console.error("[STRIPE_CART_TRACE]", "inventory_restore_failed", {
-          userId: user.id,
-          cartId: activeCart?.id || null,
-          message: restoreError?.message || null,
-        });
-      }
-    }
     if (diagEnabled) {
       console.warn("[STRIPE_CART_TRACE]", "create_order_failed", {
         userId: user.id,

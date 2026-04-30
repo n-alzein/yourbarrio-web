@@ -6,15 +6,14 @@ import { useCurrentAccountContext } from "@/lib/auth/useCurrentAccountContext";
 import { getPurchaseRestrictionMessage } from "@/lib/auth/purchaseAccess";
 import { groupCartItemsByBusiness } from "@/lib/cart/groupCartItemsByBusiness";
 import {
-  addToGuestCart,
   clearGuestCart,
   getGuestCart,
   getGuestCartCount,
+  getGuestCartSessionId,
   GUEST_CART_STORAGE_KEY,
   GUEST_CART_UPDATED_EVENT,
-  removeFromGuestCart,
+  setGuestCart,
   setGuestCartFulfillment,
-  updateGuestCartItem,
 } from "@/lib/cart/guestCart";
 
 /** @typedef {import("@/lib/types/cart").CartResponse} CartResponse */
@@ -143,6 +142,15 @@ export function CartProvider({ children }) {
     setError(null);
   }, []);
 
+  const syncGuestCartPayload = useCallback(
+    (payload) => {
+      const nextGuestCart = setGuestCart(payload || getGuestCart());
+      syncGuestCart(nextGuestCart);
+      return nextGuestCart;
+    },
+    [syncGuestCart]
+  );
+
   const refreshCart = useCallback(
     async ({ reason } = {}) => {
       if (
@@ -152,7 +160,34 @@ export function CartProvider({ children }) {
         purchaseEligibilityPending
       ) {
         if (!user?.id && !purchaseRestricted && !purchaseEligibilityPending) {
-          syncGuestCart();
+          const guestCart = getGuestCart();
+          if (!guestCart?.guest_id) {
+            syncGuestCart(guestCart);
+            return { cart: null, guest: true };
+          }
+          setLoading(true);
+          setError(null);
+          try {
+            const response = await fetch(
+              `/api/cart?guest_id=${encodeURIComponent(guestCart.guest_id)}`,
+              {
+                method: "GET",
+                credentials: "same-origin",
+              }
+            );
+            const payload = await parseResponse(response);
+            if (!response.ok) {
+              throw new Error(payload?.error || "Failed to load cart");
+            }
+            syncGuestCartPayload(payload);
+            return payload;
+          } catch (err) {
+            syncGuestCart(guestCart);
+            setError(err?.message || "Failed to load cart");
+            return { error: err?.message || "Failed to load cart" };
+          } finally {
+            setLoading(false);
+          }
         } else {
           setCart(null);
           setVendor(null);
@@ -325,6 +360,7 @@ export function CartProvider({ children }) {
       purchaseRestricted,
       syncCart,
       syncGuestCart,
+      syncGuestCartPayload,
       user?.id,
     ]
   );
@@ -434,7 +470,12 @@ export function CartProvider({ children }) {
               credentials: "include",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
+                guest_id: guestCart.guest_id,
+                guest_item_id: item.id,
                 listing_id: item.listing_id,
+                variant_id: item.variant_id,
+                variant_label: item.variant_label,
+                selected_options: item.selected_options,
                 quantity: item.quantity,
               }),
             });
@@ -484,24 +525,32 @@ export function CartProvider({ children }) {
       selectedOptions = null,
       quantity = 1,
       clearExisting,
-      listing = null,
-      business = null,
       fulfillmentType = null,
     }) => {
       if (!user?.id) {
-        const result = addToGuestCart({
-          listingId,
-          variantId,
-          variantLabel,
-          selectedOptions,
-          quantity,
-          listing,
-          business,
-          fulfillmentType,
+        const response = await fetch("/api/cart", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            guest_id: getGuestCartSessionId(),
+            listing_id: listingId,
+            variant_id: variantId,
+            variant_label: variantLabel,
+            selected_options: selectedOptions,
+            quantity,
+            clear_existing: clearExisting,
+            fulfillment_type: fulfillmentType,
+          }),
         });
-        if (result?.error) return result;
-        syncGuestCart(result.cart);
-        return { cart: result.cart?.carts?.[0] || null, guest: true };
+
+        const payload = await parseResponse(response);
+        if (!response.ok) {
+          return { error: payload?.error || "Failed to add to cart" };
+        }
+
+        const guestCart = syncGuestCartPayload(payload);
+        return { cart: guestCart?.carts?.[0] || null, guest: true };
       }
       if (purchaseEligibilityPending) {
         return { error: "We’re still confirming your account. Try again." };
@@ -533,15 +582,31 @@ export function CartProvider({ children }) {
       syncCart(payload);
       return { cart: payload?.cart || null, vendor: payload?.vendor || null };
     },
-    [purchaseEligibilityPending, purchaseRestricted, syncCart, syncGuestCart, user?.id]
+    [purchaseEligibilityPending, purchaseRestricted, syncCart, syncGuestCartPayload, user?.id]
   );
 
   const updateItem = useCallback(
     async ({ itemId, quantity }) => {
       if (!user?.id) {
-        const guestCart = updateGuestCartItem(itemId, quantity);
-        syncGuestCart(guestCart);
-        return { cart: guestCart?.carts?.[0] || null, guest: true };
+        const guestCart = getGuestCart();
+        const response = await fetch("/api/cart", {
+          method: "PATCH",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            guest_id: guestCart.guest_id || getGuestCartSessionId(),
+            item_id: itemId,
+            quantity,
+          }),
+        });
+
+        const payload = await parseResponse(response);
+        if (!response.ok) {
+          return { error: payload?.error || "Failed to update cart" };
+        }
+
+        const nextGuestCart = syncGuestCartPayload(payload);
+        return { cart: nextGuestCart?.carts?.[0] || null, guest: true };
       }
       if (purchaseEligibilityPending) {
         return { error: "We’re still confirming your account. Try again." };
@@ -565,28 +630,23 @@ export function CartProvider({ children }) {
       syncCart(payload);
       return payload;
     },
-    [purchaseEligibilityPending, purchaseRestricted, syncCart, syncGuestCart, user?.id]
+    [purchaseEligibilityPending, purchaseRestricted, syncCart, syncGuestCartPayload, user?.id]
   );
 
   const removeItem = useCallback(
     async (itemId) => {
-      if (!user?.id) {
-        const guestCart = removeFromGuestCart(itemId);
-        syncGuestCart(guestCart);
-        return { cart: guestCart?.carts?.[0] || null, guest: true };
-      }
       return updateItem({ itemId, quantity: 0 });
     },
-    [syncGuestCart, updateItem, user?.id]
+    [updateItem]
   );
 
   const setFulfillmentType = useCallback(
     async (fulfillmentType, { cartId = null, businessId = null } = {}) => {
       if (!user?.id) {
         const guestBusinessId =
-          businessId || (typeof cartId === "string" ? cartId.replace(/^guest:/, "") : null);
+          businessId || carts.find((cartRow) => cartRow?.id === cartId)?.vendor_id || null;
         const guestCart = setGuestCartFulfillment(guestBusinessId, fulfillmentType);
-        syncGuestCart(guestCart);
+        syncGuestCartPayload(guestCart);
         return {
           cart: guestCart?.carts?.find((cartRow) => cartRow.vendor_id === guestBusinessId) || null,
           guest: true,
@@ -618,13 +678,30 @@ export function CartProvider({ children }) {
       syncCart(payload);
       return payload;
     },
-    [purchaseEligibilityPending, purchaseRestricted, syncCart, syncGuestCart, user?.id]
+    [carts, purchaseEligibilityPending, purchaseRestricted, syncCart, syncGuestCartPayload, user?.id]
   );
 
   const clearCart = useCallback(async () => {
     if (!user?.id) {
+      const guestCart = getGuestCart();
+      if (!guestCart?.guest_id) {
+        clearGuestCart();
+        syncGuestCart();
+        return { cart: null, guest: true };
+      }
+
+      const response = await fetch(`/api/cart?guest_id=${encodeURIComponent(guestCart.guest_id)}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+
+      const payload = await parseResponse(response);
+      if (!response.ok) {
+        return { error: payload?.error || "Failed to clear cart" };
+      }
+
       clearGuestCart();
-      syncGuestCart();
+      syncGuestCart(payload);
       return { cart: null, guest: true };
     }
     if (purchaseEligibilityPending) {

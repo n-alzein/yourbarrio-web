@@ -13,13 +13,17 @@ export type CartItem = {
   title: string;
   unit_price: number | null;
   image_url: string | null;
+  reserved_quantity?: number | null;
+  reservation_expires_at?: string | null;
+  client_item_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
 
 export type Cart = {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  guest_id?: string | null;
   vendor_id: string;
   status: CartStatus;
   fulfillment_type: FulfillmentType | null;

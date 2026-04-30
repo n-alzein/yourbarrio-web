@@ -574,6 +574,9 @@ export default function CheckoutPage() {
                       <span className="opacity-80">{item.title} x{item.quantity}</span>
                       <span>${formatMoney(Number(item.unit_price || 0) * Number(item.quantity || 0))}</span>
                     </div>
+                    {item.reservation_expires_at ? (
+                      <p className="mt-1 text-xs opacity-70">Reserved in your cart for 30 minutes.</p>
+                    ) : null}
                     {item.stock_error ? (
                       <p className="mt-1 text-xs text-rose-200">{item.stock_error}</p>
                     ) : null}

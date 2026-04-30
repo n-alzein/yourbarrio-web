@@ -15,6 +15,9 @@ import {
   reserveInventoryForOrderItems,
   restoreInventoryReservations,
 } from "@/lib/orders/inventoryReservations";
+import {
+  revalidateCartReservationsForCheckout,
+} from "@/lib/cart/reservations";
 import { STRIPE_PENDING_ORDER_STATUS } from "@/lib/orders/marketplace";
 import { MAX_ORDER_QUANTITY, validateOrderQuantity } from "@/lib/inventory";
 import { getAppUrl, getStripe, dollarsToCents } from "@/lib/stripe";
@@ -29,6 +32,14 @@ import { assertListingPurchasable } from "@/lib/seededListings";
 
 function jsonError(message: string, status = 400, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ error: message, ...extra }, { status });
+}
+
+function getServiceClientOrFallback(fallbackClient: any) {
+  try {
+    return getServiceClient() ?? fallbackClient;
+  } catch {
+    return fallbackClient;
+  }
 }
 
 function isStockError(error: any) {
@@ -123,7 +134,7 @@ export async function POST(request: Request) {
     });
   }
 
-  const serviceClient = getServiceClient();
+  const serviceClient = getServiceClientOrFallback(supabase);
   if (!serviceClient) {
     return jsonError("Missing server data client", 500);
   }
@@ -201,6 +212,7 @@ export async function POST(request: Request) {
   let subtotalCents = 0;
   let deliveryFeeCents = 0;
   let fulfillmentListings: any[] = [];
+  let cartCheckoutItems: any[] = [];
   let cancelPath = "";
   let orderInput: Record<string, unknown> = {
     user_id: user.id,
@@ -360,8 +372,8 @@ export async function POST(request: Request) {
       return jsonError("Cart not found", 404);
     }
 
-    const items = Array.isArray(activeCart.cart_items) ? activeCart.cart_items : [];
-    if (!items.length) {
+    cartCheckoutItems = Array.isArray(activeCart.cart_items) ? activeCart.cart_items : [];
+    if (!cartCheckoutItems.length) {
       return jsonError("Cart is empty", 400);
     }
 
@@ -390,7 +402,7 @@ export async function POST(request: Request) {
     }
 
     business = businessData;
-    orderItems = items.map((item: any) => ({
+    orderItems = cartCheckoutItems.map((item: any) => ({
       listing_id: item?.listing_id || null,
       title: String(item?.title || "Marketplace order").trim() || "Marketplace order",
       unit_price: Number(item?.unit_price || 0),
@@ -415,7 +427,7 @@ export async function POST(request: Request) {
       return jsonError("Your cart is not available for Stripe checkout yet", 400);
     }
 
-    const listingIds = items.map((item: any) => item?.listing_id).filter(Boolean);
+    const listingIds = cartCheckoutItems.map((item: any) => item?.listing_id).filter(Boolean);
     if (listingIds.length > 0) {
       const { data: listingRows, error: listingRowsError } = await serviceClient
         .from("listings")
@@ -430,7 +442,7 @@ export async function POST(request: Request) {
       const listingById = new Map(fulfillmentListings.map((listing: any) => [listing.id, listing]));
       const variantById = await getListingVariantsByIds(
         serviceClient,
-        items.map((item: any) => item?.variant_id).filter(Boolean)
+        cartCheckoutItems.map((item: any) => item?.variant_id).filter(Boolean)
       );
       const removedItems: any[] = [];
       const adjustedItems: any[] = [];
@@ -438,9 +450,9 @@ export async function POST(request: Request) {
 
       orderItems = orderItems.map((item: any, index: number) => ({
         ...item,
-        variant_id: items[index]?.variant_id || null,
-        variant_label: items[index]?.variant_label || null,
-        selected_options: items[index]?.selected_options || null,
+        variant_id: cartCheckoutItems[index]?.variant_id || null,
+        variant_label: cartCheckoutItems[index]?.variant_label || null,
+        selected_options: cartCheckoutItems[index]?.selected_options || null,
       }));
 
       for (const item of orderItems) {
@@ -600,7 +612,6 @@ export async function POST(request: Request) {
     | null = null;
   let inventoryReserved = false;
   let inventoryReservations: any[] = [];
-
   try {
     if (process.env.NODE_ENV !== "production") {
       console.warn("[STRIPE_BUY_NOW_TRACE]", "create_session_start", {
@@ -617,12 +628,37 @@ export async function POST(request: Request) {
       });
     }
 
-    // Stock is guaranteed here: each RPC performs one conditional
-    // UPDATE listings SET inventory_quantity = inventory_quantity - qty
-    // WHERE id = listing_id AND inventory_quantity >= qty.
-    inventoryReservations = await reserveInventoryForOrderItems({ client: serviceClient, items: orderItems });
-    inventoryReserved = true;
-    orderItems = applyInventoryReservationsToItems(orderItems, inventoryReservations);
+    if (checkoutFlow === "cart_checkout") {
+      const cartReservationCheck = await revalidateCartReservationsForCheckout({
+        client: serviceClient,
+        cartItems: cartCheckoutItems,
+        userId: user.id,
+      });
+      if (!cartReservationCheck.ok) {
+        return jsonError("Some cart reservations changed before checkout.", 409, {
+          code: "CART_RESERVATION_INVALID",
+          issues: cartReservationCheck.issues,
+        });
+      }
+
+      orderItems = cartReservationCheck.items.map((item: any) => ({
+        listing_id: item.listing_id,
+        variant_id: item.variant_id || null,
+        variant_label: item.variant_label || null,
+        selected_options: item.selected_options || null,
+        title: item.title,
+        unit_price: item.unit_price,
+        image_url: item.image_url,
+        quantity: Number(item.quantity || 0),
+        cart_item_id: item.id,
+        inventory_reserved_at: item.inventory_reserved_at,
+        reserved_quantity: item.reserved_quantity,
+      }));
+    } else {
+      inventoryReservations = await reserveInventoryForOrderItems({ client: serviceClient, items: orderItems });
+      inventoryReserved = true;
+      orderItems = applyInventoryReservationsToItems(orderItems, inventoryReservations);
+    }
 
     orderRecord = await createOrderWithItems({
       client: serviceClient,

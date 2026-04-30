@@ -8,6 +8,7 @@ export const GUEST_CART_UPDATED_EVENT = "yb:guest-cart-updated";
 
 export type GuestCartItem = {
   id: string;
+  client_item_id?: string | null;
   listing_id: string;
   vendor_id: string;
   variant_id?: string | null;
@@ -21,6 +22,8 @@ export type GuestCartItem = {
   available_fulfillment_methods?: string[];
   max_order_quantity?: number;
   stock_error?: string | null;
+  reserved_quantity?: number | null;
+  reservation_expires_at?: string | null;
 };
 
 export type GuestCartVendor = {
@@ -38,6 +41,7 @@ export type GuestCartCart = {
 
 export type GuestCart = {
   version: 1;
+  guest_id?: string | null;
   carts: GuestCartCart[];
   vendors: Record<string, GuestCartVendor>;
   updatedAt: number;
@@ -56,6 +60,7 @@ type AddGuestCartInput = {
 
 const EMPTY_GUEST_CART: GuestCart = {
   version: 1,
+  guest_id: null,
   carts: [],
   vendors: {},
   updatedAt: 0,
@@ -99,6 +104,21 @@ function buildGuestCartItemId(listingId: string, variantId?: string | null) {
   return variantId ? `${listingId}:${variantId}` : listingId;
 }
 
+export function createGuestCartSessionId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `guest-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+export function getGuestCartSessionId() {
+  const cart = getGuestCart();
+  if (cart.guest_id) return cart.guest_id;
+  const guestId = createGuestCartSessionId();
+  setGuestCart({ ...cart, guest_id: guestId });
+  return guestId;
+}
+
 function normalizeCart(input: unknown): GuestCart {
   if (!input || typeof input !== "object") return { ...EMPTY_GUEST_CART };
   const raw = input as Partial<GuestCart>;
@@ -119,7 +139,14 @@ function normalizeCart(input: unknown): GuestCart {
                   const quantity = Number(item?.quantity || 0);
                   if (!listingId || !Number.isFinite(quantity) || quantity <= 0) return null;
                   return {
-                    id: buildGuestCartItemId(
+                    id:
+                      typeof item?.id === "string" && item.id.trim()
+                        ? item.id.trim()
+                        : buildGuestCartItemId(
+                            listingId,
+                            item?.variant_id ? String(item.variant_id) : null
+                          ),
+                    client_item_id: buildGuestCartItemId(
                       listingId,
                       item?.variant_id ? String(item.variant_id) : null
                     ),
@@ -142,12 +169,18 @@ function normalizeCart(input: unknown): GuestCart {
                       Math.min(MAX_ORDER_QUANTITY, Number(item?.max_order_quantity || MAX_ORDER_QUANTITY))
                     ),
                     stock_error: item?.stock_error ? String(item.stock_error) : null,
+                    reserved_quantity:
+                      item?.reserved_quantity == null ? null : Number(item.reserved_quantity || 0),
+                    reservation_expires_at: item?.reservation_expires_at
+                      ? String(item.reservation_expires_at)
+                      : null,
                   };
                 })
                 .filter(Boolean)
             : [];
           return {
-            id: `guest:${vendorId}`,
+            id:
+              typeof cart?.id === "string" && cart.id.trim() ? cart.id.trim() : `guest:${vendorId}`,
             vendor_id: vendorId,
             fulfillment_type: fulfillmentType,
             available_fulfillment_methods: methods,
@@ -159,6 +192,7 @@ function normalizeCart(input: unknown): GuestCart {
 
   return {
     version: 1,
+    guest_id: raw.guest_id ? String(raw.guest_id) : null,
     carts: carts as GuestCartCart[],
     vendors: vendors as Record<string, GuestCartVendor>,
     updatedAt: Number(raw.updatedAt || 0),
