@@ -446,9 +446,9 @@ export default function CustomerLoginForm({
             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 placeholder-slate-400 transition focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
             disabled={loading || loadingUser}
           />
-          <div className="mt-2 text-right">
-            <Link href="/auth/forgot-password" className="text-sm font-semibold text-pink-600 hover:underline">
-              Forgot your password?
+          <div className="mt-3 pb-1 text-right">
+            <Link href="/auth/forgot-password" className="text-sm text-gray-500 transition hover:text-gray-700 hover:underline focus-visible:underline">
+              Forgot password?
             </Link>
           </div>
         </div>

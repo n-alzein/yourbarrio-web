@@ -667,12 +667,12 @@ function BusinessLoginInner({ isPopup, callbackError = "", sessionExpired = fals
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-              <div className="mt-2 text-right">
+              <div className="mt-3 pb-1 text-right">
                 <Link
                   href="/auth/forgot-password"
-                  className="text-sm font-medium text-[var(--color-primary)] hover:underline"
+                  className="text-sm text-gray-500 transition hover:text-gray-700 hover:underline focus-visible:underline"
                 >
-                  Forgot your password?
+                  Forgot password?
                 </Link>
               </div>
             </div>
