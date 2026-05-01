@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import OrderStatusBadge from "@/components/orders/OrderStatusBadge";
@@ -464,7 +464,7 @@ export default function BusinessOrdersClient() {
       ? "New orders will show up here when customers submit requests."
       : "Try clearing filters or searching with a different keyword.";
 
-  const closeSelectedOrder = () => {
+  const closeSelectedOrder = useCallback(() => {
     if (orderParam) {
       setDismissedOrderParam(orderParam);
     }
@@ -479,7 +479,7 @@ export default function BusinessOrdersClient() {
     const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
 
     router.replace(nextUrl, { scroll: false });
-  };
+  }, [orderParam, pathname, router, searchParams]);
 
   const openOrderDetails = (order) => {
     if (!order?.order_number) return;
@@ -515,7 +515,7 @@ export default function BusinessOrdersClient() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedOrder, orderParam, pathname, router, searchParams]);
+  }, [closeSelectedOrder, selectedOrder]);
 
   return (
     <div

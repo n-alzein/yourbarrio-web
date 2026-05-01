@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AIDescriptionAssistant from "@/components/business/AIDescriptionAssistant";
 import ListingPhotoManager from "@/components/business/listings/ListingPhotoManager";
@@ -428,7 +428,7 @@ export default function NewListingPage() {
     return uploaded;
   }
 
-  async function persistListing({ targetStatus, source }) {
+  const persistListing = useCallback(async ({ targetStatus, source }) => {
     const client = getSupabaseBrowserClient() ?? supabase;
     if (!client || !accountId) {
       if (source !== "autosave") {
@@ -599,7 +599,18 @@ export default function NewListingPage() {
       setSaving(false);
       setSaveAction(null);
     }
-  }
+  }, [
+    accountId,
+    coverImageId,
+    derivedVariantInventory.inventoryQuantity,
+    derivedVariantInventory.inventoryStatus,
+    form,
+    photos.length,
+    publishValidation,
+    supabase,
+    uploadPhotos,
+    variantsEnabled,
+  ]);
 
   useEffect(() => {
     if (!hasDraftContent) return;
@@ -620,7 +631,7 @@ export default function NewListingPage() {
         clearTimeout(autosaveTimeoutRef.current);
       }
     };
-  }, [accountId, draftSignature, hasDraftContent, saving]);
+  }, [accountId, draftSignature, hasDraftContent, persistListing, saving]);
 
   async function handleEnhancePhoto(photoId) {
     const target = photosRef.current.find((photo) => photo.id === photoId);

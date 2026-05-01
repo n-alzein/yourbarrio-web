@@ -323,7 +323,7 @@ export default function BusinessReviewsPanel({
 
   useEffect(() => {
     setSummary((prev) => normalizeSummary(ratingSummary, reviews) || prev);
-  }, [ratingSummary]);
+  }, [ratingSummary, reviews]);
 
   useEffect(() => {
     let active = true;
