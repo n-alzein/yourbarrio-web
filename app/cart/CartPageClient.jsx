@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { ShoppingBag, Trash2, Truck, Minus, Plus } from "lucide-react";
 import SafeImage from "@/components/SafeImage";
 import { useAuth } from "@/components/AuthProvider";
@@ -11,13 +10,11 @@ import { useModal } from "@/components/modals/ModalProvider";
 import { useCurrentAccountContext } from "@/lib/auth/useCurrentAccountContext";
 import { setAuthIntent } from "@/lib/auth/authIntent";
 import { DELIVERY_FULFILLMENT_TYPE, PICKUP_FULFILLMENT_TYPE } from "@/lib/fulfillment";
-import { getListingUrl } from "@/lib/ids/publicRefs";
-import { resolveListingCoverImageUrl } from "@/lib/listingPhotos";
 import {
   getPurchaseRestrictionHelpText,
   getPurchaseRestrictionMessage,
 } from "@/lib/auth/purchaseAccess";
-import { calculateCheckoutPricing, calculateListingPricing } from "@/lib/pricing";
+import { calculateCheckoutPricing } from "@/lib/pricing";
 
 const formatMoney = (value) => {
   const amount = Number(value || 0);
@@ -33,143 +30,13 @@ const LISTING_DETAIL_CART_VALIDATION_ERRORS = new Set([
   "Select each product option before adding this item to your cart.",
 ]);
 
-function formatListingPrice(listing) {
-  const finalPriceCents = Number(listing?.finalPriceCents);
-  const priceCents = Number.isFinite(finalPriceCents) && finalPriceCents > 0
-    ? finalPriceCents
-    : calculateListingPricing(listing?.price).finalPriceCents;
-
-  if (!Number.isFinite(priceCents) || priceCents <= 0) return "Price TBD";
-  return (priceCents / 100).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function ReorderItemCard({ item, onAddItem }) {
-  const router = useRouter();
-  const listing = item?.listing || null;
-  const listingHref = getListingUrl(listing || {});
-  const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState(false);
-  const canDirectReorder = item?.reorder_mode === "directAdd";
-  const actionLabel = canDirectReorder ? (adding ? "Adding..." : "Add to cart") : "Select options";
-
-  if (!listing?.id) return null;
-
-  return (
-    <article
-      className="flex min-w-[210px] max-w-[230px] flex-col gap-3 rounded-[22px] border border-slate-200/70 bg-white/88 p-3 shadow-[0_10px_30px_-28px_rgba(15,23,42,0.18)]"
-    >
-      <Link href={listingHref} className="flex items-center gap-3">
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
-          <SafeImage
-            src={resolveListingCoverImageUrl(listing)}
-            alt={listing?.title || "Listing photo"}
-            className="h-full w-full object-cover"
-            sizes="64px"
-            onError={() => {}}
-            onLoad={() => {}}
-          />
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-950">
-            {listing?.title || "Listing"}
-          </p>
-          <p className="mt-0.5 truncate text-xs text-slate-500">
-            {listing?.business_name || "Local shop"}
-          </p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">
-            {formatListingPrice(listing)}
-          </p>
-        </div>
-      </Link>
-
-      <button
-        type="button"
-        onClick={async () => {
-          if (!canDirectReorder) {
-            router.push(listingHref);
-            return;
-          }
-          setAdding(true);
-          setAdded(false);
-          const result = await onAddItem?.(item);
-          setAdding(false);
-          if (!result?.error) {
-            setAdded(true);
-            window.setTimeout(() => setAdded(false), 1600);
-          }
-        }}
-        disabled={adding}
-        className="inline-flex min-h-10 items-center justify-center rounded-xl border border-violet-200 bg-white px-4 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-200"
-      >
-        {actionLabel}
-      </button>
-      {added ? (
-        <p className="text-xs font-medium text-emerald-600">Added to cart</p>
-      ) : null}
-    </article>
-  );
-}
-
-function EmptyCartDiscoveryState({ reorderItems = [], addItem }) {
-  const handleReorderAdd = async (item) => {
-    const listing = item?.listing;
-    if (!listing?.id || typeof addItem !== "function") return { error: "Unable to add item" };
-    return addItem({
-      listingId: String(listing.id),
-      variantId: item?.reorder_variant_id || null,
-      variantLabel: item?.reorder_variant_label || null,
-      selectedOptions: item?.reorder_selected_options || null,
-      quantity: Math.max(1, Number(item?.last_ordered_quantity || 1)),
-      listing,
-      business: {
-        id: listing.business_id,
-        business_name: listing.business_name,
-      },
-    });
-  };
-
-  const showReorder = reorderItems.length > 0;
-
+function EmptyCartDiscoveryState() {
   return (
     <div
       className="px-4 pb-6 pt-6 md:px-8 md:pb-8 md:pt-8 lg:px-12"
       style={{ background: "var(--background)", color: "var(--text)" }}
     >
-      <div className="mx-auto max-w-5xl space-y-5 md:space-y-6">
-        <div className="space-y-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Cart</p>
-
-          {showReorder ? (
-            <section className="space-y-3" aria-labelledby="empty-cart-order-again">
-              <div className="flex items-center justify-between gap-3">
-                <h2
-                  id="empty-cart-order-again"
-                  className="text-lg font-semibold tracking-[-0.03em] text-slate-950"
-                >
-                  Order again
-                </h2>
-              </div>
-
-              <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <div className="flex gap-3">
-                  {reorderItems.map((item) => (
-                    <ReorderItemCard
-                      key={`${item?.order_number || "order"}-${item?.listing?.id || "listing"}`}
-                      item={item}
-                      onAddItem={handleReorderAdd}
-                    />
-                  ))}
-                </div>
-              </div>
-            </section>
-          ) : null}
-        </div>
-
+      <div className="mx-auto max-w-5xl">
         <div className="flex min-h-[calc(100vh-20rem)] items-start justify-center pt-2 md:pt-3">
           <section
             className="w-full max-w-[640px] rounded-[32px] px-6 py-7 text-center md:px-8 md:py-8"
@@ -207,11 +74,11 @@ function EmptyCartDiscoveryState({ reorderItems = [], addItem }) {
   );
 }
 
-export default function CartPageClient({ initialReorderItems = [] }) {
+export default function CartPageClient() {
   const { user } = useAuth();
   const { openModal } = useModal();
   const accountContext = useCurrentAccountContext();
-  const { items, vendorGroups, loading, error, updateItem, removeItem, setFulfillmentType, addItem } = useCart();
+  const { items, vendorGroups, loading, error, updateItem, removeItem, setFulfillmentType } = useCart();
   const [updatingItem, setUpdatingItem] = useState(null);
   const [fulfillmentErrors, setFulfillmentErrors] = useState({});
   const purchaseRestricted = accountContext.purchaseRestricted;
@@ -318,7 +185,7 @@ export default function CartPageClient({ initialReorderItems = [] }) {
   }
 
   if (vendorGroups.length === 0) {
-    return <EmptyCartDiscoveryState reorderItems={initialReorderItems} addItem={addItem} />;
+    return <EmptyCartDiscoveryState />;
   }
 
   return (
@@ -478,10 +345,15 @@ export default function CartPageClient({ initialReorderItems = [] }) {
                                     <p className="mt-1 text-xs opacity-65">{item.variant_label}</p>
                                   ) : null}
                                   <p className="mt-1 text-xs opacity-70">${formatMoney(item.unit_price)}</p>
+                                  {item.reservation_expires_at ? (
+                                    <p className="mt-1 text-xs opacity-70">
+                                      Reserved in your cart for 30 minutes.
+                                    </p>
+                                  ) : null}
                                   {item.stock_error ? (
                                     <p className="mt-1 text-xs text-rose-200">{item.stock_error}</p>
                                   ) : maxQuantity > 0 && maxQuantity < 5 ? (
-                                    <p className="mt-1 text-xs opacity-70">{maxQuantity} available</p>
+                                    <p className="mt-1 text-xs opacity-70">Only {maxQuantity} left available.</p>
                                   ) : null}
                                 </div>
                                 <div className="flex items-center justify-between gap-2 sm:min-w-[148px] sm:justify-end">

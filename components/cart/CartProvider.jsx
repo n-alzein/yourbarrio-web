@@ -546,7 +546,11 @@ export function CartProvider({ children }) {
 
         const payload = await parseResponse(response);
         if (!response.ok) {
-          return { error: payload?.error || "Failed to add to cart" };
+          return {
+            error: payload?.error || "Failed to add to cart",
+            code: payload?.code || null,
+            maxQuantity: payload?.maxQuantity ?? null,
+          };
         }
 
         const guestCart = syncGuestCartPayload(payload);
@@ -576,7 +580,11 @@ export function CartProvider({ children }) {
 
       const payload = await parseResponse(response);
       if (!response.ok) {
-        return { error: payload?.error || "Failed to add to cart" };
+        return {
+          error: payload?.error || "Failed to add to cart",
+          code: payload?.code || null,
+          maxQuantity: payload?.maxQuantity ?? null,
+        };
       }
 
       syncCart(payload);

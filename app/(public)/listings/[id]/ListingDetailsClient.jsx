@@ -26,6 +26,14 @@ import {
   getMaxPurchasableQuantity,
   normalizeInventory,
 } from "@/lib/inventory";
+import {
+  clampListingQuantitySelection,
+  getCartItemIdsForListingSelection,
+  getListingAvailabilityKey,
+  getListingAvailabilityMessage,
+  getQuantityInCartForListingSelection,
+  resolveListingQuantityState,
+} from "@/lib/cart/listingAvailability";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { useCart } from "@/components/cart/CartProvider";
 import { useModal } from "@/components/modals/ModalProvider";
@@ -126,7 +134,7 @@ export default function ListingDetailsClient({
   const accountContext = useCurrentAccountContext();
   const gateBusinessProfileAccess = useBusinessProfileAccessGate();
   const router = useRouter();
-  const { addItem, setFulfillmentType: updateCartFulfillmentType } = useCart();
+  const { addItem, items, setFulfillmentType: updateCartFulfillmentType } = useCart();
   const { openModal } = useModal();
   const routeParams = useParams();
   const pathname = usePathname();
@@ -166,7 +174,9 @@ export default function ListingDetailsClient({
   const [listingMenuOpen, setListingMenuOpen] = useState(false);
   const [listingOptions, setListingOptions] = useState(initialListingOptions);
   const [selectedVariantOptions, setSelectedVariantOptions] = useState({});
+  const [serverAvailableQuantityBySelection, setServerAvailableQuantityBySelection] = useState({});
   const [previewCloseHelp, setPreviewCloseHelp] = useState("");
+  const seededListing = isSeededListing(listing, { business });
   const toastTimerRef = useRef(null);
   const listingMenuRef = useRef(null);
   const getCurrentPath = useCallback(() => {
@@ -467,6 +477,62 @@ export default function ListingDetailsClient({
         : getMaxPurchasableQuantity(listing),
     [hasVariantOptions, listing, purchasableListing, selectedVariant]
   );
+  const selectedAvailabilityKey = useMemo(
+    () => getListingAvailabilityKey(selectedVariant?.id || null),
+    [selectedVariant?.id]
+  );
+  const cartSelectionIncludesAllVariants = hasVariantOptions && !selectedVariant?.id;
+  const quantityInCart = useMemo(
+    () =>
+      getQuantityInCartForListingSelection({
+        cartItems: items,
+        listingId: listing?.id,
+        variantId: selectedVariant?.id || null,
+        includeAllVariants: cartSelectionIncludesAllVariants,
+      }),
+    [
+      cartSelectionIncludesAllVariants,
+      items,
+      listing?.id,
+      selectedVariant?.id,
+    ]
+  );
+  const excludedCartItemIds = useMemo(
+    () =>
+      getCartItemIdsForListingSelection({
+        cartItems: items,
+        listingId: listing?.id,
+        variantId: selectedVariant?.id || null,
+        includeAllVariants: cartSelectionIncludesAllVariants,
+      }),
+    [
+      cartSelectionIncludesAllVariants,
+      items,
+      listing?.id,
+      selectedVariant?.id,
+    ]
+  );
+  const serverAvailableQuantity = serverAvailableQuantityBySelection[selectedAvailabilityKey] ?? null;
+  const quantitySelectionState = useMemo(
+    () =>
+      resolveListingQuantityState({
+        inventoryMaxQuantity: maxPurchasableQuantity,
+        selectedQuantity: quantity,
+        serverAvailableQuantity,
+        quantityInCart,
+      }),
+    [maxPurchasableQuantity, quantity, quantityInCart, serverAvailableQuantity]
+  );
+  const selectableQuantityCap = quantitySelectionState.selectableQuantityCap;
+  const availabilityStatusMessage = useMemo(
+    () =>
+      getListingAvailabilityMessage({
+        inventoryMaxQuantity: maxPurchasableQuantity,
+        serverAvailableQuantity,
+        quantityInCart,
+      }),
+    [maxPurchasableQuantity, quantityInCart, serverAvailableQuantity]
+  );
   const pickupAvailabilityLabel = useMemo(
     () =>
       getPickupAvailabilityLabel({
@@ -510,13 +576,63 @@ export default function ListingDetailsClient({
   }, [listing?.finalPriceCents, listing?.price, selectedVariant?.price]);
 
   useEffect(() => {
-    if (!listing) return;
-    if (maxPurchasableQuantity <= 0) {
-      setQuantity(1);
-      return;
+    if (!listing?.id || seededListing) return undefined;
+
+    const controller = new AbortController();
+    const query = new URLSearchParams({ listing_id: String(listing.id) });
+    if (selectedVariant?.id) {
+      query.set("variant_id", String(selectedVariant.id));
     }
-    setQuantity((current) => Math.max(1, Math.min(maxPurchasableQuantity, Number(current || 1))));
-  }, [listing, maxPurchasableQuantity]);
+    for (const cartItemId of excludedCartItemIds) {
+      query.append("exclude_cart_item_id", cartItemId);
+    }
+
+    (async () => {
+      try {
+        const response = await fetch(`/api/cart/availability?${query.toString()}`, {
+          method: "GET",
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.error || "Failed to load availability.");
+        }
+
+        setServerAvailableQuantityBySelection((current) => ({
+          ...current,
+          [selectedAvailabilityKey]: Math.max(
+            0,
+            Number(payload?.available_quantity ?? payload?.availableQuantity ?? 0)
+          ),
+        }));
+      } catch (err) {
+        if (err?.name === "AbortError") return;
+        setServerAvailableQuantityBySelection((current) => ({
+          ...current,
+          [selectedAvailabilityKey]: null,
+        }));
+      }
+    })();
+
+    return () => controller.abort();
+  }, [
+    excludedCartItemIds,
+    hasVariantOptions,
+    listing?.id,
+    seededListing,
+    selectedAvailabilityKey,
+    selectedVariant?.id,
+  ]);
+
+  useEffect(() => {
+    if (!listing) return;
+    setQuantity((current) => clampListingQuantitySelection(current, selectableQuantityCap));
+  }, [listing, selectableQuantityCap]);
+
+  useEffect(() => {
+    setServerAvailableQuantityBySelection({});
+  }, [listing?.id]);
 
   useEffect(() => {
     setSelectedVariantOptions({});
@@ -606,6 +722,20 @@ export default function ListingDetailsClient({
         });
 
         if (result?.error) {
+          if (result?.code === "insufficient_inventory" && result?.maxQuantity != null) {
+            const nextAvailableQuantity = Math.max(0, Number(result.maxQuantity || 0));
+            setServerAvailableQuantityBySelection((current) => ({
+              ...current,
+              [selectedAvailabilityKey]: nextAvailableQuantity,
+            }));
+            setQuantity((current) =>
+              clampListingQuantitySelection(current, nextAvailableQuantity)
+            );
+            setStatusMessage(
+              nextAvailableQuantity <= 0 ? "Currently unavailable." : result.error
+            );
+            return;
+          }
           setStatusMessage(result.error);
           return;
         }
@@ -649,6 +779,7 @@ export default function ListingDetailsClient({
       listing,
       purchasableListing,
       router,
+      selectedAvailabilityKey,
       selectedVariant,
       updateCartFulfillmentType,
     ]
@@ -677,13 +808,13 @@ export default function ListingDetailsClient({
       );
       return;
     }
-    if (maxPurchasableQuantity <= 0) {
-      setStatusMessage("This item is currently out of stock.");
+    if (selectableQuantityCap <= 0) {
+      setStatusMessage("Currently unavailable.");
       return;
     }
     await executeAddToCart({
       listingId: listing.id,
-      selectedQuantity: Math.min(quantity, maxPurchasableQuantity),
+      selectedQuantity: Math.min(quantity, selectableQuantityCap),
       selectedFulfillmentType: fulfillmentType,
       businessId: listing.business_id || null,
     });
@@ -775,7 +906,6 @@ export default function ListingDetailsClient({
   const storeName = business?.business_name || business?.full_name || "Local business";
   const displayListingId =
     formatEntityId("listing", listing?.public_id) || null;
-  const seededListing = isSeededListing(listing, { business });
   const city = business?.city || "Your area";
   const address = seededListing ? null : business?.address || null;
   const listingCategory = getListingCategoryLabel(listing, "Local listing");
@@ -805,13 +935,19 @@ export default function ListingDetailsClient({
   const selectedInventory = normalizeInventory(purchasableListing);
   const isOutOfStock =
     (hasVariantOptions ? selectedInventory.availability === "out" : inventory.availability === "out") ||
-    maxPurchasableQuantity <= 0;
+    selectableQuantityCap <= 0;
+  const allAvailableUnitsAlreadyInCart =
+    quantitySelectionState.allAvailableUnitsAlreadyInCart;
   const availabilityText = seededListing
     ? getSeededListingBadgeLabel(listing)
     : hasVariantOptions && !selectedVariant
-      ? "Select options"
+      ? allAvailableUnitsAlreadyInCart
+        ? "Currently unavailable"
+        : "Select options"
+      : allAvailableUnitsAlreadyInCart
+        ? "Currently unavailable"
       : (hasVariantOptions ? selectedInventory.availability : inventory.availability) === "out"
-      ? "Out of stock"
+        ? "Out of stock"
       : "In stock";
   const availabilityTextClassName = seededListing
     ? "text-slate-600"
@@ -845,14 +981,14 @@ export default function ListingDetailsClient({
     (hasVariantOptions && !selectedVariant?.id);
   const canDecreaseQuantity = quantity > 1 && !quantityControlsDisabled;
   const canIncreaseQuantity =
-    quantity < Math.max(1, maxPurchasableQuantity) && !quantityControlsDisabled;
+    quantity < selectableQuantityCap && !quantityControlsDisabled;
   const addToCartDisabled =
     seededListing ||
     isOutOfStock ||
     cartActionLoading ||
     (hasVariantOptions && !selectedVariant?.id);
   const inlineStatusMessage =
-    statusMessage === "No items in cart." ? "" : statusMessage;
+    statusMessage === "No items in cart." ? "" : statusMessage || availabilityStatusMessage;
 
   return (
     <>
@@ -1436,7 +1572,11 @@ export default function ListingDetailsClient({
                       >
                         <button
                           type="button"
-                          onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                          onClick={() =>
+                            setQuantity((current) =>
+                              clampListingQuantitySelection(current - 1, selectableQuantityCap)
+                            )
+                          }
                           disabled={!canDecreaseQuantity}
                           className="flex h-11 w-11 items-center justify-center text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                           aria-label="Decrease quantity"
@@ -1456,7 +1596,7 @@ export default function ListingDetailsClient({
                           type="button"
                           onClick={() =>
                             setQuantity((current) =>
-                              Math.min(Math.max(1, maxPurchasableQuantity), current + 1)
+                              clampListingQuantitySelection(current + 1, selectableQuantityCap)
                             )
                           }
                           disabled={!canIncreaseQuantity}
@@ -1527,14 +1667,20 @@ export default function ListingDetailsClient({
                       {SEEDED_LISTING_PREVIEW_MESSAGE}
                     </div>
                   ) : isOutOfStock ? (
-                    <div className="text-xs leading-5 opacity-75">
+                    <div className="mt-2 text-xs leading-5 opacity-75">
                       {hasVariantOptions && !selectedVariant?.id
-                        ? "Select each option to see availability."
-                        : "This item is currently out of stock"}
+                        ? allAvailableUnitsAlreadyInCart
+                          ? "All available units are already in your cart."
+                          : "Select each option to see availability."
+                        : allAvailableUnitsAlreadyInCart
+                          ? "All available units are already in your cart."
+                        : serverAvailableQuantity === 0
+                          ? "Currently unavailable."
+                          : "This item is currently out of stock"}
                     </div>
                   ) : inlineStatusMessage ? (
                     <div
-                      className="rounded-xl px-3 py-2 text-xs"
+                      className="mt-2 rounded-xl px-3 py-2 text-xs"
                       style={{ background: "var(--overlay)", border: "1px solid rgba(15,23,42,0.08)" }}
                     >
                       {inlineStatusMessage}

@@ -2,10 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Heart, ShoppingCart } from "lucide-react";
 import SafeImage from "@/components/SafeImage";
 import { useCart } from "@/components/cart/CartProvider";
+import {
+  getCartItemIdsForListingSelection,
+  getQuantityInCartForListingSelection,
+  resolveListingQuantityState,
+} from "@/lib/cart/listingAvailability";
 import { resolveListingCoverImageUrl } from "@/lib/listingPhotos";
 import { getListingUrl } from "@/lib/ids/publicRefs";
 import { normalizeInventory } from "@/lib/inventory";
@@ -89,21 +94,55 @@ export default function ListingMarketplaceCard({
   onToggleSave?: ((listing: ListingItem) => void) | null;
 }) {
   const router = useRouter();
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
+  const [serverAvailableQuantity, setServerAvailableQuantity] = useState<number | null>(null);
   const inventory = normalizeInventory(listing);
   const seeded = isSeededListing(listing);
-  const isOutOfStock = inventory.availability === "out";
   const businessName = String(listing?.business_name || "").trim();
   const listingHref = getListingUrl(listing);
   const displayPriceCents = getDisplayPriceCents(listing);
   const isSavedVariant = variant === "saved";
   const needsDetailsBeforeCart = listingNeedsDetailsBeforeCart(listing as ListingItem & Record<string, unknown>);
   const shouldRouteToDetailsBeforeCart = needsDetailsBeforeCart && (isSavedVariant || routeToDetailsForOptionedListings);
+  const includeAllVariants = needsDetailsBeforeCart;
+  const quantityInCart = useMemo(
+    () =>
+      getQuantityInCartForListingSelection({
+        cartItems: items,
+        listingId: listing?.id,
+        includeAllVariants,
+      }),
+    [includeAllVariants, items, listing?.id]
+  );
+  const excludedCartItemIds = useMemo(
+    () =>
+      getCartItemIdsForListingSelection({
+        cartItems: items,
+        listingId: listing?.id,
+        includeAllVariants,
+      }),
+    [includeAllVariants, items, listing?.id]
+  );
+  const availabilityState = useMemo(
+    () =>
+      resolveListingQuantityState({
+        inventoryMaxQuantity: Number(listing?.inventory_quantity || 0),
+        selectedQuantity: 1,
+        serverAvailableQuantity,
+        quantityInCart,
+      }),
+    [listing?.inventory_quantity, quantityInCart, serverAvailableQuantity]
+  );
+  const isOutOfStock = inventory.availability === "out" || availabilityState.isCurrentlyUnavailable;
   void fallbackLocationLabel;
   const addToCartLabel = seeded
     ? "Coming soon"
+    : availabilityState.isCurrentlyUnavailable
+      ? quantityInCart > 0
+        ? "In your cart"
+        : "Unavailable"
     : shouldRouteToDetailsBeforeCart
       ? "Select options"
       : adding
@@ -111,6 +150,39 @@ export default function ListingMarketplaceCard({
         : added
           ? "Added"
           : "Add to cart";
+
+  useEffect(() => {
+    if (!listing?.id || seeded) return undefined;
+
+    const controller = new AbortController();
+    const query = new URLSearchParams({ listing_id: String(listing.id) });
+    for (const cartItemId of excludedCartItemIds) {
+      query.append("exclude_cart_item_id", cartItemId);
+    }
+
+    (async () => {
+      try {
+        const response = await fetch(`/api/cart/availability?${query.toString()}`, {
+          method: "GET",
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.error || "Failed to load availability.");
+        }
+
+        setServerAvailableQuantity(
+          Math.max(0, Number(payload?.available_quantity ?? payload?.availableQuantity ?? 0))
+        );
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+        setServerAvailableQuantity(null);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [excludedCartItemIds, listing?.id, seeded]);
 
   const handleAddToCart = async () => {
     if (!listing?.id || isOutOfStock || seeded || adding) return;

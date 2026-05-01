@@ -554,6 +554,38 @@ describe("cart api guest auth handling", () => {
     await expect(response.json()).resolves.toMatchObject({ error: "Unauthorized" });
   });
 
+  it("keeps server-side inventory blocking for over-limit guest adds", async () => {
+    const { supabase } = createGuestCapableSupabaseMock();
+    getSupabaseServerClientMock.mockResolvedValue(supabase);
+    getUserCachedMock.mockResolvedValue({
+      user: null,
+      error: { name: "AuthSessionMissingError", message: "Auth session missing!" },
+    });
+    upsertCartItemReservationMock.mockResolvedValue({
+      success: false,
+      errorCode: "insufficient_inventory",
+      message: "Only 2 left available.",
+      availableQuantity: 2,
+      cartItemId: null,
+      reservationExpiresAt: null,
+    });
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guest_id: "guest-1", listing_id: "listing-1", quantity: 3 }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Only 2 left available.",
+      code: "insufficient_inventory",
+      maxQuantity: 2,
+    });
+  });
+
   it("merges a guest cart into the authenticated cart after reservation changes", async () => {
     const { supabase, state, vendor } = createGuestCapableSupabaseMock({
       userId: "customer-1",

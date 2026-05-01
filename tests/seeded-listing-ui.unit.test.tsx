@@ -11,6 +11,13 @@ const listingDetailsSource = readFileSync(
 vi.mock("@/components/cart/CartProvider", () => ({
   useCart: () => ({
     addItem: vi.fn(),
+    items: [],
+  }),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
   }),
 }));
 

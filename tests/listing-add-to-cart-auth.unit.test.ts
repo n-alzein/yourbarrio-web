@@ -28,7 +28,7 @@ describe("public listing guest add-to-cart flow", () => {
   });
 
   it("adds a public listing tile add-to-cart entry point", () => {
-    expect(listingTileSource).toContain("const { addItem } = useCart()");
+    expect(listingTileSource).toContain("const { addItem, items } = useCart()");
     expect(listingTileSource).toContain("handleAddToCart");
     expect(listingTileSource).toContain("Add to cart");
     expect(listingTileSource).toContain("listing,");
@@ -50,6 +50,10 @@ describe("public listing guest add-to-cart flow", () => {
     expect(listingPageSource).toContain('aria-label="Decrease quantity"');
     expect(listingPageSource).toContain('aria-label="Increase quantity"');
     expect(listingPageSource).toContain("const addToCartDisabled =");
+    expect(listingPageSource).toContain("const selectableQuantityCap =");
+    expect(listingPageSource).toContain('setStatusMessage("Currently unavailable.")');
+    expect(listingPageSource).toContain("quantityInCart,");
+    expect(listingPageSource).toContain("allAvailableUnitsAlreadyInCart");
     expect(listingPageSource).toContain("rgba(124,58,237,0.14)");
   });
 

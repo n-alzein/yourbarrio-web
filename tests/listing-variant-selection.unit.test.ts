@@ -40,6 +40,8 @@ describe("variant listing add-to-cart guards", () => {
     expect(listingDetailsSource).toContain("Select each product option before adding this item to your cart.");
     expect(listingDetailsSource).toContain("variantId: selectedVariant?.id || null");
     expect(listingDetailsSource).toContain("ListingOptionSelectors");
+    expect(listingDetailsSource).toContain("/api/cart/availability?");
+    expect(listingDetailsSource).toContain("selectedVariant?.id");
   });
 
   it("revalidates variant selection on the cart api", () => {
