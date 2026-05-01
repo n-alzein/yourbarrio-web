@@ -214,23 +214,48 @@ export default function BusinessListingsPage() {
   async function handleDelete(id) {
     if (!confirm("Are you sure you want to delete this listing?")) return;
 
-    const client = getSupabaseBrowserClient() ?? supabase;
-    if (!client) {
-      alert("Connection not ready. Please try again.");
+    try {
+      const response = await fetchWithTimeout(`/api/business/listings/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        credentials: "include",
+        timeoutMs: 12000,
+      });
+
+      let payload = null;
+      let responseText = "";
+      try {
+        responseText = await response.text();
+        payload = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        const message = payload?.error || responseText || "Failed to delete listing.";
+        console.warn("Delete listing failed", {
+          status: response.status,
+          message,
+          code: payload?.code || null,
+        });
+        alert(message);
+        return;
+      }
+    } catch (error) {
+      const message = error?.message || "Failed to delete listing.";
+      console.warn("Delete listing request failed", message);
+      alert(message);
       return;
     }
-    const { error } = await client
-      .from("listings")
-      .delete()
-      .eq("id", id);
 
-    if (error) {
-      console.error("❌ Delete error:", error);
-      alert("Failed to delete listing.");
-      return;
-    }
-
-    setListings((prev) => prev.filter((l) => l.id !== id));
+    setListings((prev) => {
+      const nextListings = prev.filter((l) => l.id !== id);
+      try {
+        sessionStorage.setItem("yb_business_listings", JSON.stringify(nextListings));
+      } catch {
+        // ignore cache write errors
+      }
+      return nextListings;
+    });
   }
 
   async function handleStatusChange(id, nextStatus) {

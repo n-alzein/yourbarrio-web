@@ -37,6 +37,7 @@ export async function GET(request) {
     .from("listings")
     .select("*")
     .eq("business_id", effectiveUserId)
+    .eq("admin_hidden", false)
     .order("created_at", { ascending: false });
 
   if (error) {

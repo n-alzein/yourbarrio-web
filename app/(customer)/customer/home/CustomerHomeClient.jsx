@@ -152,7 +152,7 @@ function CustomerHomePageInner({
     [isLight]
   );
   const businessHeading = "Local shops in Long Beach";
-  const businessSubtitle = "Verified local shops and storefronts around Long Beach";
+  const businessSubtitle = "Meet the local storefronts behind these finds";
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const showLocationEmpty = locationHydrated && !hasLocation;
@@ -427,6 +427,14 @@ function CustomerHomePageInner({
   const sortedHybridItems = useMemo(
     () => sortListingsByAvailability(hybridItems),
     [hybridItems]
+  );
+  const featuredListingIds = useMemo(
+    () =>
+      sortListingsByAvailability(Array.isArray(homeListings) ? homeListings : [])
+        .slice(0, 8)
+        .map((listing) => listing?.public_id || listing?.id)
+        .filter(Boolean),
+    [homeListings]
   );
 
   useEffect(() => {
@@ -706,15 +714,24 @@ function CustomerHomePageInner({
             city={activeCity || null}
             limit={8}
           />
-          <div className="w-full bg-[#fcfcfd] pb-16 pt-0 md:pb-20">
+          <TrendingListingsSection
+            mode={mode}
+            listings={homeListings}
+            city={activeCity || null}
+            limit={4}
+            variant="new"
+            excludeListingIds={featuredListingIds}
+          />
+          <div className="w-full bg-[#fcfcfd] pb-12 pt-0 md:pb-14">
             <PopularNearYouSection
               mode={mode}
               title={businessHeading}
               subtitle={businessSubtitle}
+              viewAllLabel="View all shops"
               sectionId="top-businesses-near-you"
-              sectionClassName="mt-8 md:mt-10 lg:mt-8"
+              sectionClassName="mt-6 md:mt-8 lg:mt-6"
               limit={6}
-              badgeMode="trending"
+              badgeMode="none"
             />
             <SellerCTASection />
           </div>

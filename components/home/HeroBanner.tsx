@@ -26,13 +26,10 @@ export default function HeroBanner({
   const imageSrc = hero.imageSrc || "";
   const ctaHref = hero.primaryCtaHref || "/";
   const ctaText = hero.primaryCtaLabel || "Explore local businesses";
-  const supportingText = hero.supportingText || "Supporting local shops near you";
-  const helperText = city?.trim()
-    ? `${city.trim()} businesses, curated for you`
-    : supportingText;
+  const brandMeaningText = hero.brandMeaningText || `YourBarrio — ${city?.trim() || "Long Beach"} marketplace`;
   const isExternal = isExternalHref(ctaHref);
   const ctaClassName =
-    "inline-flex min-h-11 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed,#a855f7)] px-5 py-2.5 text-sm font-semibold !text-white shadow-[0_8px_22px_rgba(124,58,237,0.22),0_1px_2px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-0.5 hover:!text-white hover:shadow-[0_12px_28px_rgba(124,58,237,0.28),0_2px_6px_rgba(15,23,42,0.1)] focus-visible:!text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/25 active:translate-y-0 active:!text-white sm:text-[0.95rem]";
+    "inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#7c3aed] px-5 py-2.5 text-sm font-semibold !text-white shadow-[0_5px_14px_rgba(124,58,237,0.16),0_1px_2px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#6d28d9] hover:!text-white hover:shadow-[0_7px_18px_rgba(124,58,237,0.20),0_2px_5px_rgba(15,23,42,0.08)] focus-visible:!text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/25 active:translate-y-0 active:!text-white sm:w-auto sm:text-[0.95rem]";
   const heroHeightClassName = offsetContentForFixedNav
     ? "h-[clamp(280px,36vh,340px)] md:h-[clamp(300px,28vh,320px)]"
     : "min-h-[220px] sm:min-h-[244px] md:min-h-[38vh] lg:min-h-[40vh] xl:min-h-[43vh]";
@@ -40,7 +37,7 @@ export default function HeroBanner({
     ? "relative z-10 flex h-full items-center justify-center"
     : "relative z-10 flex min-h-[220px] items-center sm:min-h-[244px] md:min-h-[38vh] lg:min-h-[40vh] xl:min-h-[43vh]";
   const contentInnerClassName = offsetContentForFixedNav
-    ? "translate-y-0 md:translate-y-[2%]"
+    ? "-translate-y-5 md:-translate-y-8"
     : "";
   const contentPaddingClassName = offsetContentForFixedNav
     ? "px-6 py-4 sm:px-6 sm:py-4 md:px-8 md:py-4"
@@ -48,7 +45,7 @@ export default function HeroBanner({
 
   return (
     <article
-      className="relative isolate overflow-hidden bg-[#05010d]"
+      className="yb-home-hero relative isolate overflow-hidden bg-[#05010d]"
       data-testid="home-hero"
     >
       <div className={`relative overflow-hidden ${heroHeightClassName}`}>
@@ -81,7 +78,7 @@ export default function HeroBanner({
           <div className={`mx-auto flex w-full max-w-6xl items-center justify-center ${contentPaddingClassName}`}>
             <div className={contentInnerClassName}>
               <div className="yb-fade-up mx-auto flex max-w-[40rem] flex-col items-center text-center [animation-delay:120ms] motion-reduce:[animation-delay:0ms]">
-                <h1 className="max-w-[17.2ch] text-[2rem] font-bold tracking-[-0.04em] text-[#ffffff] [text-shadow:0_2px_8px_rgba(0,0,0,0.22)] sm:max-w-[17.8ch] sm:text-[2.45rem] sm:leading-[1.03] lg:max-w-[18.8ch] lg:text-[3.15rem] lg:leading-[1.01]">
+                <h1 className="max-w-[17.2ch] text-[2rem] font-bold leading-[1.08] tracking-[-0.04em] text-[#ffffff] [text-shadow:0_2px_8px_rgba(0,0,0,0.22)] sm:max-w-[17.8ch] sm:text-[2.45rem] sm:leading-[1.07] lg:max-w-[18.8ch] lg:text-[3.15rem] lg:leading-[1.05]">
                   <AnimatedHeroHeadline supportingText={title} />
                 </h1>
                 {subtitle ? (
@@ -90,7 +87,7 @@ export default function HeroBanner({
                   </p>
                 ) : null}
 
-                <div className="yb-fade-up mt-3 [animation-delay:220ms] motion-reduce:[animation-delay:0ms]">
+                <div className="yb-fade-up mt-3 w-full max-w-xs sm:w-auto sm:max-w-none [animation-delay:220ms] motion-reduce:[animation-delay:0ms]">
                   {isExternal ? (
                     <a
                       href={ctaHref}
@@ -111,27 +108,21 @@ export default function HeroBanner({
                   )}
                 </div>
 
-                <div className="yb-fade-up mt-3 flex items-center gap-2 text-sm text-[rgba(255,255,255,0.74)] [animation-delay:320ms] motion-reduce:[animation-delay:0ms]">
-                  <span className="inline-flex h-4 w-4 items-center justify-center">
-                    <Image
-                      src="/YBpin.png"
-                      alt=""
-                      aria-hidden="true"
-                      width={16}
-                      height={16}
-                      className="h-4 w-4 object-contain opacity-80"
-                    />
-                  </span>
-                  <p>{helperText}</p>
+                <div className="yb-fade-up mt-5 inline-flex max-w-full items-center justify-center gap-2 whitespace-nowrap text-[12px] font-medium tracking-[0.01em] text-[rgba(255,255,255,0.72)] sm:text-[13px] [animation-delay:320ms] motion-reduce:[animation-delay:0ms]">
+                  <Image
+                    src="/YBpin.png"
+                    alt=""
+                    aria-hidden="true"
+                    width={16}
+                    height={16}
+                    className="h-4 w-4 shrink-0 object-contain opacity-90"
+                  />
+                  <span>{brandMeaningText}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-b from-transparent via-[rgba(252,252,253,0.08)] to-[rgba(252,252,253,0.72)] sm:h-12"
-        />
       </div>
     </article>
   );

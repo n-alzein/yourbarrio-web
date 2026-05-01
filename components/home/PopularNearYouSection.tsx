@@ -19,6 +19,7 @@ type PopularNearYouSectionProps = {
   sectionId?: string;
   sectionClassName?: string;
   subtitle?: string;
+  viewAllLabel?: string;
   distanceThresholdMiles?: number;
   limit?: number;
   badgeMode?: "trending" | "nearby" | "none";
@@ -103,11 +104,8 @@ function createBusinessBadges(
   badgeMode: PopularNearYouSectionProps["badgeMode"]
 ) {
   void business;
+  void index;
   if (badgeMode === "none") return [];
-
-  if (badgeMode === "trending") {
-    if (index >= 2 && index < 4) return ["New"];
-  }
 
   return [];
 }
@@ -150,6 +148,7 @@ export default function PopularNearYouSection({
   sectionId,
   sectionClassName,
   subtitle,
+  viewAllLabel = "View all",
   distanceThresholdMiles,
   limit = 8,
   badgeMode = "trending",
@@ -243,7 +242,7 @@ export default function PopularNearYouSection({
       if (normalizedLocation.city) return `Near ${normalizedLocation.city}`;
       return `Within ${distanceThresholdMiles} miles`;
     }
-    return "Trending near you";
+    return "Local shops near you";
   }, [distanceThresholdMiles, normalizedLocation.city, sparseTitle, title, visibleBusinesses.length]);
   const resolvedSubtitle = useMemo(() => {
     if (subtitle) return subtitle;
@@ -279,7 +278,7 @@ export default function PopularNearYouSection({
             prefetch={false}
             className="inline-flex items-center gap-1 self-center text-sm font-medium text-purple-500 transition-all duration-300 hover:translate-x-0.5 hover:text-purple-700"
           >
-            View all <span aria-hidden="true">→</span>
+            {viewAllLabel} <span aria-hidden="true">→</span>
           </Link>
         </div>
 

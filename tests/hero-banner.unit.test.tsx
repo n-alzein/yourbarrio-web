@@ -28,12 +28,15 @@ describe("HeroBanner helper line", () => {
   it("renders city-aware helper copy when city is available", () => {
     render(<HeroBanner hero={homeHeroConfig} city="Long Beach" />);
 
-    expect(screen.getByText("Long Beach businesses, curated for you")).toBeInTheDocument();
+    expect(screen.getByText("Discover local shops you’ll love")).toBeInTheDocument();
+    expect(screen.getByText("YourBarrio — Long Beach marketplace")).toBeInTheDocument();
+    expect(document.querySelector('img[src="/YBpin.png"]')).toBeInTheDocument();
+    expect(screen.queryByText("Long Beach businesses, curated for you")).not.toBeInTheDocument();
   });
 
-  it("falls back to the default helper copy when city is unavailable", () => {
+  it("keeps a single brand marketplace line when city is unavailable", () => {
     render(<HeroBanner hero={homeHeroConfig} city={null} />);
 
-    expect(screen.getByText("Local businesses, curated for you")).toBeInTheDocument();
+    expect(screen.getByText("YourBarrio — Long Beach marketplace")).toBeInTheDocument();
   });
 });

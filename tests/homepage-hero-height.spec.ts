@@ -8,11 +8,11 @@ async function readHeroMetrics(page: import("@playwright/test").Page) {
     const ctaEl = Array.from(document.querySelectorAll("a")).find((element) =>
       /explore local businesses/i.test(element.textContent || "")
     );
-    const popularEl = Array.from(document.querySelectorAll("h2, h3")).find((element) =>
-      /Popular in Long Beach/.test(element.textContent || "")
+    const featuredEl = Array.from(document.querySelectorAll("h2, h3")).find((element) =>
+      /Featured in Long Beach/.test(element.textContent || "")
     );
 
-    if (!navbarEl || !heroEl || !contentEl || !ctaEl || !popularEl) {
+    if (!navbarEl || !heroEl || !contentEl || !ctaEl || !featuredEl) {
       return null;
     }
 
@@ -20,7 +20,7 @@ async function readHeroMetrics(page: import("@playwright/test").Page) {
     const heroBox = heroEl.getBoundingClientRect();
     const contentBox = contentEl.getBoundingClientRect();
     const ctaBox = ctaEl.getBoundingClientRect();
-    const popularBox = popularEl.getBoundingClientRect();
+    const featuredBox = featuredEl.getBoundingClientRect();
 
     return {
       viewportHeight: window.innerHeight,
@@ -31,7 +31,7 @@ async function readHeroMetrics(page: import("@playwright/test").Page) {
       contentTop: contentBox.top,
       contentHeight: contentBox.height,
       ctaTop: ctaBox.top,
-      popularTop: popularBox.top,
+      featuredTop: featuredBox.top,
     };
   });
 }
@@ -43,12 +43,12 @@ test.describe("homepage hero rendered height", () => {
     const navbar = page.locator("nav.yb-navbar").first();
     const hero = page.getByTestId("home-hero");
     const cta = page.getByRole("link", { name: /explore local businesses/i }).first();
-    const popularHeading = page.getByText("Popular in Long Beach").first();
+    const featuredHeading = page.getByText("Featured in Long Beach").first();
 
     await expect(navbar).toBeVisible();
     await expect(hero).toBeVisible();
     await expect(cta).toBeVisible();
-    await expect(popularHeading).toBeVisible();
+    await expect(featuredHeading).toBeVisible();
 
     const metrics = await readHeroMetrics(page);
 
@@ -59,7 +59,7 @@ test.describe("homepage hero rendered height", () => {
     expect(metrics?.heroHeight ?? 0).toBeGreaterThanOrEqual(300);
     expect(metrics?.heroHeight ?? 999).toBeLessThanOrEqual(320);
     expect(metrics?.contentHeight ?? 999).toBeLessThanOrEqual(250);
-    expect(metrics?.popularTop ?? 999).toBeLessThanOrEqual(430);
+    expect(metrics?.featuredTop ?? 999).toBeLessThanOrEqual(430);
   });
 
   test("mobile hero stays compact below the navbar", async ({ page }) => {
@@ -67,10 +67,10 @@ test.describe("homepage hero rendered height", () => {
     await page.goto("/");
 
     const hero = page.getByTestId("home-hero");
-    const popularHeading = page.getByText("Popular in Long Beach").first();
+    const featuredHeading = page.getByText("Featured in Long Beach").first();
 
     await expect(hero).toBeVisible();
-    await expect(popularHeading).toBeVisible();
+    await expect(featuredHeading).toBeVisible();
 
     const metrics = await readHeroMetrics(page);
 
@@ -80,6 +80,6 @@ test.describe("homepage hero rendered height", () => {
     expect(Math.abs((metrics?.heroTop ?? 999) - (metrics?.navbarHeight ?? 0))).toBeLessThanOrEqual(2);
     expect(metrics?.heroHeight ?? 0).toBeGreaterThanOrEqual(280);
     expect(metrics?.heroHeight ?? 999).toBeLessThanOrEqual(320);
-    expect(metrics?.popularTop ?? 999).toBeLessThanOrEqual(450);
+    expect(metrics?.featuredTop ?? 999).toBeLessThanOrEqual(450);
   });
 });

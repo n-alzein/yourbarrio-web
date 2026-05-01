@@ -5,9 +5,9 @@ import HomeSectionContainer from "@/components/home/HomeSectionContainer";
 
 export function SellerCTASection() {
   return (
-    <section className="mt-16 md:mt-20">
+    <section className="mt-10 md:mt-12">
       <HomeSectionContainer>
-        <div className="overflow-hidden rounded-2xl border border-[#efe3c433] bg-[linear-gradient(135deg,rgba(249,241,224,0.98)_0%,rgba(244,231,211,0.94)_48%,rgba(236,217,192,0.96)_100%)] px-6 py-10 shadow-[0_28px_90px_-56px_rgba(233,185,92,0.58)] sm:px-10 sm:py-12">
+        <div className="overflow-hidden rounded-2xl border border-[#efe3c433] bg-[linear-gradient(135deg,rgba(249,241,224,0.98)_0%,rgba(244,231,211,0.94)_48%,rgba(236,217,192,0.96)_100%)] px-6 py-8 shadow-[0_28px_90px_-56px_rgba(233,185,92,0.58)] sm:px-10 sm:py-10">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#7f4f10]">
               For sellers

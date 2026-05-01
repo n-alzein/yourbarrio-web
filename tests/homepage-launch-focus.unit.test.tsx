@@ -54,10 +54,12 @@ function makeListings(count: number) {
     id: `listing-${index + 1}`,
     public_id: `listing-${index + 1}`,
     title: `Listing ${index + 1}`,
+    description: null,
     price: 20 + index,
     category: "Clothing & Fashion",
     category_id: null,
     city: "Long Beach",
+    photo_url: null,
     business_id: `business-${index + 1}`,
     business_name: `Shop ${index + 1}`,
     created_at: `2026-04-${String(index + 1).padStart(2, "0")}T12:00:00.000Z`,
@@ -89,26 +91,44 @@ describe("homepage launch focus", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses the low-inventory listing title when few listings are available", () => {
+  it("uses curated listing copy when few listings are available", () => {
     render(<TrendingListingsSection listings={makeListings(5)} city="Long Beach" />);
 
-    expect(screen.getByText("Discover")).toBeInTheDocument();
-    expect(screen.getByText("Recently added in Long Beach")).toBeInTheDocument();
-    expect(screen.getByText("Local items available near you")).toBeInTheDocument();
+    expect(screen.getByText("Featured in Long Beach")).toBeInTheDocument();
+    expect(screen.queryByText("Handpicked local finds near you")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("YourBarrio is starting with a curated group of Long Beach shops.")
+    ).not.toBeInTheDocument();
   });
 
-  it("switches to the popular title before the catalog is deep enough to trend", () => {
+  it("keeps the featured title as inventory grows", () => {
     render(<TrendingListingsSection listings={makeListings(10)} city="Long Beach" />);
 
-    expect(screen.getByText("Popular in Long Beach")).toBeInTheDocument();
+    expect(screen.getByText("Featured in Long Beach")).toBeInTheDocument();
   });
 
   it("caps the home listings grid at two desktop rows worth of cards", () => {
     render(<TrendingListingsSection listings={makeListings(24)} city="Long Beach" limit={8} />);
 
-    expect(screen.getByText("Popular in Long Beach")).toBeInTheDocument();
+    expect(screen.getByText("Featured in Long Beach")).toBeInTheDocument();
     expect(screen.getByTestId("homepage-listings-grid")).toBeInTheDocument();
     expect(screen.getAllByRole("link").filter((node) => node.getAttribute("href")?.startsWith("/listings/"))).toHaveLength(8);
+  });
+
+  it("adds a secondary new-this-week listing section", () => {
+    render(
+      <TrendingListingsSection
+        listings={makeListings(6)}
+        city="Long Beach"
+        limit={4}
+        variant="new"
+        excludeListingIds={["listing-1", "listing-2"]}
+      />
+    );
+
+    expect(screen.getByText("New this week")).toBeInTheDocument();
+    expect(screen.queryByText("Freshly added items from nearby shops")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link").filter((node) => node.getAttribute("href")?.startsWith("/listings/"))).toHaveLength(4);
   });
 
   it("keeps the homepage business title launch-appropriate", async () => {
@@ -133,7 +153,7 @@ describe("homepage launch focus", () => {
     render(
       <PopularNearYouSection
         title="Local shops in Long Beach"
-        subtitle="Verified local shops and storefronts around Long Beach"
+        subtitle="Meet the local storefronts behind these finds"
         limit={6}
       />
     );
@@ -142,6 +162,6 @@ describe("homepage launch focus", () => {
       expect(screen.getByText("Local shops in Long Beach")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Verified local shops and storefronts around Long Beach")).toBeInTheDocument();
+    expect(screen.getByText("Meet the local storefronts behind these finds")).toBeInTheDocument();
   });
 });

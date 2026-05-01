@@ -4,14 +4,14 @@ export type HomeHeroConfig = {
   subtitle?: string | null;
   primaryCtaLabel: string;
   primaryCtaHref: string;
-  supportingText: string;
+  brandMeaningText?: string;
 };
 
 export const homeHeroConfig: HomeHeroConfig = {
   imageSrc: "/images/homepage/hero-main.png",
-  headline: "Discover local shops you'll love",
+  headline: "Discover local shops you’ll love",
   subtitle: null,
   primaryCtaLabel: "Explore local businesses",
   primaryCtaHref: "/nearby",
-  supportingText: "Local businesses, curated for you",
+  brandMeaningText: "YourBarrio — Long Beach marketplace",
 };
