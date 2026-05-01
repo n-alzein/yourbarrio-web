@@ -16,7 +16,11 @@ import {
 import ManagePasswordDialog from "@/components/settings/ManagePasswordDialog";
 import { US_STATES } from "@/lib/constants/usStates";
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
-import { formatUSPhone } from "@/lib/utils/formatUSPhone";
+import {
+  formatUSPhone,
+  isIncompleteUSPhone,
+  normalizeUSPhoneForStorage,
+} from "@/lib/utils/formatUSPhone";
 
 const editableSections = new Set(["profile", "address"]);
 
@@ -228,40 +232,45 @@ export default function SettingsPage() {
     if (!user) return;
     const normalizedAddress = normalizeAddressPayload(form);
     const validationErrors = validateAddressFields(normalizedAddress);
+    if (isIncompleteUSPhone(form.phone)) {
+      validationErrors.phone = "Enter a complete 10-digit US phone number.";
+    }
 
     if (Object.keys(validationErrors).length > 0) {
       setFieldErrors(validationErrors);
-      showToast("error", "Fix the highlighted address fields.");
+      showToast("error", "Fix the highlighted fields.");
       return;
     }
 
     setSaving(true);
     setFieldErrors({});
 
-    const { error } = await supabase
-      .from("users")
-      .update({
+    const response = await fetch("/api/account/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         full_name: form.full_name,
-        phone: form.phone,
+        phone: normalizeUSPhoneForStorage(form.phone),
         city: normalizedAddress.city || null,
         address: normalizedAddress.address || null,
         address_2: normalizedAddress.address_2 || null,
         state: normalizedAddress.state || null,
         postal_code: normalizedAddress.postal_code || null,
         profile_photo_url: form.profile_photo_url,
-      })
-      .eq("id", user.id);
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
 
     setSaving(false);
     setActiveSection(null);
 
-    if (!error) {
+    if (response.ok) {
       refreshProfile();
       showToast("success", "Settings updated.");
       return;
     }
 
-    showToast("error", error.message || "Failed to save settings.");
+    showToast("error", payload?.error || "Failed to save settings.");
   }
 
   /* -----------------------------------------------------------
@@ -543,8 +552,10 @@ export default function SettingsPage() {
                   </Field>
 
                   <Field
-                    label="Phone number"
+                    label="Your phone number"
                     id="phone"
+                    helper="Private account contact number. This is not shown on your business profile."
+                    error={fieldErrors.phone}
                     labelClassName={fieldLabelClassName}
                     helperClassName={fieldHelperClassName}
                     errorClassName={fieldErrorClassName}

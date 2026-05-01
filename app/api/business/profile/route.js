@@ -3,6 +3,10 @@ import { createSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
 import { resolveBusinessCoordinates } from "@/lib/location/businessGeocoding";
 import { buildBusinessTaxonomyPayload } from "@/lib/taxonomy/compat";
+import {
+  isIncompleteUSPhone,
+  normalizeUSPhoneForStorage,
+} from "@/lib/utils/formatUSPhone";
 
 function normalizeWebsite(value) {
   const trimmed = String(value || "").trim();
@@ -103,6 +107,16 @@ export async function POST(req) {
   const normalizedWebsite = hasOwn(body, "website")
     ? normalizeWebsite(body.website)
     : normalizeWebsite(existingBusiness.website || existingUser.website || "");
+  const phoneSource = hasOwn(body, "phone")
+    ? pickString(body, "phone")
+    : existingBusiness.phone || "";
+  if (isIncompleteUSPhone(phoneSource)) {
+    return NextResponse.json(
+      { error: "Enter a complete 10-digit US phone number." },
+      { status: 400 }
+    );
+  }
+  const normalizedPhone = normalizeUSPhoneForStorage(phoneSource);
 
   const mergedLocation = {
     address: hasOwn(body, "address")
@@ -135,9 +149,6 @@ export async function POST(req) {
       ? pickString(body, "description")
       : existingUser.description || existingBusiness.description || "",
     website: normalizedWebsite,
-    phone: hasOwn(body, "phone")
-      ? pickString(body, "phone")
-      : existingUser.phone || existingBusiness.phone || "",
     email: hasOwn(body, "email") ? pickString(body, "email") : existingUser.email || "",
     address: mergedLocation.address,
     address_2: mergedLocation.address_2,
@@ -181,7 +192,7 @@ export async function POST(req) {
     category: taxonomy.category || null,
     description: userPayload.description || null,
     website: normalizedWebsite || null,
-    phone: userPayload.phone || null,
+    phone: normalizedPhone || null,
     address: mergedLocation.address || null,
     address_2: mergedLocation.address_2 || null,
     city: mergedLocation.city || null,

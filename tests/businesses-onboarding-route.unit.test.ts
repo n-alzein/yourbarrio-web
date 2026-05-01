@@ -61,6 +61,14 @@ function createSupabaseMock({
   };
 
   const businessesTable = {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { is_internal: false, latitude: null, longitude: null },
+          error: null,
+        }),
+      })),
+    })),
     upsert: vi.fn(() => ({
       select: vi.fn(() => ({
         single: vi.fn().mockResolvedValue({
@@ -148,6 +156,46 @@ describe("POST /api/businesses", () => {
         ignoreDuplicates: false,
       }
     );
+  });
+
+  it("saves submitted phone to business record and not user account record", async () => {
+    const supabase = createSupabaseMock({
+      businessRowOverride: {
+        phone: "(562) 123-4567",
+      },
+    });
+    createSupabaseRouteHandlerClientMock.mockReturnValue(supabase);
+
+    const response = await POST(createRequest({ phone: "+1 562 123 4567" }));
+    expect(response.status).toBe(200);
+
+    expect(supabase.from("users").upsert).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        phone: expect.anything(),
+      }),
+      expect.any(Object)
+    );
+    expect(supabase.from("businesses").upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phone: "(562) 123-4567",
+      }),
+      {
+        onConflict: "owner_user_id",
+        ignoreDuplicates: false,
+      }
+    );
+  });
+
+  it("rejects incomplete non-empty onboarding phone numbers", async () => {
+    const supabase = createSupabaseMock();
+    createSupabaseRouteHandlerClientMock.mockReturnValue(supabase);
+
+    const response = await POST(createRequest({ phone: "562" }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Enter a complete 10-digit US phone number.",
+    });
   });
 
   it("returns success only when RPC succeeds and business row is complete", async () => {

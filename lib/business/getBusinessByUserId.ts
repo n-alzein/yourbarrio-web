@@ -163,7 +163,7 @@ function mapFromBusinesses(row: any, userRow: any | null): UnifiedBusiness {
     category: taxonomy.category,
     description: row?.description ?? userRow?.description ?? null,
     website: row?.website ?? userRow?.website ?? null,
-    phone: row?.phone ?? userRow?.phone ?? null,
+    phone: row?.phone ?? null,
     profile_photo_url: row?.profile_photo_url ?? userRow?.profile_photo_url ?? null,
     cover_photo_url: row?.cover_photo_url ?? userRow?.cover_photo_url ?? null,
     address: row?.address ?? userRow?.address ?? null,

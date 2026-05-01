@@ -22,6 +22,11 @@ import {
   dollarsInputToCents,
 } from "@/lib/fulfillment";
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
+import {
+  formatUSPhone,
+  isIncompleteUSPhone,
+  normalizeUSPhoneForStorage,
+} from "@/lib/utils/formatUSPhone";
 
 function parseOptionalNonNegativeNumber(value) {
   const trimmed = String(value ?? "").trim();
@@ -140,9 +145,9 @@ export default function SettingsPage() {
   const [deletePending, setDeletePending] = useState(false);
   const toastTimerRef = useRef(null);
 
-  const buildInitialForm = (profile) => ({
+  const buildInitialForm = (profile, accountPhone = profile?.phone || "") => ({
     full_name: profile?.business_name || profile?.full_name || "",
-    phone: profile?.phone || "",
+    phone: formatUSPhone(accountPhone),
     city: profile?.city || "",
     address: profile?.address || "",
     address_2: profile?.address_2 || "",
@@ -191,7 +196,10 @@ export default function SettingsPage() {
   };
 
   const handleFieldChange = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => ({
+      ...prev,
+      [key]: key === "phone" ? formatUSPhone(value) : value,
+    }));
     setFieldErrors((prev) => {
       if (!prev[key]) return prev;
       const next = { ...prev };
@@ -303,7 +311,7 @@ export default function SettingsPage() {
       });
       if (cancelled) return;
       if (!business) return;
-      const nextForm = buildInitialForm(business);
+      const nextForm = buildInitialForm(business, profile?.phone || "");
       lastUserIdRef.current = user.id;
       setForm(nextForm);
       setInitialForm(nextForm);
@@ -312,14 +320,14 @@ export default function SettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, user?.id]);
+  }, [profile?.phone, supabase, user?.id]);
 
   useEffect(() => {
     if (!profile?.id) return;
     if (lastUserIdRef.current === profile.id) return;
     lastUserIdRef.current = profile.id;
     queueMicrotask(() => {
-      const nextForm = buildInitialForm(profile);
+      const nextForm = buildInitialForm(profile, profile.phone || "");
       setForm(nextForm);
       setInitialForm(nextForm);
     });
@@ -339,6 +347,9 @@ export default function SettingsPage() {
     if (!user) return;
     const normalizedAddress = normalizeAddressPayload(form);
     const validationErrors = validateAddressFields(normalizedAddress);
+    if (isIncompleteUSPhone(form.phone)) {
+      validationErrors.phone = "Enter a complete 10-digit US phone number.";
+    }
     const fulfillmentValidation = validateFulfillmentFields(form);
     const nextFieldErrors = {
       ...validationErrors,
@@ -357,7 +368,6 @@ export default function SettingsPage() {
     const updates = {
       full_name: form.full_name,
       business_name: form.full_name,
-      phone: form.phone,
       city: normalizedAddress.city || null,
       address: normalizedAddress.address || null,
       address_2: normalizedAddress.address_2 || null,
@@ -379,6 +389,7 @@ export default function SettingsPage() {
 
     let saveError = null;
     let savedProfile = null;
+    let savedAccountProfile = null;
     try {
       const response = await fetch("/api/business/profile", {
         method: "POST",
@@ -390,6 +401,21 @@ export default function SettingsPage() {
         saveError = { message: payload?.error || "Failed to save settings." };
       } else {
         savedProfile = payload?.profile || null;
+      }
+      if (!saveError) {
+        const accountResponse = await fetch("/api/account/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone: normalizeUSPhoneForStorage(form.phone),
+          }),
+        });
+        const accountPayload = await accountResponse.json().catch(() => ({}));
+        if (!accountResponse.ok) {
+          saveError = { message: accountPayload?.error || "Failed to save settings." };
+        } else {
+          savedAccountProfile = accountPayload?.profile || null;
+        }
       }
     } catch (error) {
       saveError = { message: error?.message || "Failed to save settings." };
@@ -403,7 +429,7 @@ export default function SettingsPage() {
       const nextForm = buildInitialForm({
         ...profile,
         ...savedProfile,
-      });
+      }, savedAccountProfile?.phone ?? profile?.phone ?? "");
       setInitialForm(nextForm);
       setForm(nextForm);
       showToast("success", "Settings updated.");
@@ -722,8 +748,10 @@ export default function SettingsPage() {
                   </Field>
 
                   <Field
-                    label="Phone number"
+                    label="Your phone number"
                     id="phone"
+                    helper="Private account contact number. This is not shown on your business profile."
+                    error={fieldErrors.phone}
                     labelClassName={fieldLabelClassName}
                     helperClassName={fieldHelperClassName}
                     errorClassName={fieldErrorClassName}

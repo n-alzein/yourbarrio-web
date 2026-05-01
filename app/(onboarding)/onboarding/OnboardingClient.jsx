@@ -9,6 +9,11 @@ import { getBusinessTypeOptions } from "@/lib/taxonomy/businessTypes";
 import { isBusinessOnboardingComplete } from "@/lib/business/onboardingCompletion";
 import { US_STATES } from "@/lib/constants/usStates";
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
+import {
+  formatUSPhone,
+  isIncompleteUSPhone,
+  normalizeUSPhoneForStorage,
+} from "@/lib/utils/formatUSPhone";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 const PLACES_DISABLED =
@@ -160,17 +165,6 @@ export default function BusinessOnboardingPage() {
     );
   }
 
-  function formatPhone(value) {
-    const digits = value.replace(/\D/g, "").slice(0, 10);
-    const parts = [];
-
-    if (digits.length > 0) parts.push("(" + digits.slice(0, 3));
-    if (digits.length >= 4) parts.push(") " + digits.slice(3, 6));
-    if (digits.length >= 7) parts.push("-" + digits.slice(6, 10));
-
-    return parts.join("");
-  }
-
   useEffect(() => {
     if (!MAPBOX_TOKEN || PLACES_DISABLED) {
       setAddressSuggestions([]);
@@ -283,9 +277,12 @@ export default function BusinessOnboardingPage() {
 
       const normalizedAddress = normalizeAddressPayload(form);
       const validationErrors = validateAddressFields(normalizedAddress);
+      if (isIncompleteUSPhone(form.phone)) {
+        validationErrors.phone = "Enter a complete 10-digit US phone number.";
+      }
       if (Object.keys(validationErrors).length > 0) {
         setFieldErrors(validationErrors);
-        setMessage("Fix the highlighted address fields.");
+        setMessage("Fix the highlighted fields.");
         setLoading(false);
         return;
       }
@@ -305,7 +302,7 @@ export default function BusinessOnboardingPage() {
           city: normalizedAddress.city,
           state: normalizedAddress.state,
           postal_code: normalizedAddress.postal_code,
-          phone: form.phone,
+          phone: normalizeUSPhoneForStorage(form.phone),
           website: normalizedWebsite,
           latitude: pickedLocationRef.current?.lat ?? null,
           longitude: pickedLocationRef.current?.lng ?? null,
@@ -627,10 +624,12 @@ export default function BusinessOnboardingPage() {
               >
                 <div className="grid gap-5 md:grid-cols-2">
                   <FormField
-                    label="Phone number"
+                    label="Business phone"
                     value={form.phone}
                     placeholder="(555) 123-4567"
-                    onChange={(v) => updateField("phone", formatPhone(v))}
+                    onChange={(v) => updateField("phone", formatUSPhone(v))}
+                    helper="This number may be shown to customers on your business profile."
+                    error={fieldErrors.phone}
                   />
 
                   <FormField

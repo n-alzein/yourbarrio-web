@@ -4,6 +4,10 @@ import { isBusinessOnboardingComplete } from "@/lib/business/onboardingCompletio
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
 import { resolveBusinessCoordinates } from "@/lib/location/businessGeocoding";
 import { buildBusinessTaxonomyPayload } from "@/lib/taxonomy/compat";
+import {
+  isIncompleteUSPhone,
+  normalizeUSPhoneForStorage,
+} from "@/lib/utils/formatUSPhone";
 
 function normalizeWebsite(value) {
   const trimmed = (value || "").trim();
@@ -74,6 +78,13 @@ export async function POST(req) {
 
     const normalizedWebsite = normalizeWebsite(website);
     const normalizedState = normalizeStateCode(state) || "";
+    if (isIncompleteUSPhone(phone)) {
+      return NextResponse.json(
+        { error: "Enter a complete 10-digit US phone number." },
+        { status: 400 }
+      );
+    }
+    const normalizedPhone = normalizeUSPhoneForStorage(phone);
     const { data: existingUser, error: userReadError } = await supabase
       .from("users")
       .select("public_id,is_internal,latitude,longitude")
@@ -114,7 +125,6 @@ export async function POST(req) {
       category: trimmedCategory,
       description: description || "",
       website: normalizedWebsite || "",
-      phone: phone || "",
       address: address || "",
       address_2: address_2 || "",
       city: city || "",
@@ -150,7 +160,7 @@ export async function POST(req) {
       category: trimmedCategory,
       description: description || "",
       website: normalizedWebsite || "",
-      phone: phone || "",
+      phone: normalizedPhone || "",
       address: address || "",
       address_2: address_2 || "",
       city: city || "",

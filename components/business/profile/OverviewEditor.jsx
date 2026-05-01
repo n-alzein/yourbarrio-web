@@ -9,6 +9,11 @@ import {
   buildBusinessTaxonomyPayload,
   getBusinessTypeSlug,
 } from "@/lib/taxonomy/compat";
+import {
+  formatUSPhone,
+  isIncompleteUSPhone,
+  normalizeUSPhoneForStorage,
+} from "@/lib/utils/formatUSPhone";
 
 const DESCRIPTION_MIN = 30;
 const BUSINESS_TYPE_OPTIONS = getBusinessTypeOptions();
@@ -171,7 +176,7 @@ export default function OverviewEditor({
       business_type: getBusinessTypeSlug(profile, ""),
       description: profile.description || "",
       website: profile.website || "",
-      phone: profile.phone || "",
+      phone: formatUSPhone(profile.phone || ""),
       email: profile.email || "",
       address: profile.address || "",
       city: profile.city || "",
@@ -192,7 +197,7 @@ export default function OverviewEditor({
       business_type: getBusinessTypeSlug(profile, ""),
       description: profile.description || "",
       website: profile.website || "",
-      phone: profile.phone || "",
+      phone: formatUSPhone(profile.phone || ""),
       email: profile.email || "",
       address: profile.address || "",
       city: profile.city || "",
@@ -205,8 +210,17 @@ export default function OverviewEditor({
   }, [profile, form]);
 
   const handleChange = (field) => (event) => {
-    setForm((prev) => ({ ...prev, [field]: event.target.value }));
+    const value = field === "phone" ? formatUSPhone(event.target.value) : event.target.value;
+    setForm((prev) => ({ ...prev, [field]: value }));
     setIsDirty(true);
+    if (field === "phone") {
+      setErrors((prev) => {
+        if (!prev.phone) return prev;
+        const next = { ...prev };
+        delete next.phone;
+        return next;
+      });
+    }
   };
 
   const handleHourChange = (dayKey, field) => (event) => {
@@ -285,6 +299,9 @@ export default function OverviewEditor({
     if (!form.business_name.trim()) nextErrors.business_name = "Business name is required.";
     if (!form.business_type.trim()) nextErrors.business_type = "Business type is required.";
     if (!form.city.trim()) nextErrors.city = "City is required.";
+    if (isIncompleteUSPhone(form.phone)) {
+      nextErrors.phone = "Enter a complete 10-digit US phone number.";
+    }
     if (!form.description.trim() || form.description.trim().length < DESCRIPTION_MIN) {
       nextErrors.description = `Description must be at least ${DESCRIPTION_MIN} characters.`;
     }
@@ -315,7 +332,7 @@ export default function OverviewEditor({
       category: taxonomy.category,
       description: form.description.trim(),
       website: form.website.trim(),
-      phone: form.phone.trim(),
+      phone: normalizeUSPhoneForStorage(form.phone),
       email: form.email.trim(),
       address: form.address.trim(),
       city: form.city.trim(),
@@ -510,13 +527,20 @@ export default function OverviewEditor({
               {errors.city ? <p className={tone.errorText}>{errors.city}</p> : null}
             </div>
             <div>
-              <label className={labelClass}>Phone</label>
+              <label className={labelClass}>Business phone</label>
               <input
                 type="tel"
                 value={form.phone}
                 onChange={handleChange("phone")}
                 className={inputClass}
               />
+              {errors.phone ? (
+                <p className={tone.errorText}>{errors.phone}</p>
+              ) : (
+                <p className={`mt-2 text-xs ${tone.textMuted}`}>
+                  Customers may use this number to contact your business.
+                </p>
+              )}
             </div>
             <div>
               <label className={labelClass}>Email</label>

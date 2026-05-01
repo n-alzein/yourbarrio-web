@@ -75,4 +75,28 @@ describe("BusinessAbout", () => {
     expect(sidebar).toBeInTheDocument();
     expect(sidebar).toHaveClass("space-y-3", "lg:shrink-0");
   });
+
+  it("displays the business phone from the public business profile", () => {
+    render(<BusinessAbout profile={{ ...profile, phone: "(562) 123-4567" }} />);
+
+    expect(screen.getByText("(562) 123-4567")).toBeInTheDocument();
+  });
+
+  it("hides phone details instead of falling back to owner account phone", () => {
+    render(
+      <BusinessAbout
+        profile={{
+          ...profile,
+          phone: null,
+          owner_phone: "(562) 123-4567",
+          address: null,
+          website: null,
+          category: null,
+        }}
+      />
+    );
+
+    expect(screen.queryByText("(562) 123-4567")).not.toBeInTheDocument();
+    expect(screen.queryByText("Phone")).not.toBeInTheDocument();
+  });
 });
