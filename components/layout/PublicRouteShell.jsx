@@ -1,12 +1,42 @@
+"use client";
+
+import { useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
+
+function subscribeToPathname(callback) {
+  window.addEventListener("pageshow", callback);
+  window.addEventListener("popstate", callback);
+  return () => {
+    window.removeEventListener("pageshow", callback);
+    window.removeEventListener("popstate", callback);
+  };
+}
+
+function getBrowserPathname() {
+  return window.location.pathname || "/";
+}
+
+function getServerPathname() {
+  return null;
+}
+
 export default function PublicRouteShell({
   children = null,
   className = "",
   gap = "comfortable",
 }) {
+  const pathname = usePathname();
+  const browserPathname = useSyncExternalStore(
+    subscribeToPathname,
+    getBrowserPathname,
+    getServerPathname
+  );
+  const effectivePathname = browserPathname || pathname;
+  const resolvedGap = effectivePathname === "/" ? "none" : gap;
   const offsetGap =
-    gap === "none"
+    resolvedGap === "none"
       ? "0px"
-      : gap === "compact"
+      : resolvedGap === "compact"
       ? "clamp(8px, 1.5vw, 12px)"
       : "clamp(16px, 2vw, 24px)";
 
@@ -26,7 +56,7 @@ export default function PublicRouteShell({
       data-testid="public-shell-content"
       data-theme="light"
       data-route-theme="light"
-      data-shell-gap={gap}
+      data-shell-gap={resolvedGap}
       style={{
         ...lightThemeVars,
         paddingTop: "calc(var(--public-nav-offset) + var(--public-shell-gap))",
