@@ -695,6 +695,86 @@ describe("cart api guest auth handling", () => {
     expect(state.cartItems[0].id).toBe("user-item");
   });
 
+  it("skips a missing guest cart item during authenticated cart merge", async () => {
+    const { supabase, state, vendor } = createGuestCapableSupabaseMock({
+      userId: "customer-1",
+      cartId: "user-cart",
+      cartItemId: "user-item",
+    });
+    state.carts = [
+      {
+        id: "user-cart",
+        vendor_id: vendor.id,
+        user_id: "customer-1",
+        guest_id: null,
+        status: "active",
+        fulfillment_type: "pickup",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
+    state.cartItems = [
+      {
+        id: "user-item",
+        cart_id: "user-cart",
+        vendor_id: vendor.id,
+        listing_id: "listing-1",
+        variant_id: null,
+        variant_label: null,
+        selected_options: {},
+        quantity: 2,
+        reserved_quantity: 2,
+        reservation_expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        title: "Fresh salsa",
+        unit_price: 12,
+        image_url: null,
+      },
+    ];
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    getSupabaseServerClientMock.mockResolvedValue(supabase);
+    getUserCachedMock.mockResolvedValue({
+      user: { id: "customer-1" },
+      error: null,
+    });
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guest_id: "guest-1",
+          guest_cart_id: "guest-cart",
+          guest_item_id: "missing-guest-item",
+          listing_id: "listing-1",
+          quantity: 1,
+        }),
+      })
+    );
+
+    const body = await response.json();
+    expect({ status: response.status, body }).toMatchObject({
+      status: 200,
+      body: {
+        cart: {
+          id: "user-cart",
+          cart_items: [{ id: "user-item", quantity: 2 }],
+        },
+      },
+    });
+    expect(JSON.stringify(body)).not.toContain("guest_cart_item_not_found");
+    expect(upsertCartItemReservationMock).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[cart] skipped guest cart item during merge",
+      expect.objectContaining({
+        reason: "guest_cart_item_not_found",
+        guest_cart_id: "guest-cart",
+        guest_item_id: "missing-guest-item",
+      })
+    );
+    warnSpy.mockRestore();
+  });
+
   it("keeps authenticated cart writes working", async () => {
     const { supabase, state, vendor } = createGuestCapableSupabaseMock({
       userId: "customer-1",

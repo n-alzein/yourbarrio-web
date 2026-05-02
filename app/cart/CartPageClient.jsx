@@ -30,6 +30,12 @@ const LISTING_DETAIL_CART_VALIDATION_ERRORS = new Set([
   "Select each product option before adding this item to your cart.",
 ]);
 
+const INTERNAL_CART_ERRORS = new Set([
+  "guest_cart_item_not_found",
+  "Guest cart item not found.",
+  "Failed to merge guest cart",
+]);
+
 function EmptyCartDiscoveryState() {
   return (
     <div
@@ -83,9 +89,11 @@ export default function CartPageClient() {
   const [fulfillmentErrors, setFulfillmentErrors] = useState({});
   const purchaseRestricted = accountContext.purchaseRestricted;
   const purchaseEligibilityPending = accountContext.rolePending;
-  const visibleCartError = LISTING_DETAIL_CART_VALIDATION_ERRORS.has(String(error || "").trim())
-    ? null
-    : error;
+  const cartErrorText = String(error || "").trim();
+  const visibleCartError =
+    LISTING_DETAIL_CART_VALIDATION_ERRORS.has(cartErrorText) || INTERNAL_CART_ERRORS.has(cartErrorText)
+      ? null
+      : error;
 
   const allItemsSubtotal = useMemo(
     () => items.reduce((sum, item) => sum + Number(item.unit_price || 0) * Number(item.quantity || 0), 0),

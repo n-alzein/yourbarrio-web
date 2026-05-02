@@ -350,9 +350,21 @@ async function transferGuestItemToUserCart({
   client,
   guestItemId,
   guestId,
+  guestCartId = null,
   targetCart,
   targetItemId = null,
 }) {
+  const logSkippedGuestItem = (reason, extra = {}) => {
+    console.warn("[cart] skipped guest cart item during merge", {
+      reason,
+      guest_id: guestId,
+      guest_cart_id: guestCartId,
+      guest_item_id: guestItemId,
+      target_cart_id: targetCart?.id || null,
+      ...extra,
+    });
+  };
+
   const { data: guestItem, error: guestItemError } = await client
     .from("cart_items")
     .select("id,cart_id,vendor_id,listing_id,variant_id,variant_label,selected_options,quantity,title,unit_price,image_url")
@@ -361,7 +373,8 @@ async function transferGuestItemToUserCart({
 
   if (guestItemError) throw guestItemError;
   if (!guestItem?.id) {
-    throw new Error("Guest cart item not found.");
+    logSkippedGuestItem("guest_cart_item_not_found");
+    return { mode: "skipped", guestItem: null, excludeCartItemIds: [] };
   }
 
   const { data: guestCart, error: guestCartError } = await client
@@ -372,7 +385,14 @@ async function transferGuestItemToUserCart({
 
   if (guestCartError) throw guestCartError;
   if (!guestCart?.id || guestCart.guest_id !== guestId || guestCart.status !== "active") {
-    throw new Error("Guest cart item not found.");
+    logSkippedGuestItem("guest_cart_item_not_found", {
+      guest_cart_id: guestCart?.id || guestItem.cart_id || guestCartId,
+      item_cart_id: guestItem.cart_id,
+      listing_id: guestItem.listing_id,
+      variant_id: guestItem.variant_id,
+      cart_status: guestCart?.status || null,
+    });
+    return { mode: "skipped", guestItem, excludeCartItemIds: [] };
   }
 
   if (targetItemId) {
@@ -460,6 +480,7 @@ export async function POST(request) {
     body?.selected_options && typeof body.selected_options === "object" ? body.selected_options : {};
   const quantity = Number(body?.quantity || 1);
   const transferGuestItemId = String(body?.guest_item_id || "").trim() || null;
+  const transferGuestCartId = String(body?.guest_cart_id || "").trim() || null;
 
   if (!listingId) return jsonError("Missing listing_id", 400);
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_ORDER_QUANTITY) {
@@ -531,9 +552,17 @@ export async function POST(request) {
         client: serviceClient,
         guestItemId: transferGuestItemId,
         guestId,
+        guestCartId: transferGuestCartId,
         targetCart: activeCart,
         targetItemId: existingItem?.id || null,
       });
+      if (transferResult.mode === "skipped") {
+        const payload = await getCartPayload(serviceClient, { userId: user.id });
+        return NextResponse.json(payload || { cart: null, vendor: null, carts: [], vendors: {} }, {
+          status: 200,
+          headers: { "Cache-Control": "no-store" },
+        });
+      }
       if (transferResult.mode === "moved") {
         const payload = await getCartPayload(serviceClient, { userId: user.id });
         return NextResponse.json(payload, { status: 200, headers: { "Cache-Control": "no-store" } });

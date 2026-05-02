@@ -471,6 +471,7 @@ export function CartProvider({ children }) {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 guest_id: guestCart.guest_id,
+                guest_cart_id: cartRow.id,
                 guest_item_id: item.id,
                 listing_id: item.listing_id,
                 variant_id: item.variant_id,
@@ -480,8 +481,8 @@ export function CartProvider({ children }) {
               }),
             });
             if (!response.ok) {
-              const payload = await parseResponse(response);
-              throw new Error(payload?.error || "Failed to merge guest cart");
+              await parseResponse(response);
+              throw new Error("Failed to merge guest cart");
             }
           }
           if (cartRow.fulfillment_type) {
@@ -499,8 +500,8 @@ export function CartProvider({ children }) {
         clearGuestCart();
         storage?.setItem("yb:guestCartMergeId", mergeId);
         await refreshCart({ reason: "guest-merge" });
-      } catch (err) {
-        setError(err?.message || "Failed to merge guest cart");
+      } catch {
+        await refreshCart({ reason: "guest-merge-failed" });
       } finally {
         mergeInFlightRef.current = false;
         setLoading(false);
