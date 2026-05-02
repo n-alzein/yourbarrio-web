@@ -19,7 +19,6 @@ export const revalidate = 0;
 export default async function PublicLayout({ children }) {
   const requestPath = await getRequestPath("/");
   const shellGap = requestPath === "/" ? "none" : "comfortable";
-  const homeFlush = requestPath === "/";
   const accountContext = await getCurrentAccountContext({
     source: "public-layout",
   });
@@ -57,9 +56,7 @@ export default async function PublicLayout({ children }) {
         </GlobalHeaderGate>
       </Suspense>
       <BusinessAuthRedirector />
-      <PublicRouteShell gap={shellGap} homeFlush={homeFlush}>
-        {children}
-      </PublicRouteShell>
+      <PublicRouteShell gap={shellGap}>{children}</PublicRouteShell>
     </div>
   );
 }

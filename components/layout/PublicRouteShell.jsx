@@ -2,7 +2,6 @@ export default function PublicRouteShell({
   children = null,
   className = "",
   gap = "comfortable",
-  homeFlush = false,
 }) {
   const offsetGap =
     gap === "none"
@@ -28,14 +27,9 @@ export default function PublicRouteShell({
       data-theme="light"
       data-route-theme="light"
       data-shell-gap={gap}
-      data-home-flush={homeFlush ? "1" : undefined}
       style={{
         ...lightThemeVars,
-        ...(homeFlush
-          ? {}
-          : {
-              paddingTop: "calc(var(--public-nav-offset) + var(--public-shell-gap))",
-            }),
+        paddingTop: "calc(var(--public-nav-offset) + var(--public-shell-gap))",
       }}
     >
       {children}

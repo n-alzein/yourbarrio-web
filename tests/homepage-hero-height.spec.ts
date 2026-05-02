@@ -79,10 +79,9 @@ test.describe("homepage hero rendered height", () => {
     expect(metrics).toBeTruthy();
     console.log("homepage-hero-metrics-mobile", JSON.stringify(metrics));
 
-    expect(Math.abs(metrics?.heroTop ?? 999)).toBeLessThanOrEqual(2);
-    expect(metrics?.heroHeight ?? 0).toBeGreaterThanOrEqual(360);
-    expect(metrics?.heroHeight ?? 999).toBeLessThanOrEqual(430);
-    expect(metrics?.ctaTop ?? -1).toBeGreaterThanOrEqual((metrics?.navbarBottom ?? 0) + 8);
+    expect(Math.abs((metrics?.heroTop ?? 999) - (metrics?.navbarHeight ?? 0))).toBeLessThanOrEqual(2);
+    expect(metrics?.heroHeight ?? 0).toBeGreaterThanOrEqual(280);
+    expect(metrics?.heroHeight ?? 999).toBeLessThanOrEqual(320);
     expect(metrics?.featuredTop ?? 999).toBeLessThanOrEqual(450);
   });
 
@@ -101,8 +100,7 @@ test.describe("homepage hero rendered height", () => {
 
     const metrics = await readHeroMetrics(page);
     expect(metrics).toBeTruthy();
-    expect(Math.abs(metrics?.heroTop ?? 999)).toBeLessThanOrEqual(2);
-    expect(metrics?.ctaTop ?? -1).toBeGreaterThanOrEqual((metrics?.navbarBottom ?? 0) + 8);
+    expect(Math.abs((metrics?.heroTop ?? 999) - (metrics?.navbarHeight ?? 0))).toBeLessThanOrEqual(2);
 
     const gapProbe = await page.evaluate(() => {
       const navbarEl = document.querySelector("nav.yb-navbar");
@@ -111,13 +109,15 @@ test.describe("homepage hero rendered height", () => {
       if (!navbarEl || !heroEl) return null;
       const navbarBox = navbarEl.getBoundingClientRect();
       const heroBox = heroEl.getBoundingClientRect();
+      const heroStyle = window.getComputedStyle(heroEl);
       const midpointX = Math.floor(window.innerWidth / 2);
-      const element = document.elementFromPoint(midpointX, Math.floor(navbarBox.bottom + 4));
+      const midpointY = Math.floor((navbarBox.bottom + heroBox.top) / 2);
+      const element = document.elementFromPoint(midpointX, midpointY);
       return {
-        heroTop: heroBox.top,
-        navbarBottom: navbarBox.bottom,
+        gap: heroBox.top - navbarBox.bottom,
         publicShellPaddingTop: publicShell ? window.getComputedStyle(publicShell).paddingTop : null,
-        navBottomIsInsideHero: heroBox.top <= navbarBox.bottom && navbarBox.bottom <= heroBox.bottom,
+        heroMarginTop: heroStyle.marginTop,
+        heroPaddingTop: heroStyle.paddingTop,
         elementTag: element?.tagName || null,
         elementTestId: element?.getAttribute?.("data-testid") || null,
         elementBackground: element ? window.getComputedStyle(element).backgroundColor : null,
@@ -125,31 +125,40 @@ test.describe("homepage hero rendered height", () => {
     });
 
     expect(gapProbe).toBeTruthy();
-    expect(Math.abs(gapProbe?.heroTop ?? 999)).toBeLessThanOrEqual(2);
-    expect(gapProbe?.navBottomIsInsideHero).toBe(true);
-    expect(gapProbe?.publicShellPaddingTop).toBe("0px");
+    expect(Math.abs(gapProbe?.gap ?? 999)).toBeLessThanOrEqual(2);
+    expect(gapProbe?.publicShellPaddingTop).toMatch(/^(80|81)px$/);
+    expect(gapProbe?.heroMarginTop).toBe("0px");
+    expect(gapProbe?.heroPaddingTop).toBe("0px");
     expect(gapProbe?.elementTestId).not.toBe("public-shell-content");
   });
 
-  test("mobile homepage ignores stale shared nav content offset", async ({ page }) => {
+  test("mobile homepage uses one shell offset and no hero offset", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
     await expect(page.getByTestId("home-hero")).toBeVisible();
 
-    await page.evaluate(() => {
-      document.documentElement.style.setProperty("--yb-nav-content-offset", "140px");
-      window.dispatchEvent(new Event("resize"));
+    const invariant = await page.evaluate(() => {
+      const navbarEl = document.querySelector("nav.yb-navbar");
+      const shellEl = document.querySelector('[data-testid="public-shell-content"]');
+      const heroEl = document.querySelector('[data-testid="home-hero"]');
+      if (!navbarEl || !shellEl || !heroEl) return null;
+      const navbarBox = navbarEl.getBoundingClientRect();
+      const heroBox = heroEl.getBoundingClientRect();
+      const shellStyle = window.getComputedStyle(shellEl);
+      const heroStyle = window.getComputedStyle(heroEl);
+      return {
+        navbarBottom: navbarBox.bottom,
+        heroTop: heroBox.top,
+        shellPaddingTop: shellStyle.paddingTop,
+        heroMarginTop: heroStyle.marginTop,
+        heroPaddingTop: heroStyle.paddingTop,
+      };
     });
 
-    await expect
-      .poll(async () => {
-        return page.evaluate(() => {
-          const navbarEl = document.querySelector("nav.yb-navbar");
-          const heroEl = document.querySelector('[data-testid="home-hero"]');
-          if (!navbarEl || !heroEl) return 999;
-          return Math.abs(heroEl.getBoundingClientRect().top);
-        });
-      })
-      .toBeLessThanOrEqual(2);
+    expect(invariant).toBeTruthy();
+    expect(Math.abs((invariant?.heroTop ?? 999) - (invariant?.navbarBottom ?? 0))).toBeLessThanOrEqual(2);
+    expect(invariant?.shellPaddingTop).toMatch(/^(80|81)px$/);
+    expect(invariant?.heroMarginTop).toBe("0px");
+    expect(invariant?.heroPaddingTop).toBe("0px");
   });
 });

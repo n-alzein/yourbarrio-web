@@ -31,10 +31,10 @@ export default function HeroBanner({
   const ctaClassName =
     "inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#7c3aed] px-5 py-2.5 text-sm font-semibold !text-white shadow-[0_5px_14px_rgba(124,58,237,0.16),0_1px_2px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#6d28d9] hover:!text-white hover:shadow-[0_7px_18px_rgba(124,58,237,0.20),0_2px_5px_rgba(15,23,42,0.08)] focus-visible:!text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/25 active:translate-y-0 active:!text-white sm:w-auto sm:text-[0.95rem]";
   const heroHeightClassName = offsetContentForFixedNav
-    ? "h-[calc(var(--yb-nav-h,80px)+clamp(280px,36vh,340px))] md:h-[clamp(300px,28vh,320px)]"
+    ? "h-[clamp(280px,36vh,340px)] md:h-[clamp(300px,28vh,320px)]"
     : "min-h-[220px] sm:min-h-[244px] md:min-h-[38vh] lg:min-h-[40vh] xl:min-h-[43vh]";
   const contentShellClassName = offsetContentForFixedNav
-    ? "relative z-10 flex h-full items-center justify-center pt-[var(--yb-nav-h,80px)] md:pt-0"
+    ? "relative z-10 flex h-full items-center justify-center"
     : "relative z-10 flex min-h-[220px] items-center sm:min-h-[244px] md:min-h-[38vh] lg:min-h-[40vh] xl:min-h-[43vh]";
   const contentInnerClassName = offsetContentForFixedNav
     ? "-translate-y-5 md:-translate-y-8"
