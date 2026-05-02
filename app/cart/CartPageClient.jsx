@@ -61,6 +61,14 @@ function readGuestCartSafely() {
   }
 }
 
+const isExpiredReservationItem = (item) => {
+  const expiresAt = item?.reservation_expires_at ? Date.parse(item.reservation_expires_at) : NaN;
+  return (
+    (Number.isFinite(expiresAt) && expiresAt <= Date.now()) ||
+    String(item?.stock_error || "").toLowerCase().includes("reservation expired")
+  );
+};
+
 export default function CartPageClient({ suppressEmptyState = false }) {
   const { user } = useAuth();
   const { openModal } = useModal();
@@ -74,10 +82,12 @@ export default function CartPageClient({ suppressEmptyState = false }) {
     error,
     updateItem,
     removeItem,
+    refreshCart,
     setFulfillmentType,
     mergeGuestCartForCheckout,
   } = useCart();
   const [updatingItem, setUpdatingItem] = useState(null);
+  const [updatingReservationItemId, setUpdatingReservationItemId] = useState(null);
   const [fulfillmentErrors, setFulfillmentErrors] = useState({});
   const [checkoutIntent, setCheckoutIntent] = useState(null);
   const [checkoutHandoffState, setCheckoutHandoffStateLocal] = useState(CHECKOUT_HANDOFF_STATES.idle);
@@ -220,6 +230,21 @@ export default function CartPageClient({ suppressEmptyState = false }) {
     }
   };
 
+  const handleUpdateCartItem = async (item) => {
+    if (!item?.id) return;
+    setUpdatingReservationItemId(item.id);
+    try {
+      const result = await updateItem({
+        itemId: item.id,
+        quantity: Number(item.quantity || 0),
+      });
+      if (result?.error) return;
+      await refreshCart?.({ reason: "checkout-reservation-refresh" });
+    } finally {
+      setUpdatingReservationItemId(null);
+    }
+  };
+
   const handleGuestCheckout = (checkoutHref) => {
     const next = checkoutHref || "/cart";
     setAuthIntent({ redirectTo: next, role: "customer" });
@@ -348,7 +373,10 @@ export default function CartPageClient({ suppressEmptyState = false }) {
               const businessName = group.business_name || "Local vendor";
               const groupKey = group.business_id || "unknown";
               const hasStockIssues = group.items.some(
-                (item) => item.stock_error || Number(item.quantity || 0) > Number(item.max_order_quantity || 0)
+                (item) =>
+                  isExpiredReservationItem(item) ||
+                  item.stock_error ||
+                  Number(item.quantity || 0) > Number(item.max_order_quantity || 0)
               );
               const deliveryAvailable = group.available_fulfillment_methods?.includes(
                 DELIVERY_FULFILLMENT_TYPE
@@ -459,6 +487,7 @@ export default function CartPageClient({ suppressEmptyState = false }) {
                     {group.items.map((item) => {
                       const maxQuantity = Number(item.max_order_quantity || 0);
                       const isAtMax = Number(item.quantity || 0) >= maxQuantity;
+                      const reservationExpired = isExpiredReservationItem(item);
                       return (
                         <div
                           key={item.id}
@@ -487,12 +516,36 @@ export default function CartPageClient({ suppressEmptyState = false }) {
                                     <p className="mt-1 text-xs opacity-65">{item.variant_label}</p>
                                   ) : null}
                                   <p className="mt-1 text-xs opacity-70">${formatMoney(item.unit_price)}</p>
-                                  {item.reservation_expires_at ? (
+                                  {item.reservation_expires_at && !reservationExpired ? (
                                     <p className="mt-1 text-xs opacity-70">
                                       Reserved in your cart for 30 minutes.
                                     </p>
                                   ) : null}
-                                  {item.stock_error ? (
+                                  {reservationExpired ? (
+                                    <div
+                                      className="mt-3 w-full max-w-sm space-y-1 rounded-[6px] px-2.5 py-2 text-xs"
+                                      style={{
+                                        background: "rgba(245,158,11,0.1)",
+                                        color: "#b45309",
+                                      }}
+                                    >
+                                      <p className="font-semibold">⚠ This item is no longer reserved.</p>
+                                      <p className="opacity-80">Availability may have changed.</p>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateCartItem(item)}
+                                        disabled={updatingReservationItemId === item.id}
+                                        className="mt-1.5 rounded-[6px] px-2.5 py-1 text-xs font-semibold transition disabled:cursor-not-allowed"
+                                        style={{
+                                          background: "rgba(255,255,255,0.55)",
+                                          border: "1px solid rgba(180,83,9,0.28)",
+                                          color: "#92400e",
+                                        }}
+                                      >
+                                        {updatingReservationItemId === item.id ? "Updating..." : "Update cart"}
+                                      </button>
+                                    </div>
+                                  ) : item.stock_error ? (
                                     <p className="mt-1 text-xs text-rose-200">{item.stock_error}</p>
                                   ) : maxQuantity > 0 && maxQuantity < 5 ? (
                                     <p className="mt-1 text-xs opacity-70">Only {maxQuantity} left available.</p>

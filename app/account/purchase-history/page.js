@@ -53,7 +53,7 @@ export default async function PurchaseHistoryPage({ searchParams }) {
           <p className="text-xs uppercase tracking-[0.2em] opacity-70">Orders</p>
           <h1 className="text-3xl font-semibold">Purchase History</h1>
           <p className="text-sm opacity-70">
-            Review completed orders in a cleaner running history.
+            Review completed, cancelled, and fulfilled paid orders.
           </p>
         </div>
 
@@ -68,8 +68,8 @@ export default async function PurchaseHistoryPage({ searchParams }) {
 
           {!error && visibleRows.length === 0 ? (
             <div className="rounded-3xl p-8 text-center" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-              <h2 className="text-xl font-semibold">No completed purchases yet</h2>
-              <p className="mt-2 text-sm opacity-80">Your fulfilled orders will appear here.</p>
+              <h2 className="text-xl font-semibold">No order history yet.</h2>
+              <p className="mt-2 text-sm opacity-80">Completed and closed paid orders will appear here.</p>
               <Link
                 href="/customer/home"
                 className="mt-5 inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold"

@@ -68,7 +68,7 @@ export default function AccountNavTabs({ active = "orders", variant = "orders" }
         onClick={handleClick("orders")}
         onPointerDownCapture={handlePointerDown("/account/orders")}
       >
-        Pending
+        Active
       </Link>
       <Link
         href="/account/purchase-history"

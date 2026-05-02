@@ -1,8 +1,10 @@
 import { requireRole } from "@/lib/auth/server";
 import { getEntityIdSearchVariants } from "@/lib/entityIds";
 import { formatOrderDateTime, formatOrderPurchaseDateTime } from "@/lib/orders";
+import { isCustomerVisiblePaidOrder } from "@/lib/orders/customerVisibility";
 import { reconcilePendingStripeOrders } from "@/lib/orders/persistence";
 import { getSupabaseServerClient as getServiceClient } from "@/lib/supabase/server";
+import { notFound } from "next/navigation";
 import OrderReceiptClient from "./OrderReceiptClient";
 
 export const dynamic = "force-dynamic";
@@ -108,6 +110,10 @@ export default async function OrderPage({ params, searchParams }) {
         </div>
       </div>
     );
+  }
+
+  if (!isCustomerVisiblePaidOrder(order)) {
+    notFound();
   }
 
   const { data: vendor } = await supabase

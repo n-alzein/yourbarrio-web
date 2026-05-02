@@ -10,23 +10,13 @@ import {
 import { formatEntityId } from "@/lib/entityIds";
 import { requireRole } from "@/lib/auth/server";
 import { getSupportAwareClient } from "@/lib/support/supportAwareData";
-
-const PENDING_STATUSES = [
-  "pending_payment",
-  "payment_failed",
-  "requested",
-  "confirmed",
-  "ready",
-  "out_for_delivery",
-];
+import { CUSTOMER_ACTIVE_ORDER_STATUSES } from "@/lib/orders/customerVisibility";
 
 const STATUS_DOT_STYLES = {
   requested: { background: "#d97706" },
-  pending_payment: { background: "rgba(110, 52, 255, 0.72)" },
   confirmed: { background: "#2563eb" },
   ready: { background: "#0f766e" },
   out_for_delivery: { background: "#0f766e" },
-  payment_failed: { background: "#b45309" },
 };
 
 function isMeaningfullyDifferentTimestamp(base, compare) {
@@ -61,7 +51,9 @@ export default async function AccountOrdersPage({ searchParams }) {
       "id,order_number,created_at,updated_at,status,fulfillment_type,delivery_time,pickup_time,total, vendor:users!orders_vendor_id_fkey (business_name, full_name), order_items(id,title,image_url,created_at, listing:listings!order_items_listing_id_fkey(photo_url,photo_variants,cover_image_id))"
     )
     .eq("user_id", effectiveUserId)
-    .in("status", PENDING_STATUSES)
+    .in("status", CUSTOMER_ACTIVE_ORDER_STATUSES)
+    .not("paid_at", "is", null)
+    .order("paid_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .range(from, to);
 
@@ -81,7 +73,7 @@ export default async function AccountOrdersPage({ searchParams }) {
           </p>
           <h1 className="text-3xl font-semibold">My orders</h1>
           <p className="text-sm opacity-70">
-            Track active orders and check the latest updates.
+            Track active paid orders and check the latest updates.
           </p>
         </div>
 
@@ -101,9 +93,9 @@ export default async function AccountOrdersPage({ searchParams }) {
             className="rounded-3xl p-8 text-center"
             style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
           >
-            <h2 className="text-xl font-semibold">No pending orders</h2>
+            <h2 className="text-xl font-semibold">No active orders yet.</h2>
             <p className="mt-2 text-sm opacity-80">
-              Browse the marketplace to start a new order.
+              Orders you place will appear here after payment is confirmed.
             </p>
             <Link
               href="/customer/home"

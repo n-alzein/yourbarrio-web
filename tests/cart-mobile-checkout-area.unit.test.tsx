@@ -12,6 +12,7 @@ const longBusinessName =
 
 const mockOpenModal = vi.fn();
 const mockUpdateItem = vi.fn();
+const mockRefreshCart = vi.fn();
 const mockRemoveItem = vi.fn();
 const mockSetFulfillmentType = vi.fn();
 const mockMergeGuestCartForCheckout = vi.fn();
@@ -94,6 +95,7 @@ vi.mock("@/components/cart/CartProvider", () => ({
     cartStatus: "ready",
     error: null,
     updateItem: mockUpdateItem,
+    refreshCart: mockRefreshCart,
     removeItem: mockRemoveItem,
     setFulfillmentType: mockSetFulfillmentType,
     mergeGuestCartForCheckout: mockMergeGuestCartForCheckout,
@@ -109,6 +111,9 @@ describe("CartPageClient mobile checkout area", () => {
     clearCheckoutIntentPending();
     mockOpenModal.mockClear();
     mockUpdateItem.mockClear();
+    mockUpdateItem.mockResolvedValue({});
+    mockRefreshCart.mockClear();
+    mockRefreshCart.mockResolvedValue({});
     mockRemoveItem.mockClear();
     mockSetFulfillmentType.mockClear();
     mockMergeGuestCartForCheckout.mockReset();
@@ -139,6 +144,69 @@ describe("CartPageClient mobile checkout area", () => {
       "md:w-auto"
     );
     expect(checkoutButton).toHaveTextContent(`Checkout with ${longBusinessName}`);
+  });
+
+  it("shows expired reservation recovery inside the cart item and keeps checkout disabled", async () => {
+    mockCartState = {
+      vendorGroups: [
+        {
+          business_id: "vendor-1",
+          business_name: longBusinessName,
+          cart_id: "cart-1",
+          item_count: 1,
+          subtotal: 23,
+          fulfillment_type: "pickup",
+          available_fulfillment_methods: ["pickup"],
+          items: [
+            {
+              id: "cart-item-1",
+              listing_id: "listing-1",
+              title: "Linen jacket",
+              quantity: 1,
+              unit_price: 23,
+              image_url: null,
+              max_order_quantity: 10,
+              reservation_expires_at: new Date(Date.now() - 60_000).toISOString(),
+              stock_error: "Your cart reservation expired.",
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<CartPageClient />);
+
+    expect(screen.getByText(/This item is no longer reserved\./)).toBeInTheDocument();
+    expect(screen.getByText("Availability may have changed.")).toBeInTheDocument();
+    expect(screen.queryByText("Your cart reservation expired.")).not.toBeInTheDocument();
+
+    const checkoutButton = screen.getByTestId("cart-vendor-checkout-button-vendor-1");
+    expect(checkoutButton).toHaveAttribute("aria-disabled", "true");
+    expect(checkoutButton).toHaveAttribute("href", "#");
+
+    fireEvent.click(screen.getByRole("button", { name: "Update cart" }));
+
+    await waitFor(() => {
+      expect(mockUpdateItem).toHaveBeenCalledWith({
+        itemId: "cart-item-1",
+        quantity: 1,
+      });
+      expect(mockRefreshCart).toHaveBeenCalledWith({
+        reason: "checkout-reservation-refresh",
+      });
+    });
+    expect(routerReplaceMock).not.toHaveBeenCalled();
+  });
+
+  it("leaves non-expired cart items on the normal reservation display", () => {
+    render(<CartPageClient />);
+
+    expect(screen.queryByText("This item is no longer reserved.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Update cart" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("cart-vendor-checkout-button-vendor-1")).not.toHaveAttribute(
+      "aria-disabled",
+      "true"
+    );
   });
 
   it("opens the login modal for guest checkout and freezes the cart behind it", async () => {
