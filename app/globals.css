@@ -740,22 +740,6 @@ body:has(nav[data-nav-sticky="1"]) .app-shell-root {
   filter: blur(6px);
 }
 
-@media (max-width: 767px) {
-  :root {
-    --yb-nav-h: 81px;
-    --yb-nav-content-offset: 81px;
-  }
-
-  .public-shell-content[data-shell-gap="none"],
-  .public-shell-content:has([data-home-hero-wrapper="1"]) {
-    --public-nav-divider-overhang: 1px;
-  }
-
-  .public-shell-content:has([data-home-hero-wrapper="1"]) {
-    --public-shell-gap: 0px !important;
-  }
-}
-
 @keyframes gradient-x {
   0% {
     background-position: 0% 50%;

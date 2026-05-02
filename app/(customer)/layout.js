@@ -29,7 +29,7 @@ export default async function CustomerLayout({ children }) {
     return <>{children}</>;
   }
   const requestPath = await getRequestPath("/customer/home");
-  const shellGap = requestPath === "/customer/home" ? "none" : "comfortable";
+  const shellGap = "none";
   const isNearbyRoute =
     requestPath === "/customer/nearby" || requestPath.startsWith("/customer/nearby/");
   const isNearbyPublicEnabled = isNearbyRoute

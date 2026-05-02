@@ -11,7 +11,7 @@ export default function OrdersLayout({ children }) {
       <Suspense fallback={null}>
         <GlobalHeader surface="customer" />
       </Suspense>
-      <CustomerRouteShell>
+      <CustomerRouteShell gap="comfortable">
         <div className="min-h-screen">{children}</div>
       </CustomerRouteShell>
     </>

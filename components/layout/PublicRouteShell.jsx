@@ -1,69 +1,14 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
-import { usePathname } from "next/navigation";
-
-const PATHNAME_CHANGE_EVENT = "yb:pathnamechange";
-let historyPatchInstalled = false;
-
-function emitPathnameChange() {
-  window.dispatchEvent(new Event(PATHNAME_CHANGE_EVENT));
-}
-
-function installHistoryPatch() {
-  if (historyPatchInstalled || typeof window === "undefined") return;
-  historyPatchInstalled = true;
-
-  for (const method of ["pushState", "replaceState"]) {
-    const original = window.history[method];
-    if (typeof original !== "function" || original.__ybPathnamePatched) continue;
-    const patched = function patchedHistoryState(...args) {
-      const result = original.apply(this, args);
-      queueMicrotask(emitPathnameChange);
-      return result;
-    };
-    patched.__ybPathnamePatched = true;
-    window.history[method] = patched;
-  }
-}
-
-function subscribeToPathname(callback) {
-  installHistoryPatch();
-  window.addEventListener(PATHNAME_CHANGE_EVENT, callback);
-  window.addEventListener("pageshow", callback);
-  window.addEventListener("popstate", callback);
-  return () => {
-    window.removeEventListener(PATHNAME_CHANGE_EVENT, callback);
-    window.removeEventListener("pageshow", callback);
-    window.removeEventListener("popstate", callback);
-  };
-}
-
-function getBrowserPathname() {
-  return window.location.pathname || "/";
-}
-
-function getServerPathname() {
-  return null;
-}
-
 export default function PublicRouteShell({
   children = null,
   className = "",
-  gap = "comfortable",
+  gap = "none",
 }) {
-  const pathname = usePathname();
-  const browserPathname = useSyncExternalStore(
-    subscribeToPathname,
-    getBrowserPathname,
-    getServerPathname
-  );
-  const effectivePathname = browserPathname || pathname;
-  const resolvedGap = effectivePathname === "/" ? "none" : gap;
   const offsetGap =
-    resolvedGap === "none"
+    gap === "none"
       ? "0px"
-      : resolvedGap === "compact"
+      : gap === "compact"
       ? "clamp(8px, 1.5vw, 12px)"
       : "clamp(16px, 2vw, 24px)";
 
@@ -73,7 +18,7 @@ export default function PublicRouteShell({
     "--bg-gradient-end": "#eef2ff",
     "--glow-1": "rgba(79, 70, 229, 0.1)",
     "--glow-2": "rgba(14, 165, 233, 0.08)",
-    "--public-nav-offset": "var(--yb-nav-content-offset, 80px)",
+    "--public-nav-offset": "max(81px, var(--yb-nav-content-offset, 81px))",
     "--public-shell-gap": offsetGap,
   };
 
@@ -83,11 +28,10 @@ export default function PublicRouteShell({
       data-testid="public-shell-content"
       data-theme="light"
       data-route-theme="light"
-      data-shell-gap={resolvedGap}
+      data-shell-gap={gap}
       style={{
         ...lightThemeVars,
-        paddingTop:
-          "calc(var(--public-nav-offset) + var(--public-shell-gap) + var(--public-nav-divider-overhang, 0px))",
+        paddingTop: "calc(var(--public-nav-offset) + var(--public-shell-gap))",
       }}
     >
       {children}

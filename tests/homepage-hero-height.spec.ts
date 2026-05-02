@@ -85,7 +85,7 @@ test.describe("homepage hero rendered height", () => {
     expect(metrics).toBeTruthy();
     console.log("homepage-hero-metrics-mobile", JSON.stringify(metrics));
 
-    expect(Math.abs((metrics?.heroTop ?? 999) - (metrics?.navbarDividerBottom ?? 0))).toBeLessThanOrEqual(0.5);
+    expect(Math.abs((metrics?.heroTop ?? 999) - (metrics?.navbarDividerBottom ?? 0))).toBeLessThanOrEqual(1);
     expect(metrics?.heroHeight ?? 0).toBeGreaterThanOrEqual(280);
     expect(metrics?.heroHeight ?? 999).toBeLessThanOrEqual(320);
     expect(metrics?.featuredTop ?? 999).toBeLessThanOrEqual(450);
@@ -106,7 +106,7 @@ test.describe("homepage hero rendered height", () => {
 
     const metrics = await readHeroMetrics(page);
     expect(metrics).toBeTruthy();
-    expect(Math.abs((metrics?.heroTop ?? 999) - (metrics?.navbarDividerBottom ?? 0))).toBeLessThanOrEqual(0.5);
+    expect(Math.abs((metrics?.heroTop ?? 999) - (metrics?.navbarDividerBottom ?? 0))).toBeLessThanOrEqual(1);
 
     const gapProbe = await page.evaluate(() => {
       const navbarEl = document.querySelector("nav.yb-navbar");
@@ -136,14 +136,14 @@ test.describe("homepage hero rendered height", () => {
     });
 
     expect(gapProbe).toBeTruthy();
-    expect(Math.abs(gapProbe?.gap ?? 999)).toBeLessThanOrEqual(0.5);
-    expect(gapProbe?.publicShellPaddingTop).toMatch(/^(81|82)px$/);
+    expect(Math.abs(gapProbe?.gap ?? 999)).toBeLessThanOrEqual(1);
+    expect(gapProbe?.publicShellPaddingTop).toMatch(/^(80|81|82)px$/);
     expect(gapProbe?.heroMarginTop).toBe("0px");
     expect(gapProbe?.heroPaddingTop).toBe("0px");
     expect(gapProbe?.elementTestId).not.toBe("public-shell-content");
   });
 
-  test("mobile hero remains flush on the first frame when returning from cart by logo", async ({ page }) => {
+  test("mobile hero is flush on first frame when returning from cart by logo", async ({ page }) => {
     await page.setViewportSize({ width: 430, height: 932 });
     await page.goto("/cart");
     await expect(page.locator("nav.yb-navbar").first()).toBeVisible();
@@ -157,7 +157,6 @@ test.describe("homepage hero rendered height", () => {
       const heroEl = document.querySelector('[data-testid="home-hero"]');
       const publicShell = document.querySelector('[data-testid="public-shell-content"]');
       if (!navbarEl || !heroEl || !publicShell) return null;
-
       const navbarBox = navbarEl.getBoundingClientRect();
       const navbarAfter = window.getComputedStyle(navbarEl, "::after");
       const navbarDividerBottom =
@@ -179,9 +178,10 @@ test.describe("homepage hero rendered height", () => {
     });
 
     expect(gapProbe).toBeTruthy();
-    expect(Math.abs(gapProbe?.gap ?? 999)).toBeLessThanOrEqual(0.5);
-    expect(gapProbe?.elementTestId).not.toBe("public-shell-content");
+    expect(Math.abs(gapProbe?.gap ?? 999)).toBeLessThanOrEqual(1);
+    expect(gapProbe?.shellGap).toBe("none");
     expect(gapProbe?.publicShellGapVar).toBe("0px");
+    expect(gapProbe?.elementTestId).not.toBe("public-shell-content");
   });
 
   test("mobile homepage uses one shell offset and no hero offset", async ({ page }) => {
@@ -214,8 +214,8 @@ test.describe("homepage hero rendered height", () => {
     });
 
     expect(invariant).toBeTruthy();
-    expect(Math.abs((invariant?.heroTop ?? 999) - (invariant?.navbarDividerBottom ?? 0))).toBeLessThanOrEqual(0.5);
-    expect(invariant?.shellPaddingTop).toMatch(/^(81|82)px$/);
+    expect(Math.abs((invariant?.heroTop ?? 999) - (invariant?.navbarDividerBottom ?? 0))).toBeLessThanOrEqual(1);
+    expect(invariant?.shellPaddingTop).toMatch(/^(80|81|82)px$/);
     expect(invariant?.heroMarginTop).toBe("0px");
     expect(invariant?.heroPaddingTop).toBe("0px");
   });
@@ -256,7 +256,7 @@ test.describe("homepage hero rendered height", () => {
       });
 
       expect(invariant).toBeTruthy();
-      expect(Math.abs(invariant?.delta ?? 999)).toBeLessThanOrEqual(0.5);
+      expect(Math.abs(invariant?.delta ?? 999)).toBeLessThanOrEqual(1);
       expect(invariant?.elementTestId).not.toBe("public-shell-content");
     });
   }

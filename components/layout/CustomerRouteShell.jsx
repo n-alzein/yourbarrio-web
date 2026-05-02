@@ -1,7 +1,7 @@
 export default function CustomerRouteShell({
   children = null,
   className = "",
-  gap = "comfortable",
+  gap = "none",
 }) {
   const offsetGap =
     gap === "none"
@@ -15,7 +15,7 @@ export default function CustomerRouteShell({
     "--bg-gradient-end": "#eef2ff",
     "--glow-1": "rgba(79, 70, 229, 0.1)",
     "--glow-2": "rgba(14, 165, 233, 0.08)",
-    "--customer-nav-offset": "var(--yb-nav-content-offset, 80px)",
+    "--customer-nav-offset": "max(81px, var(--yb-nav-content-offset, 81px))",
     "--customer-shell-gap": offsetGap,
   };
 
