@@ -643,7 +643,6 @@ const DashboardPage = () => {
     <main
       className="business-theme min-h-screen px-4 pb-20 sm:px-6"
       style={{
-        paddingTop: "calc(var(--yb-nav-content-offset, 0px) + 16px)",
         backgroundImage:
           "radial-gradient(circle at 10% 10%, var(--glow-1), transparent 55%), radial-gradient(circle at 80% 0%, var(--glow-2), transparent 50%)",
       }}

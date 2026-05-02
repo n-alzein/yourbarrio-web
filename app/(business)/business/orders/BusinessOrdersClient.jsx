@@ -523,7 +523,6 @@ export default function BusinessOrdersClient() {
       style={{
         background: "var(--background)",
         color: "var(--text)",
-        paddingTop: "calc(var(--yb-nav-content-offset, 0px) + 16px)",
       }}
     >
       <div className="max-w-6xl mx-auto space-y-8">

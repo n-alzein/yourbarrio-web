@@ -18,17 +18,23 @@ export const metadata = {
   },
 };
 
-function BusinessRouteShell({ children = null }) {
+function BusinessRouteShell({ children = null, offsetForNav = false }) {
   return (
     <div
       className="min-h-screen flex-1 bg-[var(--yb-bg)] text-[var(--yb-text)]"
       data-theme="light"
+      data-testid="business-route-shell"
       style={{
         "--bg-solid": "#ffffff",
         "--bg-gradient-start": "#f7f7f8",
         "--bg-gradient-end": "#eef2ff",
         "--glow-1": "rgba(79, 70, 229, 0.1)",
         "--glow-2": "rgba(14, 165, 233, 0.08)",
+        ...(offsetForNav
+          ? {
+              paddingTop: "calc(var(--yb-nav-content-offset, 80px) + 16px)",
+            }
+          : {}),
       }}
     >
       {children}
@@ -92,7 +98,7 @@ export default async function BusinessLayout({ children }) {
         }}
       />
       <InactivityLogout />
-      <BusinessRouteShell>
+      <BusinessRouteShell offsetForNav>
           <Suspense
             fallback={null}
         >
