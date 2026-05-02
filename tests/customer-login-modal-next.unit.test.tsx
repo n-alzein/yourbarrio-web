@@ -59,4 +59,28 @@ describe("CustomerLoginModal next forwarding", () => {
     expect(onCancel).not.toHaveBeenCalled();
     expect(onSuccess).toHaveBeenCalledWith("/listings/test-listing", { isAdmin: false });
   });
+
+  it("keeps the checkout login modal mounted until checkout navigation takes over", () => {
+    const onClose = vi.fn();
+    const onCancel = vi.fn();
+    const onSuccess = vi.fn();
+
+    render(
+      <CustomerLoginModal
+        next="/checkout?business_id=vendor-1"
+        onClose={onClose}
+        onCancel={onCancel}
+        onSuccess={onSuccess}
+      />
+    );
+
+    const formProps = customerLoginFormMock.mock.calls.at(-1)?.[0];
+    formProps.onSuccess("/checkout?business_id=vendor-1", { isAdmin: false });
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledWith("/checkout?business_id=vendor-1", {
+      isAdmin: false,
+    });
+  });
 });

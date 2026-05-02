@@ -3,7 +3,11 @@
 import BaseModal from "./BaseModal";
 import { useModal } from "./ModalProvider";
 import CustomerLoginForm from "@/components/auth/CustomerLoginForm";
-import { clearAuthIntent } from "@/lib/auth/authIntent";
+import { clearAuthIntent, clearCheckoutIntentPending } from "@/lib/auth/authIntent";
+
+function isCheckoutRedirectPath(path) {
+  return typeof path === "string" && (path === "/checkout" || path.startsWith("/checkout?"));
+}
 
 export default function CustomerLoginModal({
   onClose,
@@ -17,6 +21,7 @@ export default function CustomerLoginModal({
   }
   const handleClose = ({ canceled = true } = {}) => {
     clearAuthIntent();
+    if (canceled) clearCheckoutIntentPending();
     if (canceled) onCancel?.();
     onClose?.();
   };
@@ -29,9 +34,11 @@ export default function CustomerLoginModal({
     >
       <CustomerLoginForm
         next={nextFromModalProps}
-        onSuccess={(...args) => {
-          handleClose({ canceled: false });
-          onSuccess?.(...args);
+        onSuccess={async (destination, meta) => {
+          if (!isCheckoutRedirectPath(destination)) {
+            handleClose({ canceled: false });
+          }
+          await onSuccess?.(destination, meta);
         }}
         onSwitchToSignup={() => openModal("customer-signup")}
       />

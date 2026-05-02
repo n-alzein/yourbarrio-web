@@ -1,14 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ShoppingBag, Trash2, Truck, Minus, Plus } from "lucide-react";
 import SafeImage from "@/components/SafeImage";
 import { useAuth } from "@/components/AuthProvider";
 import { useCart } from "@/components/cart/CartProvider";
+import EmptyCartState from "@/components/cart/EmptyCartState";
 import { useModal } from "@/components/modals/ModalProvider";
 import { useCurrentAccountContext } from "@/lib/auth/useCurrentAccountContext";
-import { setAuthIntent } from "@/lib/auth/authIntent";
+import {
+  CHECKOUT_INTENT_UPDATED_EVENT,
+  CHECKOUT_HANDOFF_STATES,
+  clearCheckoutIntentPending,
+  readCheckoutHandoffState,
+  readCheckoutIntentPending,
+  setAuthIntent,
+  setCheckoutHandoffState,
+} from "@/lib/auth/authIntent";
+import { getGuestCart } from "@/lib/cart/guestCart";
 import { DELIVERY_FULFILLMENT_TYPE, PICKUP_FULFILLMENT_TYPE } from "@/lib/fulfillment";
 import {
   getPurchaseRestrictionHelpText,
@@ -36,57 +47,42 @@ const INTERNAL_CART_ERRORS = new Set([
   "Failed to merge guest cart",
 ]);
 
-function EmptyCartDiscoveryState() {
-  return (
-    <div
-      className="px-4 pb-6 pt-6 md:px-8 md:pb-8 md:pt-8 lg:px-12"
-      style={{ background: "var(--background)", color: "var(--text)" }}
-    >
-      <div className="mx-auto max-w-5xl">
-        <div className="flex min-h-[calc(100vh-20rem)] items-start justify-center pt-2 md:pt-3">
-          <section
-            className="w-full max-w-[640px] rounded-[32px] px-6 py-7 text-center md:px-8 md:py-8"
-            style={{
-              background: "rgba(255,255,255,0.92)",
-              boxShadow: "0 20px 44px -38px rgba(15,23,42,0.16)",
-            }}
-          >
-            <div className="mx-auto max-w-[460px]">
-              <h1 className="text-[1.78rem] font-semibold tracking-[-0.04em] text-slate-950 md:text-[2.1rem]">
-                Your cart is empty
-              </h1>
-              <p className="mt-2 text-sm leading-6 text-slate-500 md:text-[15px]">
-                Add an item from a local listing to start an order.
-              </p>
-              <div className="mt-4 flex flex-col items-center gap-2">
-                <Link
-                  href="/listings"
-                  className="yb-cart-empty-cta inline-flex min-h-10 items-center justify-center rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition focus-visible:ring-offset-2"
-                >
-                  Browse local listings
-                </Link>
-                <Link
-                  href="/customer/nearby"
-                  className="text-[13px] font-medium text-slate-400 transition hover:text-violet-700 hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-200"
-                >
-                  Explore nearby shops
-                </Link>
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
-    </div>
-  );
+const CHECKOUT_GUEST_CART_CONTEXT_STORAGE_KEY = "yb:checkoutGuestCartContext";
+
+function isCheckoutRedirectPath(path) {
+  return typeof path === "string" && (path === "/checkout" || path.startsWith("/checkout?"));
 }
 
-export default function CartPageClient() {
+function readGuestCartSafely() {
+  try {
+    return getGuestCart();
+  } catch {
+    return null;
+  }
+}
+
+export default function CartPageClient({ suppressEmptyState = false }) {
   const { user } = useAuth();
   const { openModal } = useModal();
+  const router = useRouter();
   const accountContext = useCurrentAccountContext();
-  const { items, vendorGroups, loading, error, updateItem, removeItem, setFulfillmentType } = useCart();
+  const {
+    items,
+    vendorGroups,
+    loading,
+    cartStatus = "ready",
+    error,
+    updateItem,
+    removeItem,
+    setFulfillmentType,
+    mergeGuestCartForCheckout,
+  } = useCart();
   const [updatingItem, setUpdatingItem] = useState(null);
   const [fulfillmentErrors, setFulfillmentErrors] = useState({});
+  const [checkoutIntent, setCheckoutIntent] = useState(null);
+  const [checkoutHandoffState, setCheckoutHandoffStateLocal] = useState(CHECKOUT_HANDOFF_STATES.idle);
+  const [checkoutIntentChecked, setCheckoutIntentChecked] = useState(false);
+  const checkoutHandoffPromiseRef = useRef(null);
   const purchaseRestricted = accountContext.purchaseRestricted;
   const purchaseEligibilityPending = accountContext.rolePending;
   const cartErrorText = String(error || "").trim();
@@ -94,6 +90,9 @@ export default function CartPageClient() {
     LISTING_DETAIL_CART_VALIDATION_ERRORS.has(cartErrorText) || INTERNAL_CART_ERRORS.has(cartErrorText)
       ? null
       : error;
+  const checkoutHandoffActive =
+    checkoutHandoffState !== CHECKOUT_HANDOFF_STATES.idle &&
+    checkoutHandoffState !== CHECKOUT_HANDOFF_STATES.failed;
 
   const allItemsSubtotal = useMemo(
     () => items.reduce((sum, item) => sum + Number(item.unit_price || 0) * Number(item.quantity || 0), 0),
@@ -122,6 +121,81 @@ export default function CartPageClient() {
   );
   const total = allItemsSubtotal + deliveryFees + fees;
 
+  useEffect(() => {
+    const syncCheckoutIntent = () => {
+      const pendingIntent = readCheckoutIntentPending();
+      const handoffState = readCheckoutHandoffState();
+      setCheckoutIntent(pendingIntent);
+      setCheckoutHandoffStateLocal(
+        pendingIntent?.redirectTo ? handoffState : CHECKOUT_HANDOFF_STATES.idle
+      );
+      setCheckoutIntentChecked(true);
+    };
+    syncCheckoutIntent();
+    window.addEventListener(CHECKOUT_INTENT_UPDATED_EVENT, syncCheckoutIntent);
+    window.addEventListener("storage", syncCheckoutIntent);
+    return () => {
+      window.removeEventListener(CHECKOUT_INTENT_UPDATED_EVENT, syncCheckoutIntent);
+      window.removeEventListener("storage", syncCheckoutIntent);
+    };
+  }, []);
+
+  const updateCheckoutHandoffState = useCallback((state) => {
+    const nextState = setCheckoutHandoffState(state);
+    setCheckoutHandoffStateLocal(nextState);
+    return nextState;
+  }, []);
+
+  useEffect(() => {
+    if (
+      !checkoutIntent?.redirectTo ||
+      !user?.id ||
+      checkoutHandoffState !== CHECKOUT_HANDOFF_STATES.authenticating ||
+      checkoutHandoffPromiseRef.current
+    ) {
+      return undefined;
+    }
+    let canceled = false;
+    const timeoutId = window.setTimeout(() => {
+      if (canceled) return;
+      updateCheckoutHandoffState(CHECKOUT_HANDOFF_STATES.mergingGuestCart);
+      const mergePromise = mergeGuestCartForCheckout({ guestCart: readGuestCartSafely() });
+      checkoutHandoffPromiseRef.current = mergePromise;
+      mergePromise
+        .then((result) => {
+          if (canceled) return;
+          if (result?.error && Number(result?.itemCount || 0) <= 0) {
+            updateCheckoutHandoffState(CHECKOUT_HANDOFF_STATES.failed);
+            clearCheckoutIntentPending();
+            setCheckoutIntent(null);
+            return;
+          }
+          updateCheckoutHandoffState(CHECKOUT_HANDOFF_STATES.redirectingToCheckout);
+          router.replace(checkoutIntent.redirectTo);
+        })
+        .finally(() => {
+          if (checkoutHandoffPromiseRef.current === mergePromise) {
+            checkoutHandoffPromiseRef.current = null;
+          }
+        });
+    }, 0);
+    return () => {
+      canceled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [checkoutHandoffState, checkoutIntent?.redirectTo, mergeGuestCartForCheckout, router, updateCheckoutHandoffState, user?.id]);
+
+  useEffect(() => {
+    if (!checkoutIntent?.redirectTo || !checkoutHandoffActive || !user?.id || cartStatus !== "ready" || loading) return undefined;
+    if (vendorGroups.length > 0) return undefined;
+    const timeoutId = window.setTimeout(() => {
+      clearCheckoutIntentPending();
+      setCheckoutIntent(null);
+      setCheckoutHandoffStateLocal(CHECKOUT_HANDOFF_STATES.idle);
+    }, 2500);
+    return () => window.clearTimeout(timeoutId);
+  }, [cartStatus, checkoutHandoffActive, checkoutIntent?.redirectTo, loading, user?.id, vendorGroups.length]);
+
   const handleQuantityChange = async (item, delta) => {
     const maxQuantity = Number(item.max_order_quantity || 0);
     const nextQuantity = Math.min(Number(item.quantity || 0) + delta, maxQuantity || 0);
@@ -149,15 +223,71 @@ export default function CartPageClient() {
   const handleGuestCheckout = (checkoutHref) => {
     const next = checkoutHref || "/cart";
     setAuthIntent({ redirectTo: next, role: "customer" });
-    openModal("customer-login", { next });
+    const pendingIntent = readCheckoutIntentPending() || { redirectTo: next };
+    setCheckoutIntent(pendingIntent);
+    updateCheckoutHandoffState(CHECKOUT_HANDOFF_STATES.authenticating);
+    setCheckoutIntentChecked(true);
+    try {
+      const guestCart = readGuestCartSafely();
+      window.sessionStorage?.setItem(
+        CHECKOUT_GUEST_CART_CONTEXT_STORAGE_KEY,
+        JSON.stringify({
+          guest_id: guestCart?.guest_id || null,
+          cart_ids: (guestCart?.carts || []).map((cartRow) => cartRow.id),
+          item_ids: (guestCart?.carts || []).flatMap((cartRow) =>
+            (cartRow.cart_items || []).map((item) => item.id)
+          ),
+          updatedAt: guestCart?.updatedAt || Date.now(),
+        })
+      );
+    } catch {}
+    openModal("customer-login", {
+      next,
+      onSuccess: async (destination) => {
+        if (!isCheckoutRedirectPath(destination)) return;
+        updateCheckoutHandoffState(CHECKOUT_HANDOFF_STATES.mergingGuestCart);
+        const mergePromise =
+          checkoutHandoffPromiseRef.current ||
+          mergeGuestCartForCheckout({ guestCart: readGuestCartSafely() });
+        checkoutHandoffPromiseRef.current = mergePromise;
+        const result = await mergePromise.finally(() => {
+          checkoutHandoffPromiseRef.current = null;
+        });
+        if (result?.error && Number(result?.itemCount || 0) <= 0) {
+          updateCheckoutHandoffState(CHECKOUT_HANDOFF_STATES.failed);
+          clearCheckoutIntentPending();
+          setCheckoutIntent(null);
+          return;
+        }
+        updateCheckoutHandoffState(CHECKOUT_HANDOFF_STATES.redirectingToCheckout);
+        router.replace(destination);
+        return { handledRedirect: true };
+      },
+    });
   };
 
-  if (loading) {
+  const shouldSuppressCartEmptyState =
+    cartStatus !== "ready" ||
+    loading ||
+    !checkoutIntentChecked ||
+    checkoutHandoffActive ||
+    Boolean(checkoutIntent?.redirectTo) ||
+    suppressEmptyState;
+
+  if (shouldSuppressCartEmptyState) {
     return (
       <div className="min-h-screen px-4 md:px-8 lg:px-12 py-12" style={{ background: "var(--background)", color: "var(--text)" }}>
-        <div className="max-w-5xl mx-auto space-y-6 animate-pulse">
-          <div className="h-6 w-40 rounded-full" style={{ background: "var(--surface)" }} />
-          <div className="h-64 rounded-3xl" style={{ background: "var(--surface)" }} />
+        <div className="max-w-5xl mx-auto space-y-6">
+          {checkoutHandoffActive ? (
+            <div className="rounded-3xl p-8 text-center" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+              <h1 className="text-2xl font-semibold">Preparing checkout...</h1>
+              <p className="mt-3 text-sm opacity-80">We’re getting your cart ready.</p>
+            </div>
+          ) : null}
+          <div className="space-y-6 animate-pulse">
+            <div className="h-6 w-40 rounded-full" style={{ background: "var(--surface)" }} />
+            <div className="h-64 rounded-3xl" style={{ background: "var(--surface)" }} />
+          </div>
         </div>
       </div>
     );
@@ -192,8 +322,12 @@ export default function CartPageClient() {
     );
   }
 
-  if (vendorGroups.length === 0) {
-    return <EmptyCartDiscoveryState />;
+  if (
+    !shouldSuppressCartEmptyState &&
+    cartStatus === "ready" &&
+    items.length === 0
+  ) {
+    return <EmptyCartState />;
   }
 
   return (

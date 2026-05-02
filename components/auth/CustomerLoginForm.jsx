@@ -334,7 +334,8 @@ export default function CustomerLoginForm({
         return;
       }
 
-      onSuccess?.(dest, { isAdmin });
+      const successResult = await onSuccess?.(dest, { isAdmin });
+      if (successResult?.handledRedirect) return;
       if (isAdmin) {
         if (process.env.NODE_ENV !== "production") {
           console.info("[auth-next] post-login replace:", dest);

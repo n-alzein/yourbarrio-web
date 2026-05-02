@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CustomerLoginForm from "@/components/auth/CustomerLoginForm";
 
@@ -161,6 +161,61 @@ describe("CustomerLoginForm next priority", () => {
     });
     expect(replaceMock).not.toHaveBeenCalled();
     expect(consumeAuthIntentMock).not.toHaveBeenCalled();
+  });
+
+  it("redirects directly to checkout when checkout is the explicit next path", async () => {
+    consumeAuthIntentMock.mockReturnValue("/cart");
+
+    render(<CustomerLoginForm next="/checkout?business_id=vendor-1" />);
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "test@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "password123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    await waitFor(() => {
+      expect(locationReplaceMock).toHaveBeenCalledWith("/checkout?business_id=vendor-1");
+    });
+    expect(replaceMock).not.toHaveBeenCalled();
+    expect(consumeAuthIntentMock).not.toHaveBeenCalled();
+  });
+
+  it("waits for async checkout handoff work before applying the default redirect", async () => {
+    let resolveSuccess;
+    const onSuccess = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveSuccess = resolve;
+        })
+    );
+
+    render(<CustomerLoginForm next="/checkout?business_id=vendor-1" onSuccess={onSuccess} />);
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "test@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "password123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledWith("/checkout?business_id=vendor-1", {
+        isAdmin: false,
+      });
+    });
+    expect(locationReplaceMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveSuccess({ handledRedirect: true });
+    });
+
+    await waitFor(() => {
+      expect(locationReplaceMock).not.toHaveBeenCalled();
+    });
   });
 
   it("falls back to the customer home route only when next is absent", async () => {

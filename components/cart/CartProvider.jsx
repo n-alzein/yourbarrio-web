@@ -27,6 +27,7 @@ const CartContext = createContext({
   items: [],
   itemCount: 0,
   loading: false,
+  cartStatus: "loading",
   error: null,
   refreshCart: async (_options = {}) => {},
   addItem: async (_input = {}) => ({}),
@@ -34,6 +35,7 @@ const CartContext = createContext({
   removeItem: async (_itemId = null) => ({}),
   setFulfillmentType: async (_fulfillmentType = null, _options = {}) => ({}),
   clearCart: async () => ({}),
+  mergeGuestCartForCheckout: async (_options = {}) => ({}),
 });
 
 /**
@@ -55,6 +57,22 @@ const CACHE_TTL_MS = 5000;
 const FAILURE_WINDOW_MS = 10000;
 const FAILURE_MAX_ATTEMPTS = 2;
 const FAILURE_BLOCK_MS = 30000;
+
+function getPayloadItemCount(payload) {
+  const carts = Array.isArray(payload?.carts)
+    ? payload.carts
+    : payload?.cart
+      ? [payload.cart]
+      : [];
+  return carts.reduce(
+    (sum, cartRow) =>
+      sum +
+      (Array.isArray(cartRow?.cart_items)
+        ? cartRow.cart_items.reduce((itemSum, item) => itemSum + Number(item?.quantity || 0), 0)
+        : 0),
+    0
+  );
+}
 
 let globalRefreshInFlight = null;
 let globalLastSuccessAt = 0;
@@ -92,6 +110,7 @@ export function CartProvider({ children }) {
   const [vendors, setVendors] = useState({});
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [cartStatus, setCartStatus] = useState("loading");
   const [error, setError] = useState(null);
   const abortRef = useRef(null);
   const lastRefreshKeyRef = useRef(null);
@@ -124,6 +143,7 @@ export function CartProvider({ children }) {
     setCart(nextPrimaryCart);
     setVendor(nextPrimaryVendor);
     setItems(nextCarts.flatMap((cartRow) => cartRow?.cart_items || []));
+    if (!mergeInFlightRef.current) setCartStatus("ready");
   }, []);
 
   const syncGuestCart = useCallback((guestCart = getGuestCart()) => {
@@ -139,6 +159,7 @@ export function CartProvider({ children }) {
     setVendor(nextPrimaryVendor);
     setItems(nextCarts.flatMap((cartRow) => cartRow?.cart_items || []));
     setLoading(false);
+    setCartStatus("ready");
     setError(null);
   }, []);
 
@@ -151,6 +172,117 @@ export function CartProvider({ children }) {
     [syncGuestCart]
   );
 
+  const loadAuthenticatedCart = useCallback(async ({ reason } = {}) => {
+    setLoading(true);
+    setCartStatus("loading");
+    setError(null);
+    try {
+      const response = await fetch("/api/cart", {
+        method: "GET",
+        credentials: "include",
+      });
+      const payload = await parseResponse(response);
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to load cart");
+      }
+      syncCart(payload);
+      if (typeof window !== "undefined") {
+        window.__YB_CART_CACHE__ = {
+          ts: Date.now(),
+          payload,
+        };
+      }
+      globalCache = { ts: Date.now(), payload };
+      globalLastSuccessAt = Date.now();
+      return {
+        ...payload,
+        itemCount: getPayloadItemCount(payload),
+        reason,
+      };
+    } catch (err) {
+      const message = err?.message || "Failed to load cart";
+      setError(message);
+      return { error: message, itemCount: 0, reason };
+    } finally {
+      setLoading(false);
+      if (!mergeInFlightRef.current) setCartStatus("ready");
+    }
+  }, [syncCart]);
+
+  const mergeGuestCartForCheckout = useCallback(async ({ guestCart: providedGuestCart = null } = {}) => {
+    const guestCart = providedGuestCart || getGuestCart();
+    const guestItemCount = getGuestCartCount(guestCart);
+    mergeInFlightRef.current = true;
+    setLoading(true);
+    setCartStatus("loading");
+    setError(null);
+    try {
+      if (guestItemCount > 0) {
+        for (const cartRow of guestCart.carts || []) {
+          for (const item of cartRow.cart_items || []) {
+            const response = await fetch("/api/cart", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                guest_id: guestCart.guest_id,
+                guest_cart_id: cartRow.id,
+                guest_item_id: item.id,
+                listing_id: item.listing_id,
+                variant_id: item.variant_id,
+                variant_label: item.variant_label,
+                selected_options: item.selected_options,
+                quantity: item.quantity,
+              }),
+            });
+            if (!response.ok) {
+              const payload = await parseResponse(response);
+              throw new Error(payload?.error || "Failed to merge guest cart");
+            }
+          }
+          if (cartRow.fulfillment_type) {
+            const response = await fetch("/api/cart", {
+              method: "PATCH",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                business_id: cartRow.vendor_id,
+                fulfillment_type: cartRow.fulfillment_type,
+              }),
+            });
+            if (!response.ok) {
+              const payload = await parseResponse(response);
+              throw new Error(payload?.error || "Failed to update fulfillment");
+            }
+          }
+        }
+        clearGuestCart();
+      }
+
+      const payload = await loadAuthenticatedCart({ reason: "checkout-guest-merge" });
+      if (payload?.error) return payload;
+      return {
+        ...payload,
+        guestItemCount,
+        itemCount: payload.itemCount ?? getPayloadItemCount(payload),
+      };
+    } catch (err) {
+      const message = err?.message || "Failed to merge guest cart";
+      setError(message);
+      const payload = await loadAuthenticatedCart({ reason: "checkout-guest-merge-failed" });
+      return {
+        ...payload,
+        error: message,
+        guestItemCount,
+        itemCount: payload?.itemCount ?? 0,
+      };
+    } finally {
+      mergeInFlightRef.current = false;
+      setLoading(false);
+      setCartStatus("ready");
+    }
+  }, [loadAuthenticatedCart]);
+
   const refreshCart = useCallback(
     async ({ reason } = {}) => {
       if (
@@ -159,6 +291,7 @@ export function CartProvider({ children }) {
         purchaseRestricted ||
         purchaseEligibilityPending
       ) {
+        setCartStatus("loading");
         if (!user?.id && !purchaseRestricted && !purchaseEligibilityPending) {
           const guestCart = getGuestCart();
           if (!guestCart?.guest_id) {
@@ -196,6 +329,7 @@ export function CartProvider({ children }) {
           setItems([]);
         }
         setLoading(false);
+        setCartStatus("ready");
         setError(purchaseRestricted ? getPurchaseRestrictionMessage() : null);
         return { cart: null };
       }
@@ -229,6 +363,7 @@ export function CartProvider({ children }) {
 
       if (reason === "mount" && cacheFresh) {
         syncCart(cacheSource.payload);
+        setCartStatus("ready");
         if (perfDebug) {
           console.log("[cart] refresh:skip", {
             reason,
@@ -247,7 +382,9 @@ export function CartProvider({ children }) {
             lastAttemptAgoMs,
           });
         }
-        return { skipped: true, skip: "in_flight" };
+        const payload = await globalRefreshInFlight;
+        if (!mergeInFlightRef.current) setCartStatus("ready");
+        return { skipped: true, skip: "in_flight", payload };
       }
       if (reason === "mount" && now < globalRefreshBlockedUntil) {
         if (perfDebug) {
@@ -257,6 +394,7 @@ export function CartProvider({ children }) {
             blockedMsRemaining: globalRefreshBlockedUntil - now,
           });
         }
+        setCartStatus("ready");
         return {
           skipped: true,
           skip: "failure_cooldown",
@@ -275,6 +413,7 @@ export function CartProvider({ children }) {
             lastAttemptAgoMs,
           });
         }
+        setCartStatus("ready");
         return { skipped: true, skip: "cooldown" };
       }
       globalLastAttemptAt = now;
@@ -290,6 +429,7 @@ export function CartProvider({ children }) {
           console.log("[cart] refresh:start", { reason });
         }
         setLoading(true);
+        setCartStatus("loading");
         setError(null);
         try {
           const response = await fetch("/api/cart", {
@@ -331,6 +471,7 @@ export function CartProvider({ children }) {
           return { error: message || "Failed to load cart" };
         } finally {
           setLoading(false);
+          if (!mergeInFlightRef.current) setCartStatus("ready");
         }
       };
 
@@ -367,6 +508,7 @@ export function CartProvider({ children }) {
 
   useEffect(() => {
     if (user?.id || authStatus === "authenticated") return undefined;
+    setCartStatus("loading");
     syncGuestCart();
     const handleGuestCartUpdated = (event) => {
       syncGuestCart(event?.detail || getGuestCart());
@@ -405,6 +547,7 @@ export function CartProvider({ children }) {
     const key = `${user.id}:${authStatus}`;
     if (lastRefreshKeyRef.current === key) return undefined;
     lastRefreshKeyRef.current = key;
+    setCartStatus("loading");
     const run = () => refreshCart({ reason: "mount" });
     let idleId = null;
     let timeoutId = null;
@@ -459,55 +602,11 @@ export function CartProvider({ children }) {
       if (storage.getItem("yb:guestCartMergeId") === mergeId) return;
     } catch {}
 
-    mergeInFlightRef.current = true;
-    setLoading(true);
     (async () => {
-      try {
-        for (const cartRow of guestCart.carts || []) {
-          for (const item of cartRow.cart_items || []) {
-            const response = await fetch("/api/cart", {
-              method: "POST",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                guest_id: guestCart.guest_id,
-                guest_cart_id: cartRow.id,
-                guest_item_id: item.id,
-                listing_id: item.listing_id,
-                variant_id: item.variant_id,
-                variant_label: item.variant_label,
-                selected_options: item.selected_options,
-                quantity: item.quantity,
-              }),
-            });
-            if (!response.ok) {
-              await parseResponse(response);
-              throw new Error("Failed to merge guest cart");
-            }
-          }
-          if (cartRow.fulfillment_type) {
-            await fetch("/api/cart", {
-              method: "PATCH",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                business_id: cartRow.vendor_id,
-                fulfillment_type: cartRow.fulfillment_type,
-              }),
-            });
-          }
-        }
-        clearGuestCart();
-        storage?.setItem("yb:guestCartMergeId", mergeId);
-        await refreshCart({ reason: "guest-merge" });
-      } catch {
-        await refreshCart({ reason: "guest-merge-failed" });
-      } finally {
-        mergeInFlightRef.current = false;
-        setLoading(false);
-      }
+      await mergeGuestCartForCheckout({ guestCart });
+      storage?.setItem("yb:guestCartMergeId", mergeId);
     })();
-  }, [authStatus, refreshCart]);
+  }, [authStatus, mergeGuestCartForCheckout]);
 
   useEffect(() => {
     if (!purchaseRestricted) return;
@@ -516,6 +615,7 @@ export function CartProvider({ children }) {
     setCarts([]);
     setVendors({});
     setItems([]);
+    setCartStatus("ready");
   }, [purchaseRestricted]);
 
   const addItem = useCallback(
@@ -763,6 +863,7 @@ export function CartProvider({ children }) {
       items,
       itemCount,
       loading,
+      cartStatus,
       error,
       refreshCart,
       addItem,
@@ -770,6 +871,7 @@ export function CartProvider({ children }) {
       removeItem,
       setFulfillmentType,
       clearCart,
+      mergeGuestCartForCheckout,
     }),
     [
       cart,
@@ -780,6 +882,7 @@ export function CartProvider({ children }) {
       items,
       itemCount,
       loading,
+      cartStatus,
       error,
       refreshCart,
       addItem,
@@ -787,6 +890,7 @@ export function CartProvider({ children }) {
       removeItem,
       setFulfillmentType,
       clearCart,
+      mergeGuestCartForCheckout,
     ]
   );
 
