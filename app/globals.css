@@ -63,6 +63,9 @@
   --navbar-bg: var(--yb-navbar-bg);
   --navbar-fg: var(--yb-navbar-fg);
   --navbar-border: var(--yb-navbar-border);
+  --yb-nav-h: 80px;
+  --yb-nav-content-offset: 80px;
+  --yb-nav-layout-h: 0px;
 
   /* Legacy aliases (keep existing usages stable) */
   --background: var(--color-bg);

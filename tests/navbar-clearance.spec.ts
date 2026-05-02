@@ -18,6 +18,7 @@ const ROUTES = [
 const VIEWPORTS = [
   { name: "desktop", width: 1366, height: 900 },
   { name: "mobile", width: 390, height: 844 },
+  { name: "mobile-wide", width: 430, height: 932 },
 ];
 
 async function installStableLocation(page: import("@playwright/test").Page) {
@@ -74,6 +75,34 @@ test.describe("navbar clearance", () => {
           const anchorBox = await anchor.boundingBox();
           expect(navbarBox).toBeTruthy();
           expect(anchorBox).toBeTruthy();
+
+          const navVars = await page.evaluate(() => {
+            const navbarEl = document.querySelector("nav.yb-navbar");
+            const rootStyle = window.getComputedStyle(document.documentElement);
+            const shellEl =
+              document.querySelector('[data-testid="customer-shell-content"]') ||
+              document.querySelector('[data-testid="public-shell-content"]');
+            const shellStyle = shellEl ? window.getComputedStyle(shellEl) : null;
+            return {
+              navbarHeight: navbarEl?.getBoundingClientRect().height ?? 0,
+              navHeight: rootStyle.getPropertyValue("--yb-nav-h").trim(),
+              navContentOffset: rootStyle
+                .getPropertyValue("--yb-nav-content-offset")
+                .trim(),
+              navLayoutHeight: rootStyle.getPropertyValue("--yb-nav-layout-h").trim(),
+              shellPaddingTop: shellStyle?.paddingTop || null,
+            };
+          });
+          const expectedNavHeight = `${Math.round(navVars.navbarHeight)}px`;
+          expect(navVars.navHeight).toBe(expectedNavHeight);
+          expect(navVars.navContentOffset).toBe(expectedNavHeight);
+          expect(navVars.navLayoutHeight).toBe("0px");
+          if (navVars.shellPaddingTop) {
+            expect(parseFloat(navVars.shellPaddingTop)).toBeGreaterThanOrEqual(
+              Math.round(navVars.navbarHeight)
+            );
+          }
+
           expect(anchorBox?.y ?? -1).toBeGreaterThanOrEqual(
             (navbarBox?.y ?? 0) + (navbarBox?.height ?? 0) + 8
           );

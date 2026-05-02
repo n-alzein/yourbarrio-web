@@ -673,7 +673,6 @@ export default function CustomerSavedClient({
   return (
     <section
       className="min-h-screen bg-[#fafafc] pb-12 text-slate-950 md:pb-16"
-      style={{ paddingTop: "calc(var(--yb-nav-content-offset, 0px) + 16px)" }}
     >
       <div className="mx-auto w-full max-w-5xl px-4 md:px-6">
         <div className="space-y-8">

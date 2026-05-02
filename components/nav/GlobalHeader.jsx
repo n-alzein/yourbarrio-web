@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   Loader2,
@@ -509,15 +509,14 @@ export default function GlobalHeader({
     return () => window.removeEventListener(AUTH_UI_RESET_EVENT, handleReset);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof window === "undefined") return undefined;
     const nav = navRef.current || document.getElementById("yb-navbar");
     if (!nav) return undefined;
 
     const setHeight = () => {
-      const height = nav.offsetHeight;
-      const position = window.getComputedStyle(nav).position;
-      const occupiesLayout = position !== "fixed" && position !== "absolute";
+      const measuredHeight = nav.getBoundingClientRect().height || nav.offsetHeight;
+      const height = measuredHeight > 0 ? Math.round(measuredHeight) : 80;
 
       document.documentElement.style.setProperty(
         "--yb-nav-h",
@@ -525,11 +524,11 @@ export default function GlobalHeader({
       );
       document.documentElement.style.setProperty(
         "--yb-nav-content-offset",
-        occupiesLayout ? "0px" : `${height}px`
+        `${height}px`
       );
       document.documentElement.style.setProperty(
         "--yb-nav-layout-h",
-        occupiesLayout ? `${height}px` : "0px"
+        "0px"
       );
     };
 
