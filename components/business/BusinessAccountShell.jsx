@@ -75,7 +75,7 @@ function BusinessSidebarLink({ href, label, icon: Icon }) {
 
 export default function BusinessAccountShell({ children }) {
   return (
-    <div className="mx-auto w-full max-w-[1520px] bg-[#f6f7fb] px-0 lg:min-h-[calc(100vh-var(--yb-nav-content-offset,80px))] lg:px-8">
+    <div className="mx-auto w-full max-w-[1520px] bg-[#f6f7fb] px-0 pt-4 lg:min-h-[calc(100vh-var(--yb-nav-content-offset,80px))] lg:px-8">
       <div className="bg-[#f6f7fb] lg:grid lg:min-h-[calc(100vh-var(--yb-nav-content-offset,80px))] lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-8">
         <aside className="hidden lg:block">
           <nav

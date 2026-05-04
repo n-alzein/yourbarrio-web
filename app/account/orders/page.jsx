@@ -94,10 +94,7 @@ export default async function AccountOrdersPage({ searchParams }) {
   const visibleRows = hasMore ? rows.slice(0, limit) : rows;
 
   return (
-    <div
-      className="min-h-screen pb-12"
-      style={{ background: "var(--background)", color: "var(--text)" }}
-    >
+    <div className="min-h-screen bg-[#f6f7fb] pb-12 text-slate-950">
       <CustomerAccountShell className="space-y-7">
         <div className="space-y-2.5">
           <p className="text-xs uppercase tracking-[0.2em] opacity-70">

@@ -40,7 +40,7 @@
   --yb-text-inverse-muted: #d1d5db;
 
   /* Core colors */
-  --yb-bg: #ffffff;
+  --yb-bg: #f6f7fb;
   --yb-surface: #f7f7f8;
   --yb-card: #ffffff;
   --yb-border: #e2e2e5;
@@ -326,6 +326,45 @@ button {
   --status-bg: #fef2f2;
   --status-text: #b91c1c;
   --status-border: #fca5a5;
+}
+
+.theme-light .business-order-status[data-status="requested"] {
+  --status-bg: #fffbf0;
+  --status-text: #a05216;
+  --status-border: #f7e3b1;
+}
+
+.theme-light .business-order-status[data-status="confirmed"] {
+  --status-bg: #f4f8ff;
+  --status-text: #2b5fc4;
+  --status-border: #e1eafe;
+}
+
+.theme-light .business-order-status[data-status="pending_payment"] {
+  --status-bg: #f7f5ff;
+  --status-text: #6b3bc7;
+  --status-border: #e4defe;
+}
+
+.theme-light .business-order-status[data-status="ready"],
+.theme-light .business-order-status[data-status="fulfilled"],
+.theme-light .business-order-status[data-status="completed"] {
+  --status-bg: #f4fbf7;
+  --status-text: #17775c;
+  --status-border: #d9f5e6;
+}
+
+.theme-light .business-order-status[data-status="out_for_delivery"] {
+  --status-bg: #f3fcfd;
+  --status-text: #1d748b;
+  --status-border: #d8f5fa;
+}
+
+.theme-light .business-order-status[data-status="cancelled"],
+.theme-light .business-order-status[data-status="payment_failed"] {
+  --status-bg: #fff7f8;
+  --status-text: #b42345;
+  --status-border: #fde7ea;
 }
 
 .theme-dark .status-badge[data-status="requested"] {
@@ -1425,7 +1464,7 @@ body {
 body:has([data-account-utility-bg="soft"]) .app-shell-root,
 body:has([data-account-utility-bg="soft"]) .app-shell-root main,
 body:has([data-account-utility-bg="soft"]) [data-testid="customer-shell-content"] {
-  background-color: #fafafc;
+  background-color: #f6f7fb;
 }
 
 html[data-nav-menu-open="1"] .app-shell-bg-gradient,

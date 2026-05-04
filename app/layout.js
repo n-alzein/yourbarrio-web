@@ -89,7 +89,7 @@ export default async function RootLayout({ children, auth, businessAuth }) {
           <link key={`dns-${host}`} rel="dns-prefetch" href={host} />
         ))}
       </head>
-      <body className="min-h-screen w-full overflow-x-hidden antialiased text-[var(--yb-text)]">
+      <body className="min-h-screen w-full overflow-x-hidden bg-[#f6f7fb] antialiased text-[var(--yb-text)]">
         <GlobalSupportModeBanner />
         <AppShell initialLocation={initialLocation} initialAuth={initialAuth}>
           {children}

@@ -1081,5 +1081,5 @@ function BusinessNavbarInner({ pathname, forcedAuth = null }) {
 
 export default function BusinessNavbar({ forcedAuth = null }) {
   const pathname = usePathname();
-  return <BusinessNavbarInner key={pathname} pathname={pathname} forcedAuth={forcedAuth} />;
+  return <BusinessNavbarInner pathname={pathname} forcedAuth={forcedAuth} />;
 }

@@ -66,16 +66,19 @@ export default function AppShell({
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
   const shellKind = isOnboardingRoute ? "onboarding" : isAdminRoute ? "admin" : "default";
   const lightThemeVars = {
-    "--bg-solid": "#ffffff",
-    "--bg-gradient-start": "#f7f7f8",
-    "--bg-gradient-end": "#eef2ff",
-    "--glow-1": "rgba(79, 70, 229, 0.1)",
-    "--glow-2": "rgba(14, 165, 233, 0.08)",
+    "--yb-bg": "#f6f7fb",
+    "--color-bg": "#f6f7fb",
+    "--background": "#f6f7fb",
+    "--bg-solid": "#f6f7fb",
+    "--bg-gradient-start": "#f6f7fb",
+    "--bg-gradient-end": "#f6f7fb",
+    "--glow-1": "transparent",
+    "--glow-2": "transparent",
   };
 
   return (
     <div
-      className="app-shell-root relative min-h-screen overflow-x-hidden w-full antialiased text-[var(--yb-text)] flex flex-col"
+      className="app-shell-root relative min-h-screen overflow-x-hidden w-full antialiased text-[var(--yb-text)] flex flex-col bg-[#f6f7fb]"
       style={lightThemeVars}
       data-theme-root="1"
       data-theme="light"

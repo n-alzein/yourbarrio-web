@@ -22,9 +22,7 @@ export const metadata = {
 function BusinessRouteShell({ children = null, offsetForNav = false }) {
   return (
     <div
-      className={`min-h-screen flex-1 bg-[#f6f7fb] text-[var(--yb-text)]${
-        offsetForNav ? " [&>*:first-child]:pt-4" : ""
-      }`}
+      className="min-h-screen flex-1 bg-[#f6f7fb] text-[var(--yb-text)]"
       data-theme="light"
       data-testid="business-route-shell"
       style={{
@@ -102,11 +100,9 @@ export default async function BusinessLayout({ children }) {
       />
       <InactivityLogout />
       <BusinessRouteShell offsetForNav>
-          <Suspense
-            fallback={null}
-        >
-          <BusinessAccountShell>{children}</BusinessAccountShell>
-        </Suspense>
+        <BusinessAccountShell>
+          <Suspense fallback={null}>{children}</Suspense>
+        </BusinessAccountShell>
       </BusinessRouteShell>
     </div>
   );

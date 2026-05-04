@@ -10,18 +10,21 @@ export default function CustomerRouteShell({
       ? "clamp(8px, 1.5vw, 12px)"
       : "clamp(16px, 2vw, 24px)";
   const lightThemeVars = {
-    "--bg-solid": "#ffffff",
-    "--bg-gradient-start": "#f7f7f8",
-    "--bg-gradient-end": "#eef2ff",
-    "--glow-1": "rgba(79, 70, 229, 0.1)",
-    "--glow-2": "rgba(14, 165, 233, 0.08)",
+    "--yb-bg": "#f6f7fb",
+    "--color-bg": "#f6f7fb",
+    "--background": "#f6f7fb",
+    "--bg-solid": "#f6f7fb",
+    "--bg-gradient-start": "#f6f7fb",
+    "--bg-gradient-end": "#f6f7fb",
+    "--glow-1": "transparent",
+    "--glow-2": "transparent",
     "--customer-nav-offset": "max(81px, var(--yb-nav-content-offset, 81px))",
     "--customer-shell-gap": offsetGap,
   };
 
   return (
     <div
-      className={`customer-shell-content min-h-screen bg-[var(--yb-bg)] text-[var(--yb-text)]${className ? ` ${className}` : ""}`}
+      className={`customer-shell-content min-h-screen bg-[#f6f7fb] text-[var(--yb-text)]${className ? ` ${className}` : ""}`}
       data-testid="customer-shell-content"
       data-theme="light"
       data-route-theme="light"

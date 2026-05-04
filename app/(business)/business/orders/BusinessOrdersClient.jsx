@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import OrderStatusBadge from "@/components/orders/OrderStatusBadge";
@@ -33,10 +33,24 @@ const DATE_RANGES = [
 ];
 
 const baseButton =
-  "inline-flex items-center justify-center rounded-full px-4 h-9 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 focus-visible:ring-offset-2";
+  "inline-flex h-10 items-center justify-center rounded-lg px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-rgb),0.35)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+
+const secondaryButton =
+  `${baseButton} border border-slate-200/80 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900`;
+
+const subtleSecondaryButton =
+  `${baseButton} border border-slate-200/50 bg-white text-slate-500/90 hover:border-slate-300/70 hover:bg-slate-50 hover:text-slate-700`;
+
+const primaryButton =
+  `${baseButton} border border-transparent bg-[#6D3DF5] !text-white hover:bg-[#5E32E6] hover:!text-white focus-visible:!text-white active:bg-[#5228D6] active:!text-white`;
 
 const fieldBase =
-  "w-full rounded-full border px-4 h-11 text-sm bg-transparent transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 focus-visible:ring-offset-2";
+  "h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 transition placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-rgb),0.35)] focus-visible:ring-offset-2";
+
+const businessStatusBadgeClass =
+  "business-order-status !px-1.5 !py-0.5 !text-[11px] !font-medium tracking-[0.01em]";
+
+const businessOrdersTabCache = {};
 
 const getLocalRangeStart = (days) => {
   const start = new Date();
@@ -126,12 +140,17 @@ export default function BusinessOrdersClient() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const initialTab = searchParams?.get("tab") || "new";
+  const initialTabId = TABS.some((tab) => tab.id === initialTab)
+    ? initialTab
+    : "new";
+  const initialCachedOrders = businessOrdersTabCache[initialTabId];
   const orderParam = searchParams?.get("order") || "";
-  const [activeTab, setActiveTab] = useState(
-    TABS.some((tab) => tab.id === initialTab) ? initialTab : "new"
+  const [activeTab, setActiveTab] = useState(initialTabId);
+  const [orders, setOrders] = useState(() =>
+    Array.isArray(initialCachedOrders) ? initialCachedOrders : []
   );
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !Array.isArray(initialCachedOrders));
+  const [refreshingTab, setRefreshingTab] = useState(null);
   const [error, setError] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
@@ -140,6 +159,10 @@ export default function BusinessOrdersClient() {
   const [statusMenuOrder, setStatusMenuOrder] = useState(null);
   const [dismissedOrderParam, setDismissedOrderParam] = useState("");
   const [acknowledgedOrderIds, setAcknowledgedOrderIds] = useState(() => new Set());
+  const ordersRef = useRef(Array.isArray(initialCachedOrders) ? initialCachedOrders : []);
+  const ordersByTabRef = useRef(businessOrdersTabCache);
+  const activeTabRef = useRef(activeTab);
+  const requestIdRef = useRef(0);
   const deliveryInstructions = selectedOrder?.delivery_instructions?.trim();
   const deliveryNotesSnapshot = selectedOrder?.delivery_notes_snapshot?.trim();
   const subtotalAmount = Math.max(0, toNumberOrZero(selectedOrder?.subtotal));
@@ -178,9 +201,34 @@ export default function BusinessOrdersClient() {
     return `Change ${orderLabel} from ${fromLabel} ${direction} ${toLabel}?`;
   };
 
-  const loadOrders = async (tabId) => {
-    setLoading(true);
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
+
+  const loadOrders = useCallback(async (tabId) => {
+    const cachedOrders = ordersByTabRef.current[tabId];
+    const hasCachedOrders = Array.isArray(cachedOrders);
+    const hasVisibleOrders =
+      Array.isArray(ordersRef.current) && ordersRef.current.length > 0;
+    const shouldShowInitialSkeleton = !hasCachedOrders && !hasVisibleOrders;
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
+    if (hasCachedOrders) {
+      setOrders(cachedOrders);
+      ordersRef.current = cachedOrders;
+      setLoading(false);
+    } else if (shouldShowInitialSkeleton) {
+      setLoading(true);
+    }
+
+    setRefreshingTab(tabId);
     setError(null);
+
     try {
       const response = await fetch(`/api/business/orders?tab=${tabId}`, {
         credentials: "include",
@@ -189,18 +237,29 @@ export default function BusinessOrdersClient() {
       if (!response.ok) {
         throw new Error(payload?.error || "Failed to load orders");
       }
-      setOrders(payload?.orders || []);
+      const nextOrders = payload?.orders || [];
+      businessOrdersTabCache[tabId] = nextOrders;
+      ordersByTabRef.current = businessOrdersTabCache;
+      if (activeTabRef.current === tabId) {
+        setOrders(nextOrders);
+        ordersRef.current = nextOrders;
+      }
     } catch (err) {
-      setError(err?.message || "Failed to load orders");
+      if (activeTabRef.current === tabId) {
+        setError(err?.message || "Failed to load orders");
+      }
     } finally {
-      setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+        setRefreshingTab(null);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
     setSelectedOrder(null);
     loadOrders(activeTab);
-  }, [activeTab]);
+  }, [activeTab, loadOrders]);
 
   useEffect(() => {
     setSelectedOrder(null);
@@ -259,6 +318,19 @@ export default function BusinessOrdersClient() {
               )
             : []
         );
+        const cachedActiveOrders = ordersByTabRef.current[activeTabRef.current];
+        if (Array.isArray(cachedActiveOrders)) {
+          businessOrdersTabCache[activeTabRef.current] = cachedActiveOrders.map((order) =>
+            order.id === orderId ? { ...order, ...payload.order } : order
+          );
+          ordersByTabRef.current = businessOrdersTabCache;
+        }
+        Object.keys(businessOrdersTabCache).forEach((tabId) => {
+          businessOrdersTabCache[tabId] = businessOrdersTabCache[tabId].map((order) =>
+            order.id === orderId ? { ...order, ...payload.order } : order
+          );
+        });
+        ordersByTabRef.current = businessOrdersTabCache;
         setSelectedOrder((prev) =>
           prev?.id === orderId ? { ...prev, ...payload.order } : prev
         );
@@ -343,6 +415,7 @@ export default function BusinessOrdersClient() {
     return next;
   }, [orders, searchTerm, dateRange]);
 
+  const isTabRefreshing = refreshingTab === activeTab && !loading;
   const orderActions = getOrderActions(selectedOrder);
   const statusMenuTargets = statusMenuOrder
     ? getChangeTargets(statusMenuOrder)
@@ -425,6 +498,19 @@ export default function BusinessOrdersClient() {
             )
           : []
       );
+      const cachedActiveOrders = ordersByTabRef.current[activeTabRef.current];
+      if (Array.isArray(cachedActiveOrders)) {
+        businessOrdersTabCache[activeTabRef.current] = cachedActiveOrders.map((order) =>
+          order.id === orderId ? { ...order, ...payload.order } : order
+        );
+        ordersByTabRef.current = businessOrdersTabCache;
+      }
+      Object.keys(businessOrdersTabCache).forEach((tabId) => {
+        businessOrdersTabCache[tabId] = businessOrdersTabCache[tabId].map((order) =>
+          order.id === orderId ? { ...order, ...payload.order } : order
+        );
+      });
+      ordersByTabRef.current = businessOrdersTabCache;
       setSelectedOrder((prev) => {
         if (!prev || prev.id !== orderId) return prev;
         return { ...prev, ...payload.order };
@@ -455,13 +541,30 @@ export default function BusinessOrdersClient() {
   };
 
   const isFiltered = searchTerm.trim() || dateRange !== "all";
+  const emptyCopyByTab = {
+    new: {
+      title: "Nothing new right now",
+      body: "Paid customer orders will appear here when they need attention.",
+    },
+    progress: {
+      title: "No orders in progress",
+      body: "Confirmed, ready, and delivery orders will appear here while they are being worked on.",
+    },
+    completed: {
+      title: "No completed orders yet",
+      body: "Fulfilled paid orders will appear here once they are closed out.",
+    },
+    cancelled: {
+      title: "No cancelled orders",
+      body: "Cancelled paid orders will appear here for reference.",
+    },
+  };
+  const emptyCopy = emptyCopyByTab[activeTab] || emptyCopyByTab.new;
   const emptyTitle =
-    orders.length === 0
-      ? "No orders in this view"
-      : "No orders match those filters";
+    orders.length === 0 ? emptyCopy.title : "No orders match those filters";
   const emptyBody =
     orders.length === 0
-      ? "New orders will show up here when customers submit requests."
+      ? emptyCopy.body
       : "Try clearing filters or searching with a different keyword.";
 
   const closeSelectedOrder = useCallback(() => {
@@ -535,18 +638,17 @@ export default function BusinessOrdersClient() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="mb-4 flex max-w-full flex-wrap items-center gap-5 border-b border-slate-200">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className="rounded-full px-4 h-10 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 focus-visible:ring-offset-2"
-              style={
+              className={`relative -mb-px h-9 px-0 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-rgb),0.35)] focus-visible:ring-offset-2 ${
                 activeTab === tab.id
-                  ? { background: "var(--text)", color: "var(--background)" }
-                  : { border: "1px solid var(--border)" }
-              }
+                  ? "border-b-2 border-[#6D3DF5] text-[rgb(var(--brand-rgb))]"
+                  : "border-b-2 border-transparent text-slate-500 hover:text-slate-900"
+              }`}
             >
               {tab.label}
             </button>
@@ -562,13 +664,12 @@ export default function BusinessOrdersClient() {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               className={`${fieldBase} pl-11 pr-10`}
-              style={{ borderColor: "var(--border)" }}
             />
             {searchTerm ? (
               <button
                 type="button"
                 onClick={() => setSearchTerm("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 focus-visible:ring-offset-2"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-rgb),0.35)] focus-visible:ring-offset-2"
                 aria-label="Clear search"
               >
                 <X className="h-4 w-4" />
@@ -583,8 +684,7 @@ export default function BusinessOrdersClient() {
               id="order-date-range"
               value={dateRange}
               onChange={(event) => setDateRange(event.target.value)}
-              className={fieldBase}
-              style={{ borderColor: "var(--border)" }}
+              className={`${fieldBase} min-w-[150px]`}
             >
               {DATE_RANGES.map((range) => (
                 <option key={range.id} value={range.id}>
@@ -593,9 +693,16 @@ export default function BusinessOrdersClient() {
               ))}
             </select>
           </div>
-          <div className="text-xs opacity-70">
-            {filteredOrders.length}{" "}
-            {filteredOrders.length === 1 ? "order" : "orders"}
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+            <span>
+              {filteredOrders.length}{" "}
+              {filteredOrders.length === 1 ? "order" : "orders"}
+            </span>
+            {isTabRefreshing ? (
+              <span className="text-slate-400" aria-live="polite">
+                Updating...
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -608,8 +715,7 @@ export default function BusinessOrdersClient() {
             <button
               type="button"
               onClick={() => loadOrders(activeTab)}
-              className={`${baseButton} border`}
-              style={{ borderColor: "var(--border)" }}
+              className={secondaryButton}
             >
               Retry
             </button>
@@ -633,22 +739,17 @@ export default function BusinessOrdersClient() {
               ))}
             </div>
             <div
-              className="hidden md:block rounded-3xl overflow-hidden"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              className="hidden overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_8px_24px_-22px_rgba(15,23,42,0.28)] md:block"
             >
               <div className="max-h-[520px] overflow-auto">
-                <table className="min-w-full text-sm border-separate [border-spacing:0_8px]">
+                <table className="min-w-full border-collapse text-sm">
                   <thead
-                    className="sticky top-0 z-10 text-[10px] uppercase tracking-[0.2em] opacity-70"
-                    style={{
-                      background: "var(--surface)",
-                      borderBottom: "1px solid var(--border)",
-                    }}
+                    className="sticky top-0 z-10 border-b border-slate-200/80 bg-white text-[10px] uppercase tracking-[0.18em] text-slate-600"
                   >
                     <tr>
                       {["Order", "Customer", "Fulfillment", "Schedule", "Status", "Total", ""].map(
                         (label) => (
-                          <th key={label} className="py-3 px-4 text-left font-semibold">
+                          <th key={label} className="px-4 pb-4 pt-3 text-left font-semibold">
                             {label}
                           </th>
                         )
@@ -672,11 +773,10 @@ export default function BusinessOrdersClient() {
           </div>
         ) : filteredOrders.length === 0 ? (
           <div
-            className="rounded-3xl p-8 text-center"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+            className="rounded-2xl border border-slate-100 bg-white p-10 text-center shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
           >
-            <h2 className="text-xl font-semibold">{emptyTitle}</h2>
-            <p className="mt-2 text-sm opacity-80">{emptyBody}</p>
+            <h2 className="text-xl font-semibold text-slate-950">{emptyTitle}</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">{emptyBody}</p>
             {isFiltered ? (
               <button
                 type="button"
@@ -684,8 +784,7 @@ export default function BusinessOrdersClient() {
                   setSearchTerm("");
                   setDateRange("all");
                 }}
-                className={`${baseButton} mt-5 border`}
-                style={{ borderColor: "var(--border)" }}
+                className={`${secondaryButton} mt-5`}
               >
                 Clear filters
               </button>
@@ -694,28 +793,23 @@ export default function BusinessOrdersClient() {
         ) : (
           <div className="space-y-5">
             <div
-              className="hidden md:block rounded-3xl overflow-hidden"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              className="hidden overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_8px_24px_-22px_rgba(15,23,42,0.28)] md:block"
             >
               <div className="max-h-[520px] overflow-auto">
-                <table className="min-w-full text-sm border-separate [border-spacing:0_8px]">
+                <table className="min-w-full border-collapse text-sm">
                   <thead
-                    className="sticky top-0 z-10 text-[10px] uppercase tracking-[0.2em] opacity-70"
-                    style={{
-                      background: "var(--surface)",
-                      borderBottom: "1px solid var(--border)",
-                    }}
+                    className="sticky top-0 z-10 border-b border-slate-200/80 bg-white text-[10px] uppercase tracking-[0.18em] text-slate-600"
                   >
                     <tr>
-                      <th className="py-3 px-4 text-left font-semibold">Order</th>
-                      <th className="py-3 px-4 text-left font-semibold">Customer</th>
-                      <th className="py-3 px-4 text-left font-semibold">
+                      <th className="px-4 pb-4 pt-3 text-left font-semibold">Order</th>
+                      <th className="px-4 pb-4 pt-3 text-left font-semibold">Customer</th>
+                      <th className="px-4 pb-4 pt-3 text-left font-semibold">
                         Fulfillment
                       </th>
-                      <th className="py-3 px-4 text-left font-semibold">Schedule</th>
-                      <th className="py-3 px-4 text-left font-semibold">Status</th>
-                      <th className="py-3 px-4 text-right font-semibold">Total</th>
-                      <th className="py-3 px-4 text-right font-semibold">
+                      <th className="px-4 pb-4 pt-3 text-left font-semibold">Schedule</th>
+                      <th className="px-4 pb-4 pt-3 text-left font-semibold">Status</th>
+                      <th className="px-4 pb-4 pt-3 text-right font-semibold">Total</th>
+                      <th className="px-4 pb-4 pt-3 text-right font-semibold">
                         Actions
                       </th>
                     </tr>
@@ -730,55 +824,59 @@ export default function BusinessOrdersClient() {
                       return (
                         <tr
                           key={order.id}
-                          className="cursor-pointer transition hover:bg-[var(--overlay)] focus-within:bg-[var(--overlay)]"
+                          className="cursor-pointer border-b border-slate-100 transition-colors duration-150 last:border-b-0 hover:bg-violet-50/[0.22] focus-within:bg-violet-50/[0.22]"
                           tabIndex={0}
                           role="button"
                           aria-label={`Open order ${getOrderDisplayId(order.order_number)}`}
                           onClick={() => openOrderDetails(order)}
                           onKeyDown={(event) => handleOrderActivationKeyDown(event, order)}
                         >
-                          <td className="py-4 px-4">
+                          <td className="px-4 py-3 align-middle">
                             <div className="flex items-center gap-3">
                               <OrderThumbnail order={order} />
-                              <div className="min-w-0 space-y-1">
-                                <p className="font-semibold">
+                              <div className="min-w-0">
+                                <p className="font-semibold text-slate-950">
                                   Order {getOrderDisplayId(order.order_number)}
                                 </p>
-                                <p className="text-xs opacity-70">
+                                <p className="mt-px text-xs text-slate-400/90">
                                   {formatOrderDateTime(order.created_at)}
                                 </p>
                               </div>
                             </div>
                           </td>
-                          <td className="py-4 px-4">
-                            <div className="space-y-1">
-                              <p className="font-semibold">
+                          <td className="px-4 py-3 align-middle">
+                            <div className="space-y-0.5">
+                              <p className="font-medium text-slate-900">
                                 {order.contact_name || "Customer"}
                               </p>
-                              <p className="text-xs opacity-70">
+                              <p className="text-xs text-slate-400">
                                 {order.contact_phone || order.contact_email || "—"}
                               </p>
                             </div>
                           </td>
-                          <td className="py-4 px-4">
-                            <span className="text-xs uppercase tracking-[0.12em] opacity-70">
+                          <td className="px-4 py-3 align-middle">
+                            <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
                               {order.fulfillment_type === "delivery"
                                 ? "Delivery"
                                 : "Pickup"}
                             </span>
                           </td>
-                          <td className="py-4 px-4">
-                            <span className="text-xs opacity-70">
+                          <td className="px-4 py-3 align-middle">
+                            <span className="text-xs text-slate-500">
                               {schedule || "ASAP"}
                             </span>
                           </td>
-                          <td className="py-4 px-4">
-                            <OrderStatusBadge status={order.status} />
+                          <td className="px-4 py-3 align-middle">
+                            <OrderStatusBadge
+                              status={order.status}
+                              className={businessStatusBadgeClass}
+                              radiusClass="rounded-lg"
+                            />
                           </td>
-                          <td className="py-4 px-4 text-right font-semibold">
+                          <td className="px-4 py-3 text-right align-middle font-semibold text-slate-950">
                             ${formatMoney(order.total)}
                           </td>
-                          <td className="py-4 px-4">
+                          <td className="px-4 py-3 align-middle">
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 type="button"
@@ -786,8 +884,7 @@ export default function BusinessOrdersClient() {
                                   event.stopPropagation();
                                   openOrderDetails(order);
                                 }}
-                                className={`${baseButton} border`}
-                                style={{ borderColor: "var(--border)" }}
+                                className={secondaryButton}
                               >
                                 View
                               </button>
@@ -799,13 +896,7 @@ export default function BusinessOrdersClient() {
                                     setStatusMenuOrder(order);
                                   }}
                                   disabled={updatingId === order.id}
-                                  className={`${baseButton} border`}
-                                  style={{
-                                    borderColor: "var(--border)",
-                                    background: "transparent",
-                                    color: "var(--text)",
-                                    opacity: updatingId === order.id ? 0.7 : 1,
-                                  }}
+                                  className={subtleSecondaryButton}
                                 >
                                   Change status
                                 </button>
@@ -818,12 +909,7 @@ export default function BusinessOrdersClient() {
                                     handleStatusUpdate(order.id, primaryAction.status);
                                   }}
                                   disabled={updatingId === order.id}
-                                  className={baseButton}
-                                  style={{
-                                    background: "var(--text)",
-                                    color: "var(--background)",
-                                    opacity: updatingId === order.id ? 0.7 : 1,
-                                  }}
+                                  className={primaryButton}
                                 >
                                   {updatingId === order.id
                                     ? "Updating..."
@@ -850,8 +936,7 @@ export default function BusinessOrdersClient() {
                 return (
                   <div
                     key={order.id}
-                    className="cursor-pointer rounded-3xl p-5 space-y-5 transition hover:bg-[var(--overlay)] focus-within:bg-[var(--overlay)]"
-                    style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                    className="cursor-pointer space-y-5 rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition-colors duration-150 hover:bg-violet-50/[0.18] focus-within:bg-violet-50/[0.18]"
                     tabIndex={0}
                     role="button"
                     aria-label={`Open order ${getOrderDisplayId(order.order_number)}`}
@@ -870,7 +955,11 @@ export default function BusinessOrdersClient() {
                           </p>
                         </div>
                       </div>
-                      <OrderStatusBadge status={order.status} />
+                      <OrderStatusBadge
+                        status={order.status}
+                        className={businessStatusBadgeClass}
+                        radiusClass="rounded-lg"
+                      />
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div className="space-y-1">
@@ -907,8 +996,7 @@ export default function BusinessOrdersClient() {
                             event.stopPropagation();
                             openOrderDetails(order);
                           }}
-                          className={`${baseButton} border`}
-                          style={{ borderColor: "var(--border)" }}
+                          className={secondaryButton}
                         >
                           View
                         </button>
@@ -920,13 +1008,7 @@ export default function BusinessOrdersClient() {
                               setStatusMenuOrder(order);
                             }}
                             disabled={updatingId === order.id}
-                            className={`${baseButton} border`}
-                            style={{
-                              borderColor: "var(--border)",
-                              background: "transparent",
-                              color: "var(--text)",
-                              opacity: updatingId === order.id ? 0.7 : 1,
-                            }}
+                            className={subtleSecondaryButton}
                           >
                             Change status
                           </button>
@@ -939,12 +1021,7 @@ export default function BusinessOrdersClient() {
                               handleStatusUpdate(order.id, primaryAction.status);
                             }}
                             disabled={updatingId === order.id}
-                            className={baseButton}
-                            style={{
-                              background: "var(--text)",
-                              color: "var(--background)",
-                              opacity: updatingId === order.id ? 0.7 : 1,
-                            }}
+                            className={primaryButton}
                           >
                             {updatingId === order.id
                               ? "Updating..."
@@ -986,7 +1063,11 @@ export default function BusinessOrdersClient() {
                   Order {getOrderDisplayId(selectedOrder.order_number)}
                 </h2>
                 <div className="flex flex-wrap items-center gap-2">
-                  <OrderStatusBadge status={selectedOrder.status} />
+                  <OrderStatusBadge
+                    status={selectedOrder.status}
+                    className={businessStatusBadgeClass}
+                    radiusClass="rounded-lg"
+                  />
                   <span className="text-xs opacity-70">
                     {formatOrderDateTime(selectedOrder.created_at)}
                   </span>
@@ -1152,6 +1233,8 @@ export default function BusinessOrdersClient() {
               <OrderStatusBadge
                 status={selectedOrder.status}
                 label={getOrderStatusLabel(selectedOrder.status)}
+                className={businessStatusBadgeClass}
+                radiusClass="rounded-lg"
               />
             </div>
 
@@ -1162,13 +1245,7 @@ export default function BusinessOrdersClient() {
                     type="button"
                     onClick={() => setStatusMenuOrder(selectedOrder)}
                     disabled={updatingId === selectedOrder.id}
-                    className={`${baseButton} border`}
-                    style={{
-                      borderColor: "var(--border)",
-                      background: "transparent",
-                      color: "var(--text)",
-                      opacity: updatingId === selectedOrder.id ? 0.7 : 1,
-                    }}
+                    className={subtleSecondaryButton}
                   >
                     Change status
                   </button>
@@ -1183,12 +1260,7 @@ export default function BusinessOrdersClient() {
                       )
                     }
                     disabled={updatingId === selectedOrder.id}
-                    className={baseButton}
-                    style={{
-                      background: "var(--text)",
-                      color: "var(--background)",
-                      opacity: updatingId === selectedOrder.id ? 0.7 : 1,
-                    }}
+                    className={primaryButton}
                   >
                     {updatingId === selectedOrder.id
                       ? "Updating..."
@@ -1243,11 +1315,12 @@ export default function BusinessOrdersClient() {
                     type="button"
                     onClick={() => handleStatusMenuSelect(target)}
                     disabled={updatingId === statusMenuOrder.id}
-                    className={`${baseButton} border justify-start text-left`}
+                    className={`${baseButton} justify-start border text-left ${
+                      destructive
+                        ? "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100/60"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
+                    }`}
                     style={{
-                      borderColor: destructive ? "#e11d48" : "var(--border)",
-                      color: destructive ? "#e11d48" : "var(--text)",
-                      background: "transparent",
                       opacity: updatingId === statusMenuOrder.id ? 0.7 : 1,
                     }}
                   >

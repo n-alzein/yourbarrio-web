@@ -558,9 +558,9 @@ export default function SettingsPage() {
   return (
     <div
       data-account-utility-bg="soft"
-      className="min-h-screen bg-[#fafafc] text-slate-900"
+      className="min-h-screen bg-[#f6f7fb] text-slate-900"
     >
-      <div className="pb-12 pt-3 sm:pb-16">
+      <div className="pb-12 sm:pb-16">
         <CustomerAccountShell className="!bg-transparent">
           <div className="mb-7">
             <div>

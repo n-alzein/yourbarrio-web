@@ -7,11 +7,12 @@ export default function OrderStatusBadge({
   label,
   className = "",
   minimal = false,
+  radiusClass = "rounded-full",
 }) {
   const text = label || getOrderStatusLabel(status);
   return (
     <span
-      className={`status-badge inline-flex items-center rounded-full ${
+      className={`status-badge inline-flex items-center leading-none ${radiusClass} ${
         minimal
           ? "border-transparent px-2.5 py-1 text-[11px] font-semibold tracking-[0.01em]"
           : "px-3 py-1 text-xs font-semibold"

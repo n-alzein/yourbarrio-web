@@ -8,6 +8,8 @@ import { useRealtimeChannel } from "@/lib/realtime/useRealtimeChannel";
 import { retry } from "@/lib/retry";
 import { memoizeRequest } from "@/lib/requestMemo";
 
+const businessConversationsCache = new Map();
+
 function useDelayedFlag(active, delayMs = 200) {
   const [visible, setVisible] = useState(false);
 
@@ -29,17 +31,28 @@ export default function BusinessMessagesInboxClient({
 }) {
   const { user, supabase, authStatus, loadingUser } = useAuth();
   const userId = user?.id || initialUserId || null;
-  const [conversations, setConversations] = useState(initialConversations);
+  const cachedConversations = userId
+    ? businessConversationsCache.get(userId)
+    : undefined;
+  const [conversations, setConversations] = useState(() =>
+    Array.isArray(cachedConversations)
+      ? cachedConversations
+      : initialConversations
+  );
   const [error, setError] = useState(initialError);
   const [loading, setLoading] = useState(false);
   const hasLoadedRef = useRef(
-    initialError == null && Array.isArray(initialConversations)
+    initialError == null &&
+      (Array.isArray(cachedConversations) || Array.isArray(initialConversations))
   );
+  const [hasLoaded, setHasLoaded] = useState(hasLoadedRef.current);
   const requestIdRef = useRef(0);
   const [isVisible, setIsVisible] = useState(
     typeof document === "undefined" ? true : !document.hidden
   );
-  const showLoading = useDelayedFlag(loading && conversations.length === 0);
+  const showLoading = useDelayedFlag(
+    loading && !hasLoaded && conversations.length === 0
+  );
 
   const applyLocalRead = useCallback((rows = []) => {
     if (typeof window === "undefined") return rows;
@@ -89,8 +102,11 @@ export default function BusinessMessagesInboxClient({
       );
 
       if (requestId !== requestIdRef.current) return;
-      setConversations(applyLocalRead(nextConversations));
+      const nextRows = applyLocalRead(nextConversations);
+      businessConversationsCache.set(userId, nextRows);
+      setConversations(nextRows);
       hasLoadedRef.current = true;
+      setHasLoaded(true);
     } catch (err) {
       console.error("Failed to load conversations", err);
       if (requestId !== requestIdRef.current) return;
@@ -161,6 +177,11 @@ export default function BusinessMessagesInboxClient({
         </div>
         <div className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm">
           {conversations.length} chats
+          {loading && hasLoaded ? (
+            <span className="ml-2 text-slate-400" aria-live="polite">
+              Updating...
+            </span>
+          ) : null}
         </div>
       </div>
 

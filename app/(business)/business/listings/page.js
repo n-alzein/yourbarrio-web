@@ -28,6 +28,44 @@ import {
   getListingUpdatedAt,
 } from "@/lib/business/listingsCatalog";
 
+let businessListingsMemoryCache = null;
+let businessListingsMemoryCacheLoaded = false;
+
+function readBusinessListingsCache() {
+  if (businessListingsMemoryCacheLoaded) {
+    return {
+      loaded: true,
+      listings: Array.isArray(businessListingsMemoryCache)
+        ? businessListingsMemoryCache
+        : [],
+    };
+  }
+  if (typeof window === "undefined") return { loaded: false, listings: [] };
+  try {
+    const cached = sessionStorage.getItem("yb_business_listings");
+    if (cached == null) return { loaded: false, listings: [] };
+    const parsed = JSON.parse(cached);
+    const listings = Array.isArray(parsed) ? parsed : [];
+    businessListingsMemoryCache = listings;
+    businessListingsMemoryCacheLoaded = true;
+    return { loaded: true, listings };
+  } catch {
+    return { loaded: false, listings: [] };
+  }
+}
+
+function writeBusinessListingsCache(listings) {
+  const nextListings = Array.isArray(listings) ? listings : [];
+  businessListingsMemoryCache = nextListings;
+  businessListingsMemoryCacheLoaded = true;
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem("yb_business_listings", JSON.stringify(nextListings));
+  } catch {
+    // ignore cache write errors
+  }
+}
+
 function formatCurrency(value) {
   const normalized = Number(value);
   if (!Number.isFinite(normalized) || normalized <= 0) return null;
@@ -74,18 +112,10 @@ export default function BusinessListingsPage() {
   const [sortKey, setSortKey] = useState("updated");
   const [copiedRef, setCopiedRef] = useState("");
 
-  const [listings, setListings] = useState(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const cached = sessionStorage.getItem("yb_business_listings");
-      const parsed = cached ? JSON.parse(cached) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
+  const initialListingsCache = useMemo(() => readBusinessListingsCache(), []);
+  const [listings, setListings] = useState(() => initialListingsCache.listings);
   const [loading, setLoading] = useState(false);
-  const [hasLoaded, setHasLoaded] = useState(() => listings.length > 0);
+  const [hasLoaded, setHasLoaded] = useState(() => initialListingsCache.loaded);
   const [isVisible, setIsVisible] = useState(
     typeof document === "undefined" ? true : !document.hidden
   );
@@ -186,11 +216,7 @@ export default function BusinessListingsPage() {
         if (!active) return;
         setListings(data);
         setHasLoaded(true);
-        try {
-          sessionStorage.setItem("yb_business_listings", JSON.stringify(data));
-        } catch {
-          // ignore cache write errors
-        }
+        writeBusinessListingsCache(data);
       } catch (err) {
         console.error("❌ Fetch listings error:", err);
       } finally {
@@ -249,11 +275,7 @@ export default function BusinessListingsPage() {
 
     setListings((prev) => {
       const nextListings = prev.filter((l) => l.id !== id);
-      try {
-        sessionStorage.setItem("yb_business_listings", JSON.stringify(nextListings));
-      } catch {
-        // ignore cache write errors
-      }
+      writeBusinessListingsCache(nextListings);
       return nextListings;
     });
   }
@@ -276,16 +298,18 @@ export default function BusinessListingsPage() {
       return;
     }
 
-    setListings((prev) =>
-      prev.map((listing) =>
+    setListings((prev) => {
+      const nextListings = prev.map((listing) =>
         listing.id === id
           ? {
               ...listing,
               status: nextStatus,
             }
           : listing
-      )
-    );
+      );
+      writeBusinessListingsCache(nextListings);
+      return nextListings;
+    });
   }
 
   async function handleCopyListingRef(event, listing) {
@@ -389,7 +413,7 @@ export default function BusinessListingsPage() {
   // ------------------------------------------------------
   // LOADING STATES
   // ------------------------------------------------------
-  if (isHydrating) {
+  if (isHydrating && !hasLoaded) {
     return (
       <p className="text-slate-700 dark:text-slate-100 text-center py-20">
         Loading listings...

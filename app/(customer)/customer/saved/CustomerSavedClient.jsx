@@ -662,7 +662,7 @@ export default function CustomerSavedClient({
 
   if (loadingUser && !user && !initialUserId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#fafafc] px-6 text-slate-900">
+      <div className="flex min-h-screen items-center justify-center bg-[#f6f7fb] px-6 text-slate-900">
         <div className="space-y-3 text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-slate-500" />
           <p className="text-sm text-slate-500">Loading your saved items...</p>
@@ -674,7 +674,7 @@ export default function CustomerSavedClient({
   return (
     <section
       data-account-utility-bg="soft"
-      className="min-h-screen bg-[#fafafc] pt-3 pb-12 text-slate-950 md:pb-16"
+      className="min-h-screen bg-[#f6f7fb] pb-12 text-slate-950 md:pb-16"
     >
       <CustomerAccountShell className="!bg-transparent">
         <div>

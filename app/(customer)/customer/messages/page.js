@@ -10,16 +10,26 @@ import CustomerAccountShell from "@/components/customer/CustomerAccountShell";
 import InboxList from "@/components/messages/InboxList";
 import { useRealtimeChannel } from "@/lib/realtime/useRealtimeChannel";
 
+const customerConversationsCache = new Map();
+
 export default function CustomerMessagesPage() {
   const { user, supabase, loadingUser, authStatus } = useAuth();
   const userId = user?.id || null;
+  const cachedConversations = userId
+    ? customerConversationsCache.get(userId)
+    : undefined;
+  const hasCachedConversations = Array.isArray(cachedConversations);
 
   const [hydrated, setHydrated] = useState(false);
-  const [conversations, setConversations] = useState([]);
+  const [conversations, setConversations] = useState(() =>
+    hasCachedConversations ? cachedConversations : []
+  );
+  const [hasLoaded, setHasLoaded] = useState(hasCachedConversations);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const requestIdRef = useRef(0);
-  const hasLoadedRef = useRef(false);
+  const hasLoadedRef = useRef(hasCachedConversations);
   const inflightRef = useRef(null);
   const [isVisible, setIsVisible] = useState(
     typeof document === "undefined" ? true : !document.hidden
@@ -44,8 +54,27 @@ export default function CustomerMessagesPage() {
   }, []);
 
   useEffect(() => {
+    if (!userId) {
+      hasLoadedRef.current = false;
+      setHasLoaded(false);
+      setConversations([]);
+      return;
+    }
+
+    const cachedRows = customerConversationsCache.get(userId);
+    if (Array.isArray(cachedRows)) {
+      const nextRows = applyLocalRead(cachedRows);
+      customerConversationsCache.set(userId, nextRows);
+      hasLoadedRef.current = true;
+      setHasLoaded(true);
+      setConversations(nextRows);
+      return;
+    }
+
     hasLoadedRef.current = false;
-  }, [userId]);
+    setHasLoaded(false);
+    setConversations([]);
+  }, [applyLocalRead, userId]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -58,7 +87,9 @@ export default function CustomerMessagesPage() {
     if (!userId || authStatus !== "authenticated") return;
     const requestId = ++requestIdRef.current;
     inflightRef.current?.abort?.();
-    setLoading((prev) => (hasLoadedRef.current ? prev : true));
+    const hasUsableData = hasLoadedRef.current;
+    setLoading(!hasUsableData);
+    setRefreshing(hasUsableData);
     setError(null);
     const safeRequest = createFetchSafe(
       async ({ signal }) => {
@@ -94,8 +125,11 @@ export default function CustomerMessagesPage() {
       if (!result.ok) {
         throw result.error || new Error("Failed to load conversations");
       }
-      setConversations(applyLocalRead(result.result || []));
+      const nextRows = applyLocalRead(result.result || []);
+      customerConversationsCache.set(userId, nextRows);
+      setConversations(nextRows);
       hasLoadedRef.current = true;
+      setHasLoaded(true);
     } catch (err) {
       console.error("Failed to load conversations", err);
       if (requestId === requestIdRef.current) {
@@ -104,6 +138,7 @@ export default function CustomerMessagesPage() {
     } finally {
       if (requestId === requestIdRef.current) {
         setLoading(false);
+        setRefreshing(false);
       }
     }
   }, [applyLocalRead, authStatus, userId]);
@@ -155,9 +190,11 @@ export default function CustomerMessagesPage() {
   );
 
   const conversationCount = conversations.length;
+  const isInitialLoading = loading && !hasLoaded && conversations.length === 0;
+  const isRefreshing = refreshing && hasLoaded;
 
   return (
-    <section className="w-full min-h-screen pb-10 pt-3 text-slate-950 md:pb-14">
+    <section className="w-full min-h-screen bg-[#f6f7fb] pb-10 text-slate-950 md:pb-14">
       <CustomerAccountShell className="!bg-transparent">
         <div className="space-y-5">
           <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200/80 pb-4">
@@ -174,6 +211,9 @@ export default function CustomerMessagesPage() {
             </div>
             <div className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm">
               {conversationCount} chats
+              {isRefreshing ? (
+                <span className="ml-2 text-slate-400">Updating...</span>
+              ) : null}
             </div>
           </div>
 
@@ -195,7 +235,7 @@ export default function CustomerMessagesPage() {
               conversations={conversations}
               role="customer"
               basePath="/customer/messages"
-              loading={loading}
+              loading={isInitialLoading}
               variant="customer-flat"
             />
           </div>

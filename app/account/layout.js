@@ -14,20 +14,23 @@ export const revalidate = 0;
 
 function AccountShell({ children = null, className = "", compact = false }) {
   const lightThemeVars = {
-    "--bg-solid": "#ffffff",
-    "--bg-gradient-start": "#f7f7f8",
-    "--bg-gradient-end": "#eef2ff",
-    "--glow-1": "rgba(79, 70, 229, 0.1)",
-    "--glow-2": "rgba(14, 165, 233, 0.08)",
+    "--yb-bg": "#f6f7fb",
+    "--color-bg": "#f6f7fb",
+    "--background": "#f6f7fb",
+    "--bg-solid": "#f6f7fb",
+    "--bg-gradient-start": "#f6f7fb",
+    "--bg-gradient-end": "#f6f7fb",
+    "--glow-1": "transparent",
+    "--glow-2": "transparent",
   };
 
   return (
     <div
       className={`${
         compact
-          ? "pt-[calc(var(--yb-nav-content-offset,80px)+0.75rem)] md:pt-[calc(var(--yb-nav-content-offset,80px)+1rem)]"
-          : "pt-[calc(var(--yb-nav-content-offset,80px)+1rem)] md:pt-[calc(var(--yb-nav-content-offset,80px)+1.5rem)]"
-      } min-h-screen bg-[var(--yb-bg)] text-[var(--yb-text)]${className ? ` ${className}` : ""}`}
+          ? "pt-[var(--yb-nav-content-offset,80px)]"
+          : "pt-[var(--yb-nav-content-offset,80px)]"
+      } min-h-screen bg-[#f6f7fb] text-[var(--yb-text)]${className ? ` ${className}` : ""}`}
       data-theme="light"
       data-route-theme="light"
       style={lightThemeVars}

@@ -48,8 +48,8 @@ export default function CustomerAccountShell({ children, className = "" }) {
   const pathname = usePathname();
 
   return (
-    <div className="mx-auto w-full max-w-[1320px] px-4 sm:px-6 lg:px-8">
-      <div className="lg:grid lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-8">
+    <div className="mx-auto w-full max-w-[1520px] bg-[#f6f7fb] px-4 pt-4 sm:px-6 lg:min-h-[calc(100vh-var(--yb-nav-content-offset,80px))] lg:px-8">
+      <div className="bg-[#f6f7fb] lg:grid lg:min-h-[calc(100vh-var(--yb-nav-content-offset,80px))] lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-8">
         <aside className="hidden lg:block">
           <nav
             aria-label="Account navigation"
@@ -82,7 +82,7 @@ export default function CustomerAccountShell({ children, className = "" }) {
             </div>
           </nav>
         </aside>
-        <main className={`min-w-0${className ? ` ${className}` : ""}`}>
+        <main className={`min-w-0 bg-[#f6f7fb]${className ? ` ${className}` : ""}`}>
           {children}
         </main>
       </div>
