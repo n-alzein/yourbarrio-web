@@ -8,7 +8,7 @@ import {
   haversineDistanceKm,
 } from "@/lib/location/filter";
 import { getCurrentViewerVisibilityGate } from "@/lib/publicVisibility";
-import { getBusinessTypeLabel } from "@/lib/taxonomy/compat";
+import { getBusinessTypeLabel, getBusinessTypeSlug } from "@/lib/taxonomy/compat";
 
 const CACHE_SECONDS = 120;
 const GEOCODE_KEY = process.env.MAPBOX_GEOCODING_TOKEN || process.env.GOOGLE_GEOCODING_API_KEY || "";
@@ -112,34 +112,34 @@ function getDiscoveryRank(row, location) {
   };
 }
 
-async function fetchBusinessCategories(supabase) {
+async function fetchBusinessTypes(supabase) {
   const { data, error } = await supabase
-    .from("business_categories")
+    .from("business_types")
     .select("id,name,slug,is_active")
     .eq("is_active", true)
+    .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
 
   if (error) {
-    console.warn("business_categories lookup failed", error);
+    console.warn("business_types lookup failed", error);
     return [];
   }
 
   return Array.isArray(data)
     ? data
-        .filter((category) => category?.id && category?.name)
-        .map((category) => ({
-          id: category.id,
-          name: category.name,
-          slug: category.slug || normalizeCategoryToken(category.name),
+        .filter((businessType) => businessType?.id && businessType?.name)
+        .map((businessType) => ({
+          id: businessType.id,
+          name: businessType.name,
+          slug: businessType.slug || normalizeCategoryToken(businessType.name),
         }))
     : [];
 }
 
-function matchBusinessCategory(row, categories) {
-  if (!row || !Array.isArray(categories) || categories.length === 0) return null;
+function matchBusinessType(row, businessTypes) {
+  if (!row || !Array.isArray(businessTypes) || businessTypes.length === 0) return null;
   const tokens = [
-    row.business_category_id,
-    row.business_category_slug,
+    row.business_type_id,
     row.business_type,
     row.category,
   ]
@@ -148,15 +148,15 @@ function matchBusinessCategory(row, categories) {
   if (!tokens.length) return null;
 
   return (
-    categories.find((category) => {
-      const categoryTokens = [
-        category.id,
-        category.slug,
-        category.name,
+    businessTypes.find((businessType) => {
+      const businessTypeTokens = [
+        businessType.id,
+        businessType.slug,
+        businessType.name,
       ]
         .map(normalizeCategoryToken)
         .filter(Boolean);
-      return categoryTokens.some((token) => tokens.includes(token));
+      return businessTypeTokens.some((token) => tokens.includes(token));
     }) || null
   );
 }
@@ -173,11 +173,11 @@ export async function GET(request) {
 
     const supabase = await createSupabaseClient();
     const { viewerCanSeeInternalContent } = await getCurrentViewerVisibilityGate(supabase);
-    const categories = await fetchBusinessCategories(supabase);
+    const businessTypes = await fetchBusinessTypes(supabase);
 
     if (!hasUsableLocationFilter(location)) {
       return NextResponse.json(
-        { businesses: [], categories: [], message: "missing_location" },
+        { businesses: [], businessTypes: [], categories: [], message: "missing_location" },
         { status: 200 }
       );
     }
@@ -213,7 +213,9 @@ export async function GET(request) {
 
     const businesses = await Promise.all(
       rankedRows.map(async ({ row, rank }) => {
-        const businessCategory = matchBusinessCategory(row, categories);
+        const businessType = matchBusinessType(row, businessTypes);
+        const fallbackBusinessTypeSlug = getBusinessTypeSlug(row, row.business_type || "other");
+        const fallbackBusinessTypeName = getBusinessTypeLabel(row, row.category || "Local business");
         const lat = parseNum(row.latitude ?? row.lat);
         const lng = parseNum(row.longitude ?? row.lng);
         const hasCoords =
@@ -226,10 +228,10 @@ export async function GET(request) {
           return {
             ...row,
             id: row.owner_user_id,
-            category: businessCategory?.name || getBusinessTypeLabel(row, row.category || "Local business"),
-            business_category_id: businessCategory?.id || null,
-            business_category_slug: businessCategory?.slug || null,
-            business_category_name: businessCategory?.name || null,
+            category: businessType?.name || fallbackBusinessTypeName,
+            business_type_id: businessType?.id || row.business_type_id || null,
+            business_type_slug: businessType?.slug || fallbackBusinessTypeSlug,
+            business_type_name: businessType?.name || fallbackBusinessTypeName,
             latitude: lat,
             longitude: lng,
             lat,
@@ -246,10 +248,10 @@ export async function GET(request) {
         return {
           ...row,
           id: row.owner_user_id,
-          category: businessCategory?.name || getBusinessTypeLabel(row, row.category || "Local business"),
-          business_category_id: businessCategory?.id || null,
-          business_category_slug: businessCategory?.slug || null,
-          business_category_name: businessCategory?.name || null,
+          category: businessType?.name || fallbackBusinessTypeName,
+          business_type_id: businessType?.id || row.business_type_id || null,
+          business_type_slug: businessType?.slug || fallbackBusinessTypeSlug,
+          business_type_name: businessType?.name || fallbackBusinessTypeName,
           latitude: coords?.lat ?? null,
           longitude: coords?.lng ?? null,
           lat: coords?.lat ?? null,
@@ -261,15 +263,27 @@ export async function GET(request) {
       })
     );
 
-    const usedCategoryIds = new Set(
+    const usedBusinessTypeIds = new Set(
       businesses
-        .map((business) => business.business_category_id)
+        .map((business) => business.business_type_id)
         .filter(Boolean)
     );
-    const usedCategories = categories.filter((category) => usedCategoryIds.has(category.id));
+    const usedBusinessTypeSlugs = new Set(
+      businesses
+        .map((business) => business.business_type_slug)
+        .filter(Boolean)
+    );
+    const usedBusinessTypes = businessTypes.filter(
+      (businessType) =>
+        usedBusinessTypeIds.has(businessType.id) || usedBusinessTypeSlugs.has(businessType.slug)
+    );
 
     const resp = NextResponse.json(
-      { businesses, categories: usedCategories },
+      {
+        businesses,
+        businessTypes: usedBusinessTypes,
+        categories: usedBusinessTypes,
+      },
       {
         headers: {
           "Cache-Control":

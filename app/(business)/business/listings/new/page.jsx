@@ -50,6 +50,7 @@ import {
   validateListingForPublish,
 } from "@/lib/listingEditor";
 import { buildListingTaxonomyPayload } from "@/lib/taxonomy/compat";
+import { fetchListingCategoryBySlug } from "@/lib/taxonomy/db";
 import { getListingCategoryOptions } from "@/lib/taxonomy/listingCategories";
 
 const CATEGORY_OPTIONS = getListingCategoryOptions();
@@ -496,6 +497,7 @@ export default function NewListingPage() {
       const taxonomy = buildListingTaxonomyPayload({
         listing_category: form.category,
       });
+      const listingCategory = await fetchListingCategoryBySlug(client, taxonomy.category);
       const manualInventory = getManualInventoryState(form);
       const inventoryStatus = validation.listingOptionsValidation.normalized.hasOptions
         ? derivedVariantInventory.inventoryStatus
@@ -509,8 +511,9 @@ export default function NewListingPage() {
         title: isPublish ? form.title.trim() : getListingDraftTitle(form.title),
         description: form.description || null,
         price: form.price === "" ? null : form.price,
-        listing_category: taxonomy.listing_category,
-        category: taxonomy.category,
+        listing_category: listingCategory?.name || taxonomy.listing_category,
+        category: listingCategory?.slug || taxonomy.category,
+        listing_category_id: listingCategory?.id || null,
         category_id: null,
         ...publicationState,
         inventory_status: inventoryStatus,

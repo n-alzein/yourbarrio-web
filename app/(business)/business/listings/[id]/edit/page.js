@@ -56,6 +56,7 @@ import {
   buildListingTaxonomyPayload,
   getListingCategorySlug,
 } from "@/lib/taxonomy/compat";
+import { fetchListingCategoryBySlug } from "@/lib/taxonomy/db";
 import { getListingCategoryOptions } from "@/lib/taxonomy/listingCategories";
 
 const CATEGORY_OPTIONS = getListingCategoryOptions();
@@ -642,6 +643,13 @@ export default function EditListingPage() {
       const taxonomy = buildListingTaxonomyPayload({
         listing_category: form.category,
       });
+      const listingCategory = await fetchListingCategoryBySlug(client, taxonomy.category);
+      const resolvedTaxonomy = {
+        ...taxonomy,
+        listing_category_id: listingCategory?.id || null,
+        listing_category: listingCategory?.name || taxonomy.listing_category,
+        category: listingCategory?.slug || taxonomy.category,
+      };
       const inventoryStatus = publishValidation.listingOptionsValidation.normalized.hasOptions
         ? derivedVariantInventory.inventoryStatus
         : getManualInventoryState(form).inventoryStatus;
@@ -653,8 +661,9 @@ export default function EditListingPage() {
         title: isPublish ? (form.title || "").trim() : getListingDraftTitle(form.title),
         description: form.description || "",
         price: form.price === "" ? null : form.price,
-        listing_category: taxonomy.listing_category,
-        category: taxonomy.category,
+        listing_category: resolvedTaxonomy.listing_category,
+        category: resolvedTaxonomy.category,
+        listing_category_id: resolvedTaxonomy.listing_category_id,
         category_id: null,
         city: form.city,
         ...publicationState,
@@ -680,7 +689,7 @@ export default function EditListingPage() {
       const isPublishedListing = listingStatus === "published";
       const draftData = buildListingDraftData({
         form,
-        taxonomy,
+        taxonomy: resolvedTaxonomy,
         resolvedCoverImageId,
         inventoryStatus,
         inventoryQuantity,

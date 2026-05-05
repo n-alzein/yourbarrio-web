@@ -126,8 +126,8 @@ export default function NearbyBusinessesClient() {
     : "yb_customer_nearby_businesses";
 
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("All");
-  const [businessCategoryOptions, setBusinessCategoryOptions] = useState([]);
+  const [businessTypeFilter, setBusinessTypeFilter] = useState("All");
+  const [businessTypeOptions, setBusinessTypeOptions] = useState([]);
   const [sortMode, setSortMode] = useState("recommended");
   const [mobileView, setMobileView] = useState("list");
   const [isMobile, setIsMobile] = useState(false);
@@ -201,25 +201,25 @@ export default function NearbyBusinessesClient() {
 
   useEffect(() => {
     const urlQuery = (searchParams?.get("q") || "").trim();
-    const urlCategory = (searchParams?.get("category") || "").trim();
+    const urlCategory = (searchParams?.get("businessType") || searchParams?.get("category") || "").trim();
     setSearch(urlQuery);
-    setCategoryFilter(urlCategory || "All");
+    setBusinessTypeFilter(urlCategory || "All");
   }, [searchParams]);
 
   useEffect(() => {
-    if (!businessCategoryOptions.length || categoryFilter === "All") return;
-    const normalizedFilter = normalizeCategoryToken(categoryFilter);
-    const matched = businessCategoryOptions.find((category) =>
-      [category.id, category.slug, category.name]
+    if (!businessTypeOptions.length || businessTypeFilter === "All") return;
+    const normalizedFilter = normalizeCategoryToken(businessTypeFilter);
+    const matched = businessTypeOptions.find((businessType) =>
+      [businessType.id, businessType.slug, businessType.name]
         .map(normalizeCategoryToken)
         .includes(normalizedFilter)
     );
-    if (matched && categoryFilter !== matched.slug) {
-      setCategoryFilter(matched.slug);
+    if (matched && businessTypeFilter !== matched.slug) {
+      setBusinessTypeFilter(matched.slug);
     } else if (!matched) {
-      setCategoryFilter("All");
+      setBusinessTypeFilter("All");
     }
-  }, [businessCategoryOptions, categoryFilter]);
+  }, [businessTypeOptions, businessTypeFilter]);
 
   useEffect(() => {
     if (!locationHydrated) return;
@@ -263,16 +263,23 @@ export default function NearbyBusinessesClient() {
           if (res.ok && Array.isArray(payload?.businesses)) {
             rows = payload.businesses;
           }
-          if (res.ok && Array.isArray(payload?.categories)) {
-            setBusinessCategoryOptions(
-              payload.categories
-                .filter((category) => category?.id && category?.name)
-                .map((category) => ({
-                  id: category.id,
-                  name: category.name,
-                  slug: category.slug || normalizeCategoryToken(category.name),
+          const responseBusinessTypes = Array.isArray(payload?.businessTypes)
+            ? payload.businessTypes
+            : Array.isArray(payload?.categories)
+              ? payload.categories
+              : [];
+          if (res.ok && responseBusinessTypes.length) {
+            setBusinessTypeOptions(
+              responseBusinessTypes
+                .filter((businessType) => businessType?.id && businessType?.name)
+                .map((businessType) => ({
+                  id: businessType.id,
+                  name: businessType.name,
+                  slug: businessType.slug || normalizeCategoryToken(businessType.name),
                 }))
             );
+          } else if (res.ok) {
+            setBusinessTypeOptions([]);
           }
         } catch (errApi) {
           if (errApi?.name === "AbortError") {
@@ -304,9 +311,9 @@ export default function NearbyBusinessesClient() {
               name: row.business_name || row.name || "Local business",
               category: row.category || "Local business",
               categoryLabel: row.category || "Local business",
-              businessCategoryId: row.business_category_id || null,
-              businessCategorySlug: row.business_category_slug || null,
-              businessCategoryName: row.business_category_name || null,
+              businessTypeId: row.business_type_id || null,
+              businessTypeSlug: row.business_type_slug || row.business_type || null,
+              businessTypeName: row.business_type_name || row.category || null,
               address: row.city
                 ? `${row.address || ""}${row.address ? ", " : ""}${row.city}`
                 : row.address || "",
@@ -386,21 +393,21 @@ export default function NearbyBusinessesClient() {
 
   const filteredBusinesses = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const categoryFilterNormalized = normalizeCategoryToken(categoryFilter);
+    const businessTypeFilterNormalized = normalizeCategoryToken(businessTypeFilter);
     const filtered = ybBusinesses.filter((biz) => {
       if (!biz) return false;
       const category = biz.categoryLabel?.toLowerCase() || biz.category?.toLowerCase() || "";
-      const categoryTokens = [
-        biz.businessCategoryId,
-        biz.businessCategorySlug,
-        biz.businessCategoryName,
+      const businessTypeTokens = [
+        biz.businessTypeId,
+        biz.businessTypeSlug,
+        biz.businessTypeName,
       ]
         .map(normalizeCategoryToken)
         .filter(Boolean);
       const matchesCategory =
-        !categoryFilterNormalized ||
-        categoryFilterNormalized === "all" ||
-        categoryTokens.includes(categoryFilterNormalized);
+        !businessTypeFilterNormalized ||
+        businessTypeFilterNormalized === "all" ||
+        businessTypeTokens.includes(businessTypeFilterNormalized);
       if (!matchesCategory) return false;
       if (!q) return true;
       const name = biz.name?.toLowerCase() || "";
@@ -435,7 +442,7 @@ export default function NearbyBusinessesClient() {
       if (Math.abs(rankDelta) > 0.001) return rankDelta;
       return timeValue(right.updated_at || right.created_at) - timeValue(left.updated_at || left.created_at);
     });
-  }, [search, ybBusinesses, categoryFilter, sortMode]);
+  }, [search, ybBusinesses, businessTypeFilter, sortMode]);
 
   const businessesForMap = useMemo(() => filteredBusinesses, [filteredBusinesses]);
   const visibleBusinesses = useMemo(
@@ -564,24 +571,27 @@ export default function NearbyBusinessesClient() {
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search name, category, or address"
+            placeholder="Search name, business type, or address"
             data-testid="nearby-search-input"
             className={controlClassName}
           />
         </label>
 
         <label className="block">
-          <span className="sr-only">Filter by category</span>
+          <span className="sr-only">Filter by business type</span>
           <select
-            value={categoryFilter}
-            onChange={(event) => setCategoryFilter(event.target.value)}
+            value={businessTypeFilter}
+            onChange={(event) => setBusinessTypeFilter(event.target.value)}
             data-testid="nearby-category-select"
             className={controlClassName}
           >
-            <option value="All">All categories</option>
-            {businessCategoryOptions.map((category) => (
-              <option key={category.id || category.slug || category.name} value={category.slug || category.id}>
-                {category.name}
+            <option value="All">All shops</option>
+            {businessTypeOptions.map((businessType) => (
+              <option
+                key={businessType.id || businessType.slug || businessType.name}
+                value={businessType.slug || businessType.id}
+              >
+                {businessType.name}
               </option>
             ))}
           </select>
@@ -697,7 +707,7 @@ export default function NearbyBusinessesClient() {
                 }
                 onResetFilters={() => {
                   setSearch("");
-                  setCategoryFilter("All");
+                  setBusinessTypeFilter("All");
                 }}
               />
             }

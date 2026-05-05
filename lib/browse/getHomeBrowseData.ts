@@ -19,6 +19,7 @@ export type ListingSummary = {
   platformFeeCents?: number;
   finalPriceCents?: number;
   listing_category?: string | null;
+  listing_category_id?: string | null;
   category: string | null;
   category_id: string | number | null;
   category_info?: { name?: string | null; slug?: string | null } | null;
@@ -63,6 +64,8 @@ const PUBLIC_LISTING_SELECT = [
   "title",
   "price",
   "category",
+  "listing_category",
+  "listing_category_id",
   "category_id",
   "city",
   "photo_url",

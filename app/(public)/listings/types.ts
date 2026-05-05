@@ -9,6 +9,10 @@ export type ListingItem = {
   finalPriceCents?: number | null;
   category?: string | null;
   listing_category?: string | null;
+  listing_category_id?: string | null;
+  listingCategoryId?: string | null;
+  listingCategorySlug?: string | null;
+  listingCategoryName?: string | null;
   category_id?: string | number | null;
   city?: string | null;
   photo_url?: unknown;

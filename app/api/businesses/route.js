@@ -4,6 +4,7 @@ import { isBusinessOnboardingComplete } from "@/lib/business/onboardingCompletio
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
 import { resolveBusinessCoordinates } from "@/lib/location/businessGeocoding";
 import { buildBusinessTaxonomyPayload } from "@/lib/taxonomy/compat";
+import { fetchBusinessTypeBySlug } from "@/lib/taxonomy/db";
 import {
   isIncompleteUSPhone,
   normalizeUSPhoneForStorage,
@@ -67,6 +68,7 @@ export async function POST(req) {
 
     const trimmedName = String(name || "").trim();
     const taxonomy = buildBusinessTaxonomyPayload({ business_type, category });
+    const businessType = await fetchBusinessTypeBySlug(supabase, taxonomy.business_type);
     const trimmedBusinessType = String(taxonomy.business_type || "").trim();
     const trimmedCategory = String(taxonomy.category || "").trim();
     if (!trimmedName || !trimmedBusinessType) {
@@ -121,8 +123,8 @@ export async function POST(req) {
       public_id: existingUser?.public_id || null,
       full_name: trimmedName,
       business_name: trimmedName,
-      business_type: trimmedBusinessType,
-      category: trimmedCategory,
+      business_type: businessType?.slug || trimmedBusinessType,
+      category: businessType?.name || trimmedCategory,
       description: description || "",
       website: normalizedWebsite || "",
       address: address || "",
@@ -156,8 +158,9 @@ export async function POST(req) {
       owner_user_id: user.id,
       public_id: existingUser?.public_id || null,
       business_name: trimmedName,
-      business_type: trimmedBusinessType,
-      category: trimmedCategory,
+      business_type_id: businessType?.id || null,
+      business_type: businessType?.slug || trimmedBusinessType,
+      category: businessType?.name || trimmedCategory,
       description: description || "",
       website: normalizedWebsite || "",
       phone: normalizedPhone || "",
@@ -180,7 +183,7 @@ export async function POST(req) {
         ignoreDuplicates: false,
       })
       .select(
-        "id,owner_user_id,public_id,business_name,business_type,category,address,city,state,postal_code,verification_status"
+        "id,owner_user_id,public_id,business_name,business_type_id,business_type,category,address,city,state,postal_code,verification_status"
       )
       .single();
 

@@ -43,7 +43,7 @@ export default async function CategoryListingsPage({ params }) {
       supabase
         .from("public_listings_v")
         .select(
-          "id,public_id,title,description,price,category,category_id,city,photo_url,photo_variants,cover_image_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at,is_seeded,business_is_seeded"
+          "id,public_id,title,description,price,category,listing_category,listing_category_id,category_id,city,photo_url,photo_variants,cover_image_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at,is_seeded,business_is_seeded"
         )
         .order("created_at", { ascending: false })
         .limit(80)

@@ -43,6 +43,7 @@ function createSupabaseMock() {
     business_name: "Barrio Market",
     business_type: "retail",
     category: "retail",
+    business_type_id: "type-other",
     description: "A neighborhood market with locally made goods and pantry staples.",
     website: "",
     phone: "",
@@ -130,6 +131,18 @@ function createSupabaseMock() {
       };
     }),
   };
+  const businessTypesTable = {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { id: "type-other", slug: "other", name: "Other" },
+            error: null,
+          }),
+        })),
+      })),
+    })),
+  };
 
   const supabase = {
     auth: {
@@ -141,6 +154,7 @@ function createSupabaseMock() {
     from: vi.fn((table) => {
       if (table === "users") return usersTable;
       if (table === "businesses") return businessesTable;
+      if (table === "business_types") return businessTypesTable;
       throw new Error(`Unexpected table: ${table}`);
     }),
     get usersUpdatePayload() {

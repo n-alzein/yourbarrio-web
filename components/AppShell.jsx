@@ -131,7 +131,7 @@ export default function AppShell({
                       >
                         {children}
                       </main>
-                      {!isAdminRoute ? (
+                      {!isAdminRoute && !isOnboardingRoute ? (
                         <Footer
                           className={
                             flushFooterOnHome

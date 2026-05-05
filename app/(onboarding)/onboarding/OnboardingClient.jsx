@@ -135,7 +135,23 @@ export default function BusinessOnboardingPage() {
   const [message, setMessage] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
   const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [basicInteracted, setBasicInteracted] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewPulse, setPreviewPulse] = useState(false);
   const pickedLocationRef = useRef(null); // stores { lat, lng } from address lookup
+
+  const selectedBusinessType =
+    BUSINESS_TYPE_OPTIONS.find((type) => type.slug === form.business_type) || null;
+  const hasBasicProgress = basicInteracted || Boolean(form.businessName || form.business_type);
+  const previewName = form.businessName.trim() || "Your shop";
+  const previewType = selectedBusinessType?.label || "Local business";
+  const previewDescription =
+    form.description.trim() ||
+    "A quick, welcoming description will appear here as you shape your shop.";
+  const previewState =
+    US_STATES.find((stateOption) => stateOption.code === form.state)?.name || form.state;
+  const previewLocation = [form.city, previewState].filter(Boolean).join(", ") || "Nearby";
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") {
@@ -147,6 +163,9 @@ export default function BusinessOnboardingPage() {
 
   function updateField(field, value, options = {}) {
     dispatch({ field, value });
+    if (field === "businessName" || field === "business_type") {
+      setBasicInteracted(true);
+    }
     if (ADDRESS_FIELDS.has(field) && !options.keepLocation) {
       pickedLocationRef.current = null;
     }
@@ -256,6 +275,20 @@ export default function BusinessOnboardingPage() {
     pickedLocationRef.current = item.coords;
   }
 
+  useEffect(() => {
+    setPreviewPulse(true);
+    const handle = setTimeout(() => setPreviewPulse(false), 180);
+    return () => clearTimeout(handle);
+  }, [
+    form.businessName,
+    form.business_type,
+    form.description,
+    form.city,
+    form.state,
+    form.phone,
+    form.website,
+  ]);
+
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
@@ -277,6 +310,9 @@ export default function BusinessOnboardingPage() {
 
       const normalizedAddress = normalizeAddressPayload(form);
       const validationErrors = validateAddressFields(normalizedAddress);
+      if (!String(form.business_type || "").trim()) {
+        validationErrors.business_type = "Choose a shop category.";
+      }
       if (isIncompleteUSPhone(form.phone)) {
         validationErrors.phone = "Enter a complete 10-digit US phone number.";
       }
@@ -348,317 +384,346 @@ export default function BusinessOnboardingPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#fbf9ff] px-4 py-8 text-slate-950 sm:px-6 lg:px-10 lg:py-10">
-      <div className="relative mx-auto max-w-7xl">
-        <div className="grid gap-8 lg:min-h-[calc(100vh-5rem)] lg:grid-cols-[0.86fr_1.14fr] lg:items-center xl:gap-12">
-          <aside className="px-1 sm:px-2 lg:px-0">
-            <div className="max-w-[510px]">
-              <div className="flex items-center">
-                <Image
-                  src="/logo.png"
-                  alt="YourBarrio"
-                  width={867}
-                  height={306}
-                  priority
-                  className="h-auto w-[178px] object-contain"
+    <div className="min-h-screen bg-[#fbf9ff] px-4 pb-32 pt-6 text-slate-950 sm:px-6 lg:px-10 lg:py-10">
+      <div className="mx-auto grid max-w-7xl gap-10 lg:min-h-[calc(100vh-5rem)] lg:grid-cols-[45fr_55fr] lg:items-center xl:gap-14">
+        <aside className="hidden lg:block">
+          <ShopPreview
+            name={previewName}
+            type={previewType}
+            description={previewDescription}
+            location={previewLocation}
+            pulse={previewPulse}
+          />
+        </aside>
+
+        <main className="mx-auto w-full max-w-[680px] lg:max-w-none">
+          <form id="business-onboarding-form" onSubmit={handleSubmit} className="w-full">
+            <div className="mb-8 flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-[32px] font-semibold leading-tight tracking-normal text-slate-950">
+                  Launch your shop
+                </h1>
+                <p className="mt-2 text-sm text-slate-500">Takes less than 2 minutes</p>
+              </div>
+              <span className="mt-2 whitespace-nowrap text-xs font-medium text-slate-500">
+                Step 1 of 2
+              </span>
+            </div>
+
+            {message ? (
+              <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {message}
+              </div>
+            ) : null}
+
+            <div>
+              <FormField
+                label="Business name"
+                value={form.businessName}
+                placeholder="Your shop name"
+                onChange={(v) => updateField("businessName", v)}
+                onFocus={() => setBasicInteracted(true)}
+                required
+                large
+              />
+
+              <div className="mt-5">
+                <FormField
+                  label="Business type"
+                  value={form.business_type}
+                  placeholder="Choose your shop category"
+                  onChange={(v) => updateField("business_type", v)}
+                  onFocus={() => setBasicInteracted(true)}
+                  required
+                  options={BUSINESS_TYPE_OPTIONS.map((type) => ({
+                    value: type.slug,
+                    label: type.label,
+                  }))}
+                  error={fieldErrors.business_type}
                 />
               </div>
 
-              <div className="mt-14 max-w-[430px]">
-                <p className="text-xs font-bold uppercase tracking-[0.38em] text-purple-700">
-                  Local marketplace launch
-                </p>
-                <h1 className="mt-5 text-4xl font-semibold leading-[1.04] tracking-tight text-slate-950 sm:text-5xl">
-                  Open your shop on YourBarrio
-                </h1>
-                <p className="mt-4 text-base leading-7 text-slate-700">
-                  Help nearby customers discover your business, explore what you
-                  offer, and reach out in minutes. Set up the essentials now and
-                  update your details anytime.
-                </p>
-              </div>
+              {hasBasicProgress ? (
+                <div className="mt-[18px] overflow-visible [animation:onboardingFadeSlide_150ms_ease-out]">
+                  <FormTextArea
+                    label="Description"
+                    value={form.description}
+                    placeholder="Describe your shop"
+                    rows={4}
+                    onChange={(v) => updateField("description", v)}
+                    required
+                    action={
+                      <AIDescriptionAssistant
+                        type="business"
+                        name={form.businessName}
+                        category={form.business_type}
+                        value={form.description}
+                        onApply={(description) => updateField("description", description)}
+                        context="onboarding"
+                        compact
+                        label="Generate with AI"
+                      />
+                    }
+                  />
 
-              <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-medium text-slate-700">
-                {["Free to start", "Edit anytime", "Reach locals"].map((item) => (
-                  <span key={item} className="inline-flex items-center gap-2">
-                    <span className="grid h-5 w-5 place-items-center rounded-full bg-purple-600 text-[#fff]">
-                      <svg
-                        aria-hidden="true"
-                        className="h-3 w-3"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 0 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </span>
-                    {item}
-                  </span>
-                ))}
-              </div>
+                <div className="mt-7 border-t border-slate-200/60 pt-7">
+                  <FormField
+                    label="Street address"
+                    value={form.address}
+                    placeholder="Street address"
+                    listId="address-suggestions"
+                    onChange={(v) => {
+                      updateField("address", v);
+                      const match = addressSuggestions.find((item) => item.label === v);
+                      if (match) {
+                        applySuggestion(match);
+                      }
+                    }}
+                    required
+                    error={fieldErrors.address}
+                  />
 
-              <div className="mt-7 max-w-[430px] rounded-3xl border border-purple-100/70 bg-white/95 p-5 shadow-[0_28px_70px_-44px_rgba(88,28,135,0.36)]">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs font-bold uppercase tracking-[0.32em] text-purple-700">
-                    YourBarrio preview
-                  </p>
-                  <span
-                    className="grid h-9 w-9 place-items-center rounded-full bg-purple-600 text-[#fff]"
-                    aria-hidden="true"
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M20.8 4.6c-1.8-1.7-4.6-1.6-6.3.2L12 7.4 9.5 4.8C7.8 3 5 2.9 3.2 4.6c-1.9 1.8-2 4.9-.1 6.8L12 20l8.9-8.6c1.9-1.9 1.8-5-.1-6.8Z" />
-                    </svg>
-                  </span>
-                </div>
+                  {addressSuggestions.length ? (
+                    <datalist id="address-suggestions">
+                      {addressSuggestions.map((item) => (
+                        <option key={item.label} value={item.label} />
+                      ))}
+                    </datalist>
+                  ) : null}
 
-                <div className="mt-4 grid gap-5 sm:grid-cols-[1fr_128px]">
-                  <div>
-                    <div className="flex flex-wrap gap-2">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                        Jewelry & Accessories
-                      </span>
-                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                        Popular nearby
-                      </span>
-                    </div>
-                    <h2 className="mt-4 flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-950">
-                      Luna Studio
-                      <span className="h-2.5 w-2.5 rounded-full bg-purple-400" />
-                    </h2>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
-                      Handcrafted pieces, keepsakes, and gifts for everyday wear.
-                    </p>
-                    <div className="mt-4 flex flex-wrap items-center gap-2.5 text-sm text-slate-600">
-                      <span className="font-semibold text-slate-950">4.8 star</span>
-                      <span>24 reviews</span>
-                      <span className="h-1 w-1 rounded-full bg-slate-300" />
-                      <span>12 saves</span>
-                      <span className="h-1 w-1 rounded-full bg-slate-300" />
-                      <span className="text-slate-500/75">Updated recently</span>
-                    </div>
+                  <div className="mt-[18px] grid items-start gap-[18px] sm:grid-cols-[1fr_0.62fr_0.84fr]">
+                    <FormField
+                      label="City"
+                      value={form.city}
+                      placeholder=""
+                      onChange={(v) => updateField("city", v)}
+                      required
+                      error={fieldErrors.city}
+                    />
+
+                    <FormField
+                      label="State"
+                      value={form.state}
+                      placeholder=""
+                      onChange={(v) => updateField("state", v)}
+                      required
+                      error={fieldErrors.state}
+                      options={US_STATES.map((stateOption) => ({
+                        value: stateOption.code,
+                        label: stateOption.code,
+                      }))}
+                    />
+
+                    <FormField
+                      label="ZIP"
+                      value={form.postal_code}
+                      placeholder=""
+                      onChange={(v) => updateField("postal_code", v)}
+                      required
+                      error={fieldErrors.postal_code}
+                    />
                   </div>
 
-                  <div className="overflow-hidden rounded-2xl bg-transparent">
-                    <Image
-                      src="/images/categories/jewelry-accessories.png"
-                      alt=""
-                      width={128}
-                      height={156}
-                      className="h-36 w-full object-cover"
+                  <div className="mt-[18px]">
+                    <FormField
+                      label="Apt / Suite"
+                      value={form.address_2}
+                      placeholder=""
+                      onChange={(v) => updateField("address_2", v)}
                     />
                   </div>
                 </div>
-              </div>
-            </div>
-          </aside>
 
-          <div className="relative">
-            <form
-              onSubmit={handleSubmit}
-              className="relative rounded-[28px] border border-purple-100/80 bg-white px-5 py-6 text-slate-950 shadow-[0_24px_80px_-48px_rgba(41,20,89,0.45)] sm:px-8 sm:py-8"
-            >
-              <div className="flex flex-col gap-4 border-b border-purple-100/70 pb-6 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.14em] text-purple-700">
-                    Launch your local shop
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                    Business details
-                  </h2>
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
-                    Add the essentials customers need to discover, trust, and contact
-                    your business.
-                  </p>
-                </div>
-                <div className="inline-flex w-fit min-w-[92px] whitespace-nowrap items-center gap-2 rounded-full border border-purple-100/70 bg-purple-50/55 px-3.5 py-2 text-xs font-medium text-purple-700">
-                  <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
-                  Step 1 of 1
-                </div>
-              </div>
-
-              {message && (
-                <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                  {message}
-                </div>
-              )}
-
-              <div className="mt-8 space-y-8">
-
-              <FormSection
-                title="Basics"
-                description="Start with the name and category customers will recognize."
-              >
-                <FormField
-                  label="Business name"
-                  value={form.businessName}
-                  placeholder="e.g., Luna Studio"
-                  onChange={(v) => updateField("businessName", v)}
-                  required
-                />
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-800">
-                    Business type
-                  </label>
-                  <select
-                    value={form.business_type}
-                    onChange={(e) => updateField("business_type", e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-purple-400 focus:ring-4 focus:ring-purple-500/15"
-                    required
+                <div className="mt-7">
+                  <button
+                    type="button"
+                    onClick={() => setContactOpen((open) => !open)}
+                    className="inline-flex items-center gap-2 text-left text-xs font-medium text-slate-400 transition hover:text-[#6e34ff]"
                   >
-                    <option value="" disabled>
-                      Select a business type
-                    </option>
-                    {BUSINESS_TYPE_OPTIONS.map((type) => (
-                      <option key={type.slug} value={type.slug}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
+                    Add contact details (optional)
+                    <span
+                      className={[
+                        "text-sm text-slate-400 transition-transform duration-150",
+                        contactOpen ? "rotate-180" : "",
+                      ].join(" ")}
+                    >
+                      ↓
+                    </span>
+                  </button>
+
+                  <div
+                    className={[
+                      "grid transition-all duration-150 ease-out",
+                      contactOpen
+                        ? "mt-[18px] max-h-64 translate-y-0 overflow-visible opacity-100"
+                        : "max-h-0 -translate-y-1 overflow-hidden opacity-0",
+                    ].join(" ")}
+                  >
+                    <div className="grid gap-[18px] sm:grid-cols-2">
+                      <FormField
+                        label="Business phone"
+                        value={form.phone}
+                        placeholder=""
+                        onChange={(v) => updateField("phone", formatUSPhone(v))}
+                        helper="Visible to customers on your shop page"
+                        error={fieldErrors.phone}
+                      />
+
+                      <FormField
+                        label="Website"
+                        value={form.website}
+                        placeholder="yourdomain.com"
+                        onChange={(v) => updateField("website", v)}
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <FormTextArea
-                  label="Description"
-                  value={form.description}
-                  placeholder="Share what makes your business special..."
-                  rows={4}
-                  onChange={(v) => updateField("description", v)}
-                  required
-                />
-                <AIDescriptionAssistant
-                  type="business"
-                  name={form.businessName}
-                  category={form.business_type}
-                  value={form.description}
-                  onApply={(description) => updateField("description", description)}
-                  context="onboarding"
-                />
-              </FormSection>
-
-              <FormSection
-                title="Location"
-                description="Use the address customers should associate with your shop."
-              >
-                <FormField
-                  label="Street address"
-                  value={form.address}
-                  placeholder="123 Pine St"
-                  listId="address-suggestions"
-                  onChange={(v) => {
-                    updateField("address", v);
-                    const match = addressSuggestions.find(
-                      (item) => item.label === v
-                    );
-                    if (match) {
-                      applySuggestion(match);
-                    }
-                  }}
-                  required
-                  helper="Use the storefront, studio, or service address customers should see."
-                  error={fieldErrors.address}
-                />
-
-                {addressSuggestions.length ? (
-                  <datalist id="address-suggestions">
-                    {addressSuggestions.map((item) => (
-                      <option key={item.label} value={item.label} />
-                    ))}
-                  </datalist>
-                ) : null}
-
-                <FormField
-                  label="Apt / Suite / Unit"
-                  value={form.address_2}
-                  placeholder="Suite 203"
-                  onChange={(v) => updateField("address_2", v)}
-                  helper="Optional"
-                />
-
-                <div className="grid gap-5 md:grid-cols-3">
-                  <FormField
-                    label="City"
-                    value={form.city}
-                    placeholder="City"
-                    onChange={(v) => updateField("city", v)}
-                    required
-                    error={fieldErrors.city}
-                  />
-
-                  <FormField
-                    label="State"
-                    value={form.state}
-                    placeholder="Select state"
-                    onChange={(v) => updateField("state", v)}
-                    required
-                    error={fieldErrors.state}
-                    options={US_STATES.map((stateOption) => ({
-                      value: stateOption.code,
-                      label: `${stateOption.code} - ${stateOption.name}`,
-                    }))}
-                  />
-
-                  <FormField
-                    label="Postal code"
-                    value={form.postal_code}
-                    placeholder="ZIP code"
-                    onChange={(v) => updateField("postal_code", v)}
-                    required
-                    error={fieldErrors.postal_code}
-                  />
+                <div className="hidden pt-7 sm:block">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex h-[52px] w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#6e34ff] to-[#7b3ff2] px-5 text-[15px] font-semibold text-[#FFFFFF] shadow-[0_14px_28px_-22px_rgba(110,52,255,0.72)] transition duration-[120ms] ease-out hover:brightness-105 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/45 disabled:cursor-not-allowed disabled:from-[#ebe7f4] disabled:to-[#ebe7f4] disabled:text-[#9f96ad] disabled:shadow-none disabled:hover:brightness-100 disabled:active:scale-100"
+                  >
+                    {loading ? "Launching..." : "Launch my shop"}
+                  </button>
+                  <p className="mt-2 text-center text-xs font-medium text-slate-500">
+                    Free to start • No setup fees • Edit anytime
+                  </p>
                 </div>
-              </FormSection>
-
-              <FormSection
-                title="Contact"
-                description="Give nearby customers a clear way to reach you."
-              >
-                <div className="grid gap-5 md:grid-cols-2">
-                  <FormField
-                    label="Business phone"
-                    value={form.phone}
-                    placeholder="(555) 123-4567"
-                    onChange={(v) => updateField("phone", formatUSPhone(v))}
-                    helper="This number may be shown to customers on your business profile."
-                    error={fieldErrors.phone}
-                  />
-
-                  <FormField
-                    label="Website"
-                    value={form.website}
-                    placeholder="yourbusiness.com"
-                    onChange={(v) => updateField("website", v)}
-                    helper="We will add https:// automatically."
-                  />
                 </div>
-              </FormSection>
+              ) : null}
+            </div>
+          </form>
+        </main>
+      </div>
 
-                <div className="-mb-1 rounded-2xl border border-purple-100 bg-white px-4 py-2 text-xs leading-5 text-slate-500/85">
-                  <span className="font-semibold text-purple-700">Free to start.</span> Nearby
-                  customers can discover your storefront after setup, and you can
-                  edit details anytime.
-                </div>
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200/70 bg-white/95 px-4 py-3 shadow-[0_-18px_40px_-28px_rgba(15,23,42,0.45)] backdrop-blur sm:hidden">
+        <div className="mx-auto max-w-[680px]">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(true)}
+              className="text-xs font-semibold text-slate-600"
+            >
+              Your shop preview
+            </button>
+            <p className="text-xs font-medium text-slate-400">
+              Free to start • No setup fees
+            </p>
+          </div>
+          <button
+            type="submit"
+            form="business-onboarding-form"
+            disabled={loading}
+            className="flex h-[52px] w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#6e34ff] to-[#7b3ff2] px-5 text-[15px] font-semibold text-[#FFFFFF] shadow-[0_14px_28px_-22px_rgba(110,52,255,0.72)] transition duration-[120ms] ease-out hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-[#ebe7f4] disabled:to-[#ebe7f4] disabled:text-[#9f96ad] disabled:shadow-none disabled:hover:brightness-100 disabled:active:scale-100"
+          >
+            {loading ? "Launching..." : "Launch my shop"}
+          </button>
+        </div>
+      </div>
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#6e34ff] to-[#7538ee] px-5 py-3.5 text-base font-bold text-[#fff] shadow-[0_12px_28px_-18px_rgba(110,52,255,0.64)] transition hover:from-[#5e2de0] hover:to-[#6d28d9] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300/40 disabled:cursor-not-allowed disabled:from-purple-300 disabled:to-purple-300 disabled:shadow-none"
-                >
-                  {loading ? "Creating..." : "Launch your storefront"}
-                </button>
-              </div>
-            </form>
+      {previewOpen ? (
+        <div className="fixed inset-0 z-40 bg-slate-950/35 backdrop-blur-sm sm:hidden">
+          <button
+            type="button"
+            aria-label="Close preview"
+            className="absolute inset-0 h-full w-full cursor-default"
+            onClick={() => setPreviewOpen(false)}
+          />
+          <div className="absolute inset-x-0 bottom-0 rounded-t-[28px] bg-[#fbf9ff] p-4 shadow-2xl">
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-300" />
+            <ShopPreview
+              name={previewName}
+              type={previewType}
+              description={previewDescription}
+              location={previewLocation}
+              pulse={previewPulse}
+              compact
+            />
           </div>
         </div>
+      ) : null}
+
+      <style jsx global>{`
+        @keyframes onboardingFadeSlide {
+          from {
+            opacity: 0;
+            transform: translateY(-4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
+      <style jsx global>{`
+        @keyframes dropdownFadeSlide {
+          from {
+            opacity: 0;
+            transform: translateY(-3px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function ShopPreview({ name, type, description, location, pulse, compact = false }) {
+  return (
+    <div
+      className={[
+        "max-w-[500px] rounded-[28px] bg-white shadow-[0_32px_90px_-56px_rgba(15,23,42,0.65)] transition duration-150",
+        compact ? "max-w-none p-5" : "p-6 xl:p-7",
+        pulse ? "scale-[1.01] shadow-[0_36px_96px_-54px_rgba(15,23,42,0.72)]" : "",
+      ].join(" ")}
+    >
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-sm font-semibold text-slate-900">Your shop preview</p>
+        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+          Updates live
+        </span>
+      </div>
+
+      <div className="relative mt-5 overflow-hidden rounded-2xl bg-slate-100">
+        <Image
+          src="/placeholders/business/types/boutique.png"
+          alt=""
+          width={720}
+          height={420}
+          className={[
+            compact ? "h-28" : "h-44",
+            "w-full object-cover brightness-[0.92] contrast-[0.96] saturate-[0.94]",
+          ].join(" ")}
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/14 via-transparent to-white/10" />
+      </div>
+
+      <div className="mt-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+            {type}
+          </span>
+          <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
+            {location}
+          </span>
+        </div>
+
+        <h2 className="mt-3 break-words text-2xl font-semibold leading-tight tracking-normal text-slate-950">
+          {name}
+        </h2>
+        <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">
+          {description}
+        </p>
+
+        <p className="mt-5 text-xs font-medium text-slate-500">
+          <span className="font-semibold text-slate-700">Almost ready</span>
+          {" — add your details to publish"}
+        </p>
       </div>
     </div>
   );
@@ -667,80 +732,13 @@ export default function BusinessOnboardingPage() {
 // ------------------------------
 // Reusable inputs
 // ------------------------------
-function FormSection({ title, description, children }) {
-  return (
-    <section className="rounded-2xl border border-purple-100/70 bg-white p-5 shadow-[0_10px_30px_-24px_rgba(88,28,135,0.45)] sm:p-6">
-      <div className="mb-5 flex items-start gap-2">
-        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-purple-50/50 p-0 text-purple-500">
-          <SectionIcon title={title} />
-        </div>
-        <div>
-          <h3 className="text-base font-semibold tracking-tight text-slate-950">{title}</h3>
-          {description ? (
-            <p className="mt-1 text-sm leading-5 text-slate-500">{description}</p>
-          ) : null}
-        </div>
-      </div>
-      <div className="space-y-6">{children}</div>
-    </section>
-  );
-}
-
-function SectionIcon({ title }) {
-  if (title === "Location") {
-    return (
-      <svg
-        aria-hidden="true"
-        className="h-4 w-4"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <path d="M12 21s7-5.1 7-11a7 7 0 1 0-14 0c0 5.9 7 11 7 11Z" />
-        <circle cx="12" cy="10" r="2.5" />
-      </svg>
-    );
-  }
-
-  if (title === "Contact") {
-    return (
-      <svg
-        aria-hidden="true"
-        className="h-4 w-4"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-11Z" />
-        <path d="m6.5 8 5.5 4 5.5-4" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg
-      aria-hidden="true"
-      className="h-4 w-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d="M5 20V7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5V20" />
-      <path d="M3 20h18" />
-      <path d="M9 9h6" />
-      <path d="M9 13h6" />
-    </svg>
-  );
-}
 
 function FormField({
   label,
   value,
   placeholder,
   onChange,
+  onFocus,
   type = "text",
   required = false,
   listId,
@@ -748,40 +746,38 @@ function FormField({
   error,
   maxLength,
   options,
+  large = false,
 }) {
   const hasError = Boolean(error);
   const inputClassName = [
-    "w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-950 shadow-sm",
-    "placeholder:text-slate-400 outline-none transition focus:ring-4",
+    "w-full rounded-xl border bg-white px-4 text-base text-slate-950 shadow-[0_1px_2px_rgba(15,23,42,0.035)]",
+    large ? "h-[52px]" : "h-12",
+    "placeholder:text-slate-400 outline-none transition focus:outline-none focus:ring-0 focus:shadow-[0_0_0_2px_rgba(110,52,255,0.15)]",
     hasError
-      ? "border-rose-300 focus:border-rose-400 focus:ring-rose-500/15"
-      : "border-slate-200 focus:border-purple-400 focus:ring-purple-500/15",
+      ? "border-rose-300 focus:border-rose-400 focus:shadow-[0_0_0_2px_rgba(244,63,94,0.14)]"
+      : "border-slate-200/80 focus:border-[#6e34ff]",
   ].join(" ");
   return (
     <div>
-      <label className="mb-2 block text-sm font-semibold text-slate-800">
+      <label className="mb-1.5 block text-sm font-semibold text-slate-800">
         {label}
-        {required ? <span className="text-rose-500"> *</span> : null}
+        {required ? <span className="ml-0.5 text-rose-500">*</span> : null}
       </label>
       {Array.isArray(options) && options.length ? (
-        <select
+        <CustomDropdown
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-          required={required}
+          onChange={onChange}
+          onFocus={onFocus}
+          placeholder={placeholder ?? "Select an option"}
+          options={options}
           className={inputClassName}
-        >
-          <option value="">{placeholder || "Select an option"}</option>
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        />
       ) : (
         <input
           type={type}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onFocus={onFocus}
           placeholder={placeholder}
           list={listId}
           required={required}
@@ -799,6 +795,187 @@ function FormField({
   );
 }
 
+function CustomDropdown({ value, onChange, onFocus, placeholder, options, className }) {
+  const [open, setOpen] = useState(false);
+  const selectedIndex = options.findIndex((option) => option.value === value);
+  const [activeIndex, setActiveIndex] = useState(selectedIndex >= 0 ? selectedIndex : 0);
+  const rootRef = useRef(null);
+  const buttonRef = useRef(null);
+  const itemRefs = useRef([]);
+  const selectedOption = selectedIndex >= 0 ? options[selectedIndex] : null;
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function handlePointerDown(event) {
+      if (rootRef.current && !rootRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    itemRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, open]);
+
+  function openMenu() {
+    setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
+    setOpen(true);
+    onFocus?.();
+  }
+
+  function selectOption(option) {
+    onChange(option.value);
+    setOpen(false);
+    requestAnimationFrame(() => buttonRef.current?.focus());
+  }
+
+  function handleKeyDown(event) {
+    if (event.key === "Escape") {
+      if (open) {
+        event.preventDefault();
+        setOpen(false);
+      }
+      return;
+    }
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (!open) {
+        openMenu();
+        return;
+      }
+      const direction = event.key === "ArrowDown" ? 1 : -1;
+      setActiveIndex((current) => {
+        const next = current + direction;
+        if (next < 0) return options.length - 1;
+        if (next >= options.length) return 0;
+        return next;
+      });
+      return;
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault();
+      if (!open) setOpen(true);
+      setActiveIndex(0);
+      return;
+    }
+
+    if (event.key === "End") {
+      event.preventDefault();
+      if (!open) setOpen(true);
+      setActiveIndex(options.length - 1);
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      if (!open) {
+        openMenu();
+        return;
+      }
+      const option = options[activeIndex];
+      if (option) selectOption(option);
+    }
+  }
+
+  return (
+    <div className="relative overflow-visible" ref={rootRef}>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        onFocus={onFocus}
+        onKeyDown={handleKeyDown}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={`${className} flex items-center justify-between gap-3 text-left`}
+      >
+        <span
+          className={[
+            "min-w-0 flex-1 truncate",
+            selectedOption ? "text-slate-950" : "text-slate-400",
+          ].join(" ")}
+        >
+          {selectedOption?.label || placeholder}
+        </span>
+        <svg
+          aria-hidden="true"
+          className={[
+            "h-4 w-4 shrink-0 text-slate-400 transition-transform duration-150",
+            open ? "rotate-180" : "",
+          ].join(" ")}
+          viewBox="0 0 20 20"
+          fill="none"
+        >
+          <path
+            d="m5 7.5 5 5 5-5"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {open ? (
+        <div
+          role="listbox"
+          className="absolute left-0 right-0 z-40 mt-1.5 max-h-60 overflow-y-auto rounded-xl border border-[#E5E7EB] bg-white py-1.5 shadow-[0_18px_40px_-24px_rgba(15,23,42,0.45)] [animation:dropdownFadeSlide_120ms_ease-out]"
+        >
+          {options.map((option, index) => {
+            const selected = option.value === value;
+            const active = index === activeIndex;
+            return (
+              <button
+                key={option.value}
+                ref={(node) => {
+                  itemRefs.current[index] = node;
+                }}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => selectOption(option)}
+                className={[
+                  "flex h-9 w-full items-center justify-between gap-3 px-3 text-left text-sm transition",
+                  active ? "bg-purple-50/70" : "bg-white",
+                  selected ? "font-semibold text-[#6e34ff]" : "font-medium text-slate-700",
+                ].join(" ")}
+              >
+                <span className="min-w-0 truncate">{option.label}</span>
+                {selected ? (
+                  <svg
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 shrink-0 text-[#6e34ff]"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                  >
+                    <path
+                      d="m4.5 10.5 3.2 3.2 7.8-7.8"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function FormTextArea({
   label,
   value,
@@ -806,17 +983,21 @@ function FormTextArea({
   onChange,
   rows = 3,
   required = false,
+  action,
 }) {
   const textareaClassName = [
-    "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 shadow-sm",
-    "placeholder:text-slate-400 outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-500/15",
+    "h-24 w-full resize-none rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-base text-slate-950 shadow-[0_1px_2px_rgba(15,23,42,0.035)]",
+    "placeholder:text-slate-400 outline-none transition focus:border-[#6e34ff] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_2px_rgba(110,52,255,0.15)]",
   ].join(" ");
   return (
     <div>
-      <label className="mb-2 block text-sm font-semibold text-slate-800">
-        {label}
-        {required ? <span className="text-rose-500"> *</span> : null}
-      </label>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <label className="block text-sm font-semibold text-slate-800">
+          {label}
+          {required ? <span className="ml-0.5 text-rose-500">*</span> : null}
+        </label>
+        {action}
+      </div>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}

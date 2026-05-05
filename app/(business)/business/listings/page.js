@@ -508,12 +508,14 @@ export default function BusinessListingsPage() {
       {/* Empty state */}
       {listings.length === 0 && (
         <div
-          className={`mt-12 rounded-3xl border border-dashed p-10 text-center shadow-sm ${
-            isLight ? "bg-white border-slate-300/80" : "bg-slate-900/60 border-white/15"
+          className={`mt-12 rounded-3xl border p-10 text-center shadow-sm ${
+            isLight ? "border-gray-200 bg-gray-50" : "border-white/15 bg-slate-900/60"
           }`}
         >
-          <h2 className="text-2xl font-bold">No listings yet</h2>
-          <p className="mt-2 text-slate-600 dark:text-slate-300">
+          <h2 className={`text-xl font-semibold ${isLight ? "text-gray-900" : "text-slate-100"}`}>
+            No listings yet
+          </h2>
+          <p className={`mt-2 text-sm ${isLight ? "text-gray-600" : "text-slate-300"}`}>
             Add your first item to start reaching nearby customers.
           </p>
           <div className="mt-6">

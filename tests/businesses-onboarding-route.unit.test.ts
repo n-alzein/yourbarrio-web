@@ -38,6 +38,7 @@ function createSupabaseMock({
     public_id: "abc123",
     business_name: "Cafe Uno",
     category: "Cafe",
+    business_type_id: "type-food",
     address: "123 Main St",
     city: "Long Beach",
     state: "CA",
@@ -78,6 +79,18 @@ function createSupabaseMock({
       })),
     })),
   };
+  const businessTypesTable = {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { id: "type-food", slug: "food-drink", name: "Food & Drink" },
+            error: null,
+          }),
+        })),
+      })),
+    })),
+  };
 
   return {
     auth: {
@@ -95,6 +108,7 @@ function createSupabaseMock({
     from: vi.fn((table) => {
       if (table === "users") return usersTable;
       if (table === "businesses") return businessesTable;
+      if (table === "business_types") return businessTypesTable;
       throw new Error(`Unexpected table: ${table}`);
     }),
   };
@@ -177,6 +191,7 @@ describe("POST /api/businesses", () => {
     );
     expect(supabase.from("businesses").upsert).toHaveBeenCalledWith(
       expect.objectContaining({
+        business_type_id: "type-food",
         phone: "(562) 123-4567",
       }),
       {

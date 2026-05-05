@@ -9,6 +9,7 @@ export const PUBLIC_BUSINESS_SELECT = [
   "deleted_at",
   "public_id",
   "business_name",
+  "business_type_id",
   "business_type",
   "category",
   "description",
@@ -43,6 +44,7 @@ export type PublicBusiness = {
   deleted_at?: string | null;
   public_id: string | null;
   business_name: string | null;
+  business_type_id: string | null;
   business_type: string | null;
   full_name: string | null;
   category: string | null;
@@ -77,6 +79,7 @@ export type PublicBusinessRow = {
   deleted_at?: string | null;
   public_id: string | null;
   business_name: string | null;
+  business_type_id: string | null;
   business_type: string | null;
   category: string | null;
   description: string | null;
@@ -136,6 +139,7 @@ export function mapPublicBusinessRow(data: PublicBusinessRow): PublicBusiness {
     deleted_at: data.deleted_at ?? null,
     public_id: data.public_id ?? null,
     business_name: data.business_name ?? null,
+    business_type_id: data.business_type_id ?? null,
     business_type: taxonomy.business_type,
     full_name: null,
     category: taxonomy.category,

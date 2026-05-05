@@ -81,6 +81,9 @@ export default function AIDescriptionAssistant({
   onApply,
   targetId,
   context = "onboarding",
+  compact = false,
+  label,
+  className = "",
 }) {
   const [suggestion, setSuggestion] = useState("");
   const [error, setError] = useState("");
@@ -95,7 +98,7 @@ export default function AIDescriptionAssistant({
     [value]
   );
   const hasExistingDescription = existingDescription.length > 0;
-  const buttonLabel = hasExistingDescription ? "Improve with AI" : "Help me write this";
+  const buttonLabel = label || (hasExistingDescription ? "Improve with AI" : "Help me write this");
   const appliedDescription = suggestion.trim();
   const isLimitMessage = error === AI_LIMIT_MESSAGE;
 
@@ -183,13 +186,20 @@ export default function AIDescriptionAssistant({
   }
 
   return (
-    <div className="mt-4 space-y-0" data-testid={`ai-description-assistant-${context}`}>
+    <div
+      className={`${compact ? "space-y-0" : "mt-4 space-y-0"} ${className}`.trim()}
+      data-testid={`ai-description-assistant-${context}`}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => requestSuggestion("generate")}
           disabled={Boolean(loadingAction)}
-          className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className={
+            compact
+              ? "inline-flex h-9 items-center justify-center rounded-[10px] border border-purple-100/60 bg-white px-3 text-xs font-semibold text-[#7152c9] transition hover:border-purple-100 hover:bg-purple-50/35 disabled:cursor-not-allowed disabled:opacity-60"
+              : "inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          }
         >
           {loadingAction === "generate" ? "Writing..." : buttonLabel}
         </button>

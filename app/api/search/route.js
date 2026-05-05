@@ -11,6 +11,7 @@ import { findBusinessOwnerIdsForLocation } from "@/lib/location/businessLocation
 import {
   getBusinessTypeLabel,
   getListingCategoryLabel,
+  getListingCategorySlug,
 } from "@/lib/taxonomy/compat";
 import { normalizeBusinessTypeSlug } from "@/lib/taxonomy/businessTypes";
 import {
@@ -78,7 +79,7 @@ async function searchListings(supabase, term, category, { businessIds }) {
   let query = supabase
     .from("public_listings_v")
     .select(
-      "id,public_id,title,description,price,category,category_id,city,photo_url,photo_variants,cover_image_id,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at,is_seeded,business_is_seeded"
+      "id,public_id,title,description,price,category,listing_category,listing_category_id,category_id,city,photo_url,photo_variants,cover_image_id,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at,is_seeded,business_is_seeded"
     )
     .in("business_id", businessIds)
     .or(`title.ilike.%${safe}%,description.ilike.%${safe}%,category.ilike.%${safe}%`);
@@ -90,7 +91,7 @@ async function searchListings(supabase, term, category, { businessIds }) {
         ? supabase
             .from("public_listings_v")
             .select(
-              "id,public_id,title,description,price,category,category_id,city,photo_url,photo_variants,cover_image_id,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at,is_seeded,business_is_seeded"
+              "id,public_id,title,description,price,category,listing_category,listing_category_id,category_id,city,photo_url,photo_variants,cover_image_id,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at,is_seeded,business_is_seeded"
             )
             .in("business_id", businessIds)
             .or(`title.ilike.%${safe}%,description.ilike.%${safe}%,category.ilike.%${safe}%`)
@@ -102,7 +103,7 @@ async function searchListings(supabase, term, category, { businessIds }) {
         ? supabase
             .from("public_listings_v")
             .select(
-              "id,public_id,title,description,price,category,category_id,city,photo_url,photo_variants,cover_image_id,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at,is_seeded,business_is_seeded"
+              "id,public_id,title,description,price,category,listing_category,listing_category_id,category_id,city,photo_url,photo_variants,cover_image_id,business_id,created_at,inventory_status,inventory_quantity,low_stock_threshold,inventory_last_updated_at,is_seeded,business_is_seeded"
             )
             .in("business_id", businessIds)
             .or(`title.ilike.%${safe}%,description.ilike.%${safe}%,category.ilike.%${safe}%`)
@@ -137,6 +138,9 @@ async function searchListings(supabase, term, category, { businessIds }) {
         price: row.price,
         category: getListingCategoryLabel(row, ""),
         listing_category: getListingCategoryLabel(row, ""),
+        listingCategoryId: row.listing_category_id || null,
+        listingCategorySlug: getListingCategorySlug(row, ""),
+        listingCategoryName: getListingCategoryLabel(row, ""),
         city: row.city,
         photo_url: resolveListingCoverImageUrl(row),
         business_id: row.business_id,
@@ -170,6 +174,9 @@ async function searchListings(supabase, term, category, { businessIds }) {
     price: row.price,
     category: getListingCategoryLabel(row, ""),
     listing_category: getListingCategoryLabel(row, ""),
+    listingCategoryId: row.listing_category_id || null,
+    listingCategorySlug: getListingCategorySlug(row, ""),
+    listingCategoryName: getListingCategoryLabel(row, ""),
     city: row.city,
     photo_url: resolveListingCoverImageUrl(row),
     business_id: row.business_id,
@@ -192,7 +199,7 @@ async function searchBusinesses(supabase, term, category, { businessIds }) {
   let query = supabase
     .from("businesses")
     .select(
-      "id,owner_user_id,public_id,business_name,business_type,category,city,state,address,description,website,profile_photo_url,verification_status"
+      "id,owner_user_id,public_id,business_name,business_type_id,business_type,category,city,state,address,description,website,profile_photo_url,verification_status"
     )
     .in("verification_status", ["auto_verified", "manually_verified"])
     .in("owner_user_id", businessIds)
@@ -220,6 +227,7 @@ async function searchBusinesses(supabase, term, category, { businessIds }) {
       public_id: row.public_id || null,
       name: row.business_name || "Local business",
       category: getBusinessTypeLabel(row, ""),
+      business_type_id: row.business_type_id || null,
       business_type: row.business_type || null,
       city: row.city,
       state: row.state || null,

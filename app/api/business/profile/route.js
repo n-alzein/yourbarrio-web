@@ -3,6 +3,7 @@ import { createSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
 import { normalizeStateCode } from "@/lib/location/normalizeStateCode";
 import { resolveBusinessCoordinates } from "@/lib/location/businessGeocoding";
 import { buildBusinessTaxonomyPayload } from "@/lib/taxonomy/compat";
+import { fetchBusinessTypeBySlug } from "@/lib/taxonomy/db";
 import {
   isIncompleteUSPhone,
   normalizeUSPhoneForStorage,
@@ -64,7 +65,7 @@ export async function POST(req) {
     supabase
       .from("businesses")
       .select(
-        "owner_user_id,public_id,is_internal,business_name,business_type,category,description,website,phone,address,address_2,city,state,postal_code,profile_photo_url,cover_photo_url,latitude,longitude,hours_json,social_links_json,pickup_enabled_default,local_delivery_enabled_default,default_delivery_fee_cents,delivery_radius_miles,delivery_min_order_cents,delivery_notes"
+        "owner_user_id,public_id,is_internal,business_name,business_type_id,business_type,category,description,website,phone,address,address_2,city,state,postal_code,profile_photo_url,cover_photo_url,latitude,longitude,hours_json,social_links_json,pickup_enabled_default,local_delivery_enabled_default,default_delivery_fee_cents,delivery_radius_miles,delivery_min_order_cents,delivery_notes"
       )
       .eq("owner_user_id", user.id)
       .maybeSingle(),
@@ -94,6 +95,7 @@ export async function POST(req) {
     business_type: pickString(body, "business_type", existingBusiness.business_type || existingUser.business_type || ""),
     category: pickString(body, "category", existingBusiness.category || existingUser.category || ""),
   });
+  const businessType = await fetchBusinessTypeBySlug(supabase, taxonomy.business_type);
 
   const fullName = hasOwn(body, "full_name")
     ? pickString(body, "full_name")
@@ -143,8 +145,8 @@ export async function POST(req) {
   const userPayload = {
     full_name: fullName,
     business_name: businessName,
-    business_type: taxonomy.business_type,
-    category: taxonomy.category,
+    business_type: businessType?.slug || taxonomy.business_type,
+    category: businessType?.name || taxonomy.category,
     description: hasOwn(body, "description")
       ? pickString(body, "description")
       : existingUser.description || existingBusiness.description || "",
@@ -188,8 +190,9 @@ export async function POST(req) {
     owner_user_id: user.id,
     public_id: existingBusiness.public_id || existingUser.public_id || null,
     business_name: businessName || null,
-    business_type: taxonomy.business_type || null,
-    category: taxonomy.category || null,
+    business_type_id: businessType?.id || null,
+    business_type: businessType?.slug || taxonomy.business_type || null,
+    category: businessType?.name || taxonomy.category || null,
     description: userPayload.description || null,
     website: normalizedWebsite || null,
     phone: normalizedPhone || null,

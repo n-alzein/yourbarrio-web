@@ -103,6 +103,18 @@ function makeSupabaseMock({ insertError } = {}) {
       error: null,
     })),
   };
+  const listingCategoriesQuery = {
+    select: vi.fn(() => listingCategoriesQuery),
+    eq: vi.fn(() => listingCategoriesQuery),
+    maybeSingle: vi.fn(async () => ({
+      data: {
+        id: "category-clothing",
+        slug: "clothing-fashion",
+        name: "Clothing & Fashion",
+      },
+      error: null,
+    })),
+  };
 
   insertMock = vi.fn(() => ({
     select: vi.fn(() => ({
@@ -120,6 +132,7 @@ function makeSupabaseMock({ insertError } = {}) {
     from: vi.fn((table) => {
       if (table === "businesses") return businessesQuery;
       if (table === "users") return usersQuery;
+      if (table === "listing_categories") return listingCategoriesQuery;
       if (table === "listings") return { insert: insertMock };
       return { insert: insertMock };
     }),
