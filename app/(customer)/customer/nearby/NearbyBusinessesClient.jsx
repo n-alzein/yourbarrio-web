@@ -12,6 +12,7 @@ import { getLocationCacheKey } from "@/lib/location";
 import { hasCoordinates } from "@/lib/location/filter";
 import NearbySplitViewShell from "./_components/NearbySplitViewShell";
 import NearbyResultsPane from "./_components/NearbyResultsPane";
+import Dropdown from "./_components/Dropdown";
 import styles from "./nearby.module.css";
 
 const isSameBusinessList = (prev, next) => {
@@ -41,6 +42,11 @@ const NEW_BUSINESS_DAYS = 45;
 const INITIAL_VISIBLE_BUSINESSES = 6;
 
 const VERIFIED_STATUSES = new Set(["auto_verified", "manually_verified"]);
+const SORT_OPTIONS = [
+  { value: "recommended", label: "Recommended" },
+  { value: "distance", label: "Nearest" },
+  { value: "newest", label: "Newest" },
+];
 
 const daysSince = (value) => {
   const time = Date.parse(value || "");
@@ -450,6 +456,16 @@ export default function NearbyBusinessesClient() {
     [filteredBusinesses, visibleBusinessCount]
   );
   const hasMoreBusinesses = filteredBusinesses.length > visibleBusinessCount;
+  const businessTypeDropdownOptions = useMemo(
+    () => [
+      { value: "All", label: "All shops" },
+      ...businessTypeOptions.map((businessType) => ({
+        value: businessType.slug || businessType.id || businessType.name,
+        label: businessType.name,
+      })),
+    ],
+    [businessTypeOptions]
+  );
 
   useEffect(() => {
     setVisibleBusinessCount(INITIAL_VISIBLE_BUSINESSES);
@@ -579,36 +595,24 @@ export default function NearbyBusinessesClient() {
 
         <label className="block">
           <span className="sr-only">Filter by business type</span>
-          <select
+          <Dropdown
             value={businessTypeFilter}
-            onChange={(event) => setBusinessTypeFilter(event.target.value)}
-            data-testid="nearby-category-select"
-            className={controlClassName}
-          >
-            <option value="All">All shops</option>
-            {businessTypeOptions.map((businessType) => (
-              <option
-                key={businessType.id || businessType.slug || businessType.name}
-                value={businessType.slug || businessType.id}
-              >
-                {businessType.name}
-              </option>
-            ))}
-          </select>
+            options={businessTypeDropdownOptions}
+            onChange={setBusinessTypeFilter}
+            ariaLabel="Filter by business type"
+            testId="nearby-category-select"
+          />
         </label>
 
         <label className="block">
           <span className="sr-only">Sort businesses</span>
-          <select
+          <Dropdown
             value={sortMode}
-            onChange={(event) => setSortMode(event.target.value)}
-            data-testid="nearby-sort-select"
-            className={controlClassName}
-          >
-            <option value="recommended">Recommended</option>
-            <option value="distance">Nearest</option>
-            <option value="newest">Newest</option>
-          </select>
+            options={SORT_OPTIONS}
+            onChange={setSortMode}
+            ariaLabel="Sort businesses"
+            testId="nearby-sort-select"
+          />
         </label>
 
         <div className="inline-flex h-11 w-fit rounded-lg border border-slate-200 bg-white p-1">
